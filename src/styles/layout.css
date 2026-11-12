@@ -1,0 +1,126 @@
+/* Responsive shell. docs/DESIGN-SYSTEM.md section 5 */
+
+.app-shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.page {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: 20px var(--page-pad) calc(104px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Floating tab bar (mobile & tablet) */
+.tabbar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(92vw, 420px);
+  z-index: 40;
+  border-radius: 32px;
+  padding: 4px;
+}
+.navrail {
+  display: none;
+}
+.context-panel {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .page {
+    max-width: 640px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+  .tabbar {
+    display: none;
+  }
+  .navrail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    padding: 20px 8px;
+  }
+  .navrail__glass {
+    border-radius: 44px;
+    padding: 4px;
+  }
+  .page {
+    max-width: 1120px;
+    padding: 32px 40px 56px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .app-shell[data-context="open"] {
+    grid-template-columns: 96px minmax(0, 1fr) 320px;
+  }
+  .app-shell[data-context="open"] .context-panel {
+    display: block;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    padding: 32px 24px;
+    overflow-y: auto;
+  }
+}
+
+.demo-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 12px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+[data-theme="light"] .demo-banner {
+  color: #7c3a05; /* darker than --warn for AA on --warn-soft */
+}
+.demo-banner svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.navrail__brand {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  font-weight: 800;
+  font-size: 1.125rem;
+  color: var(--primary-ink);
+  background: linear-gradient(160deg, var(--hero-a), var(--primary));
+  text-decoration: none;
+  box-shadow: var(--shadow-2);
+}
+[data-theme="dark"] .navrail__brand {
+  color: #fff;
+  background: linear-gradient(160deg, #6a4cf0, #3f2bb8);
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "creative-apps": {
+      "command": "/ABSOLUTE/PATH/TO/ata/.venv/bin/python",
+      "args": [
+        "/ABSOLUTE/PATH/TO/ata/server.py"
+      ],
+      "env": {
+        "BLENDER_BIN": "/Applications/Blender.app/Contents/MacOS/Blender"
+      }
+    }
+  }
+}

@@ -1,0 +1,2 @@
+-- Seed data (recipes, taxonomy, sample source accounts) is added with the features that need it.
+-- Demo data uses relative dates and is rebuilt by `pnpm seed:reset` (DEMO-04).

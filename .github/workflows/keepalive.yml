@@ -1,0 +1,24 @@
+name: Keepalive
+
+# Supabase Free pauses a project after 7 idle days (PRD Lampiran D.3).
+# One daily request to /api/health runs a light query and keeps it awake.
+on:
+  schedule:
+    - cron: "17 1 * * *" # 08.17 WIB
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      APP_URL: ${{ secrets.APP_URL }}
+    steps:
+      - name: Skip when APP_URL is not set
+        if: env.APP_URL == ''
+        run: echo "Secret APP_URL belum diisi; ping dilewati."
+      - name: Ping health endpoint
+        if: env.APP_URL != ''
+        run: curl --fail --silent --show-error --max-time 30 "${APP_URL%/}/api/health"
