@@ -1,0 +1,73 @@
+/* Glass materials and performance modes. docs/DESIGN-SYSTEM.md section 4 */
+
+:root {
+  --blur-m: 16px; /* thin */
+  --blur-l: 22px; /* frost */
+  --glass-edge: rgba(255, 255, 255, 0.75);
+  --glass-hi: rgba(255, 255, 255, 0.9);
+  --glass-thin-bg: color-mix(in srgb, var(--surface) 62%, transparent);
+  --glass-frost-top: rgba(255, 255, 255, 0.74);
+  --glass-frost-bot: rgba(255, 255, 255, 0.46);
+}
+[data-theme="dark"] {
+  --glass-edge: rgba(255, 255, 255, 0.16);
+  --glass-hi: rgba(255, 255, 255, 0.22);
+  --glass-thin-bg: color-mix(in srgb, var(--surface) 70%, transparent);
+  --glass-frost-top: rgba(255, 255, 255, 0.12);
+  --glass-frost-bot: rgba(255, 255, 255, 0.05);
+}
+
+.glass-thin {
+  background: var(--glass-thin-bg);
+  -webkit-backdrop-filter: blur(var(--blur-m)) saturate(150%);
+  backdrop-filter: blur(var(--blur-m)) saturate(150%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-1), inset 0 1px 0 var(--glass-hi);
+}
+
+.glass-frost {
+  background: linear-gradient(180deg, var(--glass-frost-top), var(--glass-frost-bot));
+  -webkit-backdrop-filter: blur(var(--blur-l)) saturate(130%);
+  backdrop-filter: blur(var(--blur-l)) saturate(130%);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    var(--shadow-2),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 rgba(20, 20, 43, 0.05);
+}
+
+/* Light: small blur, no saturate */
+[data-glass="light"] {
+  --blur-m: 8px;
+  --blur-l: 10px;
+}
+[data-glass="light"] .glass-thin,
+[data-glass="light"] .glass-frost {
+  -webkit-backdrop-filter: blur(var(--blur-m));
+  backdrop-filter: blur(var(--blur-m));
+}
+
+/* Off: no blur at all; solid surface + firm edge */
+[data-glass="off"] .glass-thin,
+[data-glass="off"] .glass-frost {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: var(--border-strong);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-thin,
+  .glass-frost {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-thin,
+  .glass-frost {
+    background: var(--surface);
+  }
+}

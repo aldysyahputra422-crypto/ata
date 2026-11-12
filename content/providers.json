@@ -1,0 +1,12 @@
+{
+  "$comment": "AI provider registry (PRD 5.5.1). Adding a provider = adding an entry; no new code. Reviewed by admin, not hardcoded claims.",
+  "providers": [
+    { "id": "openai", "name": "OpenAI", "sdk": "@ai-sdk/openai", "baseURL": "https://api.openai.com/v1", "auth": "bearer", "modelsEndpoint": "/models", "notes": "" },
+    { "id": "anthropic", "name": "Anthropic (Claude)", "sdk": "@ai-sdk/anthropic", "baseURL": "https://api.anthropic.com/v1", "auth": "x-api-key", "modelsEndpoint": "/models", "notes": "" },
+    { "id": "google", "name": "Google Gemini", "sdk": "@ai-sdk/google", "baseURL": "https://generativelanguage.googleapis.com/v1beta", "auth": "x-goog-api-key", "modelsEndpoint": "/models", "notes": "Punya tier gratis; cek ketentuan usia dan kuota terbaru." },
+    { "id": "xai", "name": "xAI (Grok)", "sdk": "@ai-sdk/xai", "baseURL": "https://api.x.ai/v1", "auth": "bearer", "modelsEndpoint": "/models", "notes": "" },
+    { "id": "deepseek", "name": "DeepSeek", "sdk": "@ai-sdk/deepseek", "baseURL": "https://api.deepseek.com", "auth": "bearer", "modelsEndpoint": "/models", "notes": "" },
+    { "id": "openrouter", "name": "OpenRouter", "sdk": "@openrouter/ai-sdk-provider", "baseURL": "https://openrouter.ai/api/v1", "auth": "bearer", "modelsEndpoint": "/models", "notes": "Satu key untuk banyak model, termasuk beberapa model gratis." },
+    { "id": "custom", "name": "OpenAI-compatible kustom", "sdk": "@ai-sdk/openai-compatible", "baseURL": null, "auth": "bearer", "modelsEndpoint": "/models", "notes": "Base URL wajib https dan bukan IP privat/loopback (FR-BYOK-04)." }
+  ]
+}
