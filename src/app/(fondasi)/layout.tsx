@@ -6,7 +6,7 @@ import { MeshBackground } from "@/components/ds/MeshBackground";
 import { RefractDefs } from "@/components/ds/RefractDefs";
 import { Toaster } from "@/components/ds/Toaster";
 import { BOOT_SCRIPT } from "@/lib/fx/prefs";
-import "./globals.css";
+import "../globals.css";
 
 const display = Plus_Jakarta_Sans({
   variable: "--font-display",

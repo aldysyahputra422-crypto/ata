@@ -1,0 +1,28 @@
+/* Disalin dari prototipe shared/tarik.css (R0.05-3). Satu-satunya perubahan: path url(assets/…) → /prototype/assets/…. */
+/* Tarik-untuk-segarkan: kain kaca menggantung dari tepi atas wadah gulir; tangan datang dari bawah mencubit ujungnya. */
+.tarik { position: fixed; z-index: 40; overflow: hidden; pointer-events: none; visibility: hidden; contain: layout paint;
+  --kain-isi: rgba(255, 250, 246, .9); --kain-lipat: rgba(74, 30, 16, .2); --kain-tepi: rgba(74, 30, 16, .26); }
+:root[data-theme="dark"] .tarik { --kain-isi: rgba(42, 25, 21, .92); --kain-lipat: rgba(255, 230, 215, .16); --kain-tepi: rgba(255, 230, 215, .3); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tarik { --kain-isi: rgba(42, 25, 21, .92); --kain-lipat: rgba(255, 230, 215, .16); --kain-tepi: rgba(255, 230, 215, .3); } }
+.tarik.is-tampil { visibility: visible; }
+/* kain: bidang kaca tebal, bentuknya dipotong per frame oleh clip-path dari bentukKain() */
+.tarik__kain { position: absolute; inset: 0 0 auto 0; background: var(--kain-isi);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); }
+.tarik__lipatan { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.tarik__garis { fill: none; stroke: var(--kain-lipat); stroke-width: 1.6; stroke-linecap: round; }
+.tarik__tepi { fill: none; stroke: var(--kain-tepi); stroke-width: 1.2; }
+.tarik.is-ambang .tarik__garis { stroke-width: 2; }
+.tarik__tangan { position: absolute; z-index: 2; left: 0; top: 0; overflow: visible; transform-origin: 60px 60px; will-change: transform;
+  filter: drop-shadow(0 8px 12px rgba(42, 20, 16, .3)); }
+.tarik__jari, .tarik__ibu { transform-box: view-box; }
+/* label di atas kain: teks utama di atas bidang hampir pekat (lolos AA di dua tema) */
+.tarik__label { position: absolute; top: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: max-content; max-width: calc(100% - 40px); text-align: center; text-wrap: balance;
+  font: 600 13px/18px var(--font-body); color: var(--text); }
+.tarik__cincin { display: none; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--aksen-teks, var(--primary)); border-right-color: transparent; }
+.tarik.is-memuat .tarik__cincin { display: inline-block; animation: tarik-putar .8s linear infinite; }
+.tarik.is-gagal .tarik__label { color: var(--danger); }
+html.sedang-tarik, html.sedang-tarik * { user-select: none; -webkit-user-select: none; }
+@keyframes tarik-putar { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .tarik.is-memuat .tarik__cincin { animation-duration: 2.4s; } }

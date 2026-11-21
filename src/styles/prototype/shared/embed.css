@@ -1,0 +1,95 @@
+/* Disalin dari prototipe shared/embed.css (R0.05-3). Satu-satunya perubahan: path url(assets/…) → /prototype/assets/…. */
+/* Dipakai saat halaman kelompok dibuka dengan ?embed=1 di dalam app.html.
+   Chrome prototipe (bar, catatan, bingkai) dan navigasi milik halaman disembunyikan;
+   shell aplikasi yang menyediakan header dan tab bar. */
+
+html[data-embed],
+html[data-embed] body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+html[data-embed] .proto {
+  height: 100dvh;
+  max-width: none;
+  padding: 0;
+  gap: 0;
+}
+
+html[data-embed] .bar,
+html[data-embed] .note {
+  display: none !important;
+}
+
+html[data-embed] .stage {
+  display: block;
+  height: 100%;
+  min-width: 0;
+}
+
+html[data-embed] .device,
+html[data-embed] .device[data-device="phone"],
+html[data-embed] .device[data-device="desktop"] {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-embed] .app {
+  height: 100%;
+  border-radius: 0;
+}
+
+/* rail disembunyikan, jadi kolomnya harus ikut dilepas — kalau tidak, isi halaman
+   masuk ke kolom 96 px milik rail dan layar tampak gepeng di desktop */
+html[data-embed] .shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-embed] .views {
+  grid-column: 1 / -1;
+}
+
+html[data-embed] .views {
+  height: 100%;
+  padding: 0 18px 24px;
+  overflow-y: auto;
+}
+
+html[data-embed] .demo-banner {
+  margin: 0 -18px 8px;
+}
+
+/* navigasi milik halaman tidak dipakai di dalam shell */
+html[data-embed] .tabbar,
+html[data-embed] .rail {
+  display: none !important;
+}
+
+html[data-embed] .toast {
+  bottom: 16px;
+}
+
+/* sheet di dalam iframe tetap di dalam area halaman */
+html[data-embed] .scrim {
+  position: fixed;
+}
+
+@media (max-width: 640px) {
+  /* konten bergulir di bawah dock kaca shell: beri ruang supaya baris terakhir tidak tertutup */
+  html[data-embed] .views {
+    padding: 0 16px calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+  html[data-embed] .demo-banner {
+    margin: 0 -16px 8px;
+  }
+  /* sheet juga berada di bawah dock shell: tombol terakhir harus bisa digulir ke atas dock */
+  html[data-embed] .sheet {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+}

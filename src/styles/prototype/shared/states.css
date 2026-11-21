@@ -1,0 +1,22 @@
+/* Disalin dari prototipe shared/states.css (R0.05-3). Satu-satunya perubahan: path url(assets/…) → /prototype/assets/…. */
+/* Loading, empty and error patterns. Every screen shows one of these instead of a blank area. */
+.skeleton { border-radius:12px; background:linear-gradient(90deg,var(--skeleton) 25%,var(--skeleton-hi) 50%,var(--skeleton) 75%); background-size:200% 100%;
+  animation:shimmer 1.4s linear infinite; }
+.skeleton--line { height:14px; } .skeleton--title { height:24px; width:60%; } .skeleton--card { height:96px; border-radius:24px; }
+@keyframes shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
+.loading { display:flex; flex-direction:column; gap:12px; }
+.loading__label { display:flex; align-items:center; gap:10px; font:600 15px/22px var(--font-body); color:var(--text-muted); }
+.spinner { width:20px; height:20px; border-radius:50%; border:3px solid var(--border-strong); border-top-color:var(--primary); animation:spin .8s linear infinite; flex:none; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.empty { display:flex; flex-direction:column; align-items:center; text-align:center; gap:12px; padding:32px 16px; }
+.empty img { width:min(200px,60%); height:auto; }
+.empty p { max-width:38ch; color:var(--text-muted); }
+.error { display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-radius:18px; background:var(--danger-soft); color:var(--text); }
+.error > [data-icon] { color:var(--danger); }
+.error strong { display:block; font:600 15px/20px var(--font-body); }
+.error p { font-size:14px; line-height:20px; }
+.banner { display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:16px; background:var(--info-soft); font-size:14px; line-height:20px; }
+.banner > [data-icon] { color:var(--info); }
+.banner--warn { background:var(--warn-soft); } .banner--warn > [data-icon] { color:var(--warn); }
+.banner--ok { background:var(--success-soft); } .banner--ok > [data-icon] { color:var(--success); }
+.banner--danger { background:var(--danger-soft); } .banner--danger > [data-icon] { color:var(--danger); }

@@ -1,0 +1,80 @@
+<!-- Potongan markup BERSAMA untuk uji kesetaraan visual R0.05-3. Dipakai apa adanya oleh:
+     - prototipe: _r005-referensi.html
+     - Next.js:   src/app/(ata)/uji-visual (repo ~/Developer/ata, salinan berkas ini)
+     {{ASET}} diganti tiap host dengan lokasi folder assets-nya. Jangan mengubah salah satu tanpa yang lain. -->
+<main class="uji-visual" style="max-width:960px;margin:0 auto;padding:24px 20px 48px;display:grid;gap:20px">
+  <header>
+    <p class="eyebrow">Uji visual · komponen dasar</p>
+    <h1>Halo, Raka</h1>
+    <p class="lede">Teks pengantar memakai token huruf, warna, dan jarak dari prototipe.</p>
+  </header>
+
+  <section class="card" aria-labelledby="hTombol">
+    <h2 id="hTombol">Tombol</h2>
+    <div class="btn-row">
+      <button type="button" class="btn btn--primary"><span data-icon="check"></span>Simpan</button>
+      <button type="button" class="btn"><span data-icon="search"></span>Cari</button>
+      <button type="button" class="btn btn--ghost">Nanti saja</button>
+    </div>
+    <button type="button" class="btn btn--block" style="margin-top:12px"><span data-icon="plus"></span>Tambah lomba</button>
+  </section>
+
+  <section class="card" aria-labelledby="hLabel">
+    <h2 id="hLabel">Label & status</h2>
+    <p class="btn-row">
+      <span class="pill">dari datamu</span><span class="pill num">3 tersisa</span><span class="badge">ISIAN MANUAL</span>
+    </p>
+    <p class="btn-row">
+      <span class="status status--ok"><span data-icon="check"></span>Aktif</span>
+      <span class="status status--warn"><span data-icon="alert"></span>Perlu cek</span>
+      <span class="status status--danger"><span data-icon="alert"></span>Lewat tenggat</span>
+      <span class="status status--info"><span data-icon="clock"></span>4 hari lagi</span>
+    </p>
+    <p class="btn-row">
+      <span class="gem g-mint">Karya tulis</span><span class="gem g-lemon">Olimpiade</span><span class="gem g-sky">Video</span>
+      <span class="gem g-rose">Poster</span><span class="gem g-apricot">Bisnis</span><span class="gem g-coral">Pidato</span>
+    </p>
+    <p class="small muted">Teks kecil redup untuk keterangan.</p>
+  </section>
+
+  <section aria-labelledby="hBanner" style="display:grid;gap:12px">
+    <h2 id="hBanner">Banner</h2>
+    <div class="banner banner--warn"><span data-icon="alert"></span><span><strong>Membaca poster otomatis (OCR) belum tersedia.</strong> Isi data dari poster atau juknis.</span></div>
+    <div class="banner banner--ok"><span data-icon="check"></span><p>Pro aktif dari kode Sobat Ambis.</p></div>
+    <div class="banner banner--danger"><span data-icon="alert"></span><p>Key ditolak provider.</p></div>
+  </section>
+
+  <section class="card" aria-labelledby="hIsian">
+    <h2 id="hIsian">Isian</h2>
+    <div class="field"><label for="ujiNama">Nama lomba</label><input class="input" id="ujiNama" value="National Essay Competition 2026"><span class="hint">Persis seperti di poster.</span></div>
+  </section>
+
+  <section aria-labelledby="hFolder" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+    <h2 id="hFolder" style="grid-column:1/-1">Folder Slot</h2>
+    <a class="slot-baris folder-ata" href="#" aria-label="Contoh Slot">
+      <span class="folder-ata__belakang" style="background-image:url('{{ASET}}lomba/essay-unesa-2026.webp')"></span>
+      <span class="folder-ata__kertas" aria-hidden="true">
+        <span class="folder-ata__kertas-label">Langkah berikutnya</span>
+        <span class="folder-ata__kertas-isi">Susun kerangka esai</span>
+        <span class="folder-ata__kertas-meta">24 Nov</span>
+      </span>
+      <span class="folder-ata__depan">
+        <span class="folder-ata__teks"><strong>National Essay Competition 2026</strong><span class="folder-ata__meta">Berjalan · 2/5 langkah</span></span>
+        <span class="folder-ata__aksi" aria-hidden="true"><span data-icon="right"></span></span>
+      </span>
+      <span class="folder-ata__progres" style="--p:40%" aria-hidden="true"></span>
+    </a>
+    <a class="folder-ata folder-ata--kosong" href="#">
+      <span class="folder-ata__belakang"></span>
+      <span class="folder-ata__depan"><span class="folder-ata__teks"><strong>Slot kosong</strong><span class="folder-ata__meta">1 tersisa · pilih dari Radar</span></span>
+      <span class="folder-ata__aksi folder-ata__aksi--tambah" aria-hidden="true"><span data-icon="plus"></span></span></span>
+    </a>
+  </section>
+
+  <section class="card" aria-labelledby="hMuat" style="display:grid;gap:10px">
+    <h2 id="hMuat">Memuat & aset</h2>
+    <div class="skeleton skeleton--line"></div>
+    <div class="skeleton skeleton--line" style="width:60%"></div>
+    <img src="{{ASET}}jempol.svg" alt="" width="96" height="96">
+  </section>
+</main>

@@ -1,0 +1,56 @@
+/* Disalin dari prototipe shared/folder.css (R0.05-3). Satu-satunya perubahan: path url(assets/…) → /prototype/assets/…. */
+/* ---------- Folder Slot (dipakai Hari Ini di shell DAN tab Lomba → Slot) ----------
+   Mengikuti referensi folder: panel belakang bertab kanan berisi poster lomba asli, selembar kertas mengintip,
+   tutup depan kaca buram bertakik kiri (memburamkan poster di belakangnya), nama + meta monospace, tombol gelap.
+   Bentuk = topeng SVG; rasio kotak dikunci 100:70 jadi lengkung tidak pernah melar. */
+.folder-ata { position: relative; display: block; aspect-ratio: 100 / 70; color: var(--text); text-decoration: none; border-radius: 18px;
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(calc(var(--angkat, 0) * -3px));
+  transition: transform var(--dur-2, 220ms) var(--ease-out, ease); }
+.folder-ata.is-condong { transition: transform 120ms linear; }
+.folder-ata:focus-visible { outline: 2px solid var(--aksen-teks, var(--primary)); outline-offset: 4px; }
+.folder-ata__belakang { position: absolute; inset: 0; background: var(--gem-isi) center top / cover no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 70%22%3E%3Cpath d=%22M0 15 Q0 9 6 9 H50 Q54 9 57 5.5 L59.5 2.6 Q61.8 0 65.5 0 H94 Q100 0 100 6 V64 Q100 70 94 70 H6 Q0 70 0 64 Z%22/%3E%3C/svg%3E") center / 100% 100% no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 70%22%3E%3Cpath d=%22M0 15 Q0 9 6 9 H50 Q54 9 57 5.5 L59.5 2.6 Q61.8 0 65.5 0 H94 Q100 0 100 6 V64 Q100 70 94 70 H6 Q0 70 0 64 Z%22/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  filter: drop-shadow(0 1px 0 rgba(255,255,255,.4)); }
+.folder-ata__kertas { position: absolute; left: 13%; right: 13%; top: 14%; height: 42%; border-radius: 10px; background: #FFFDFB;
+  box-shadow: 0 -1px 0 rgba(42, 20, 16, .08), 0 4px 12px rgba(42, 20, 16, .22); transform: translateY(60%) rotate(-1.5deg); opacity: 0; /* kertas hanya muncul saat folder "dibuka" (hover/fokus) */
+  transition: transform var(--dur-3, 320ms) var(--ease-out, ease), opacity var(--dur-2, 220ms) ease; }
+.folder-ata__depan { position: absolute; left: 0; right: 0; bottom: 0; height: 68.57%; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+  padding: 0 12px 12px 14px; /* atas bening (warna poster tembus buram), bawah pekat (alas teks) */
+  background: linear-gradient(180deg, rgba(255, 250, 246, .22) 0%, rgba(255, 250, 246, .5) 45%, rgba(255, 250, 246, .86) 100%);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6); backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 48%22%3E%3Cpath d=%22M0 6 Q0 0 6 0 H32 Q36 0 38.6 3 L42 7 Q44.5 10 48.5 10 H94 Q100 10 100 16 V42 Q100 48 94 48 H6 Q0 48 0 42 Z%22/%3E%3C/svg%3E") center / 100% 100% no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 48%22%3E%3Cpath d=%22M0 6 Q0 0 6 0 H32 Q36 0 38.6 3 L42 7 Q44.5 10 48.5 10 H94 Q100 10 100 16 V42 Q100 48 94 48 H6 Q0 48 0 42 Z%22/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  transform-origin: 50% 100%; transition: transform var(--dur-3, 320ms) var(--ease-out, ease); }
+.folder-ata__teks { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.folder-ata__teks strong { font: 700 14.5px/19px var(--font-body); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.folder-ata__meta { font: 500 11.5px/15px ui-monospace, 'SF Mono', Menlo, monospace; color: var(--text); opacity: .78; }
+.folder-ata__aksi { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; background: #1E120E; color: #FFF3EC;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 6px 14px -6px rgba(30, 18, 14, .6); transition: transform var(--dur-2, 220ms) var(--ease-out, ease); }
+.folder-ata__aksi svg { width: 18px; height: 18px; }
+.folder-ata__progres { position: absolute; left: 14px; right: 14px; bottom: 6px; height: 3px; border-radius: 3px; background: rgba(42, 20, 16, .12); overflow: hidden; }
+.folder-ata__progres::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); border-radius: inherit; background: var(--aksen-teks, var(--primary)); }
+.folder-ata:is(:hover, :focus-visible) .folder-ata__kertas { transform: translateY(-32%) rotate(-2deg); opacity: 1; }
+.folder-ata:is(:hover, :focus-visible) .folder-ata__depan { transform: perspective(600px) rotateX(-9deg); }
+.folder-ata:is(:hover, :focus-visible) .folder-ata__aksi { transform: scale(1.06); }
+.folder-ata:active { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(.98); }
+/* slot kosong: baris ringkas bergaris putus (bukan folder penuh); di desktop mengisi sel grid dengan tinggi yang sama */
+.folder-ata--kosong { aspect-ratio: auto; min-height: 72px; border: 1.5px dashed var(--border-strong); border-radius: 18px; transform: none; }
+.folder-ata--kosong .folder-ata__belakang { display: none; }
+.folder-ata--kosong .folder-ata__depan { position: relative; height: 100%; min-height: 72px; align-items: center; padding: 12px 12px 12px 16px;
+  background: none; -webkit-backdrop-filter: none; backdrop-filter: none; -webkit-mask: none; mask: none; transform: none; }
+.folder-ata--kosong :is(strong, .folder-ata__meta) { color: var(--teks-di-foto, var(--text)); }
+.folder-ata__aksi--tambah { background: var(--gem-isi); color: var(--text); box-shadow: none; border: 1px solid var(--border-strong); }
+:root[data-theme="dark"] .folder-ata__depan { background: linear-gradient(180deg, rgba(30, 18, 14, .25) 0%, rgba(30, 18, 14, .55) 45%, rgba(30, 18, 14, .88) 100%); }
+:root[data-theme="dark"] .folder-ata__kertas { background: #EFE3DB; }
+:root[data-theme="dark"] .folder-ata__progres { background: rgba(255, 243, 236, .16); }
+:root[data-theme="dark"] .folder-ata__aksi { background: #FFF3EC; color: #1E120E; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .folder-ata__depan { background: linear-gradient(180deg, rgba(30, 18, 14, .25) 0%, rgba(30, 18, 14, .55) 45%, rgba(30, 18, 14, .88) 100%); }
+  :root:not([data-theme="light"]) .folder-ata__kertas { background: #EFE3DB; }
+  :root:not([data-theme="light"]) .folder-ata__progres { background: rgba(255, 243, 236, .16); }
+  :root:not([data-theme="light"]) .folder-ata__aksi { background: #FFF3EC; color: #1E120E; } }
+@media (prefers-reduced-motion: reduce) { .folder-ata, .folder-ata__kertas, .folder-ata__depan, .folder-ata__aksi { transition: none; } }
+/* isi kertas: langkah berikutnya (hanya bagian atas yang terlihat saat kertas naik) */
+.folder-ata__kertas { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; overflow: hidden; color: #2A1410; text-align: left; }
+.folder-ata__kertas-label { font: 600 10.5px/13px var(--font-body); color: #6B4E43; }
+.folder-ata__kertas-isi { font: 700 12.5px/16px var(--font-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-ata__kertas-meta { font: 500 10.5px/13px ui-monospace, 'SF Mono', Menlo, monospace; color: #5A4339; }
+.folder-ata__kertas-meta.is-telat { color: #A8172F; }

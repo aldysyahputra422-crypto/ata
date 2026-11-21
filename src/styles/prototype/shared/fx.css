@@ -1,0 +1,214 @@
+/* Disalin dari prototipe shared/fx.css (R0.05-3). Satu-satunya perubahan: path url(assets/…) → /prototype/assets/…. */
+/* Token motion dan primitif efek, hasil bedah referensi di Projects/taste.
+   - durasi pendek, easing "out" untuk semua yang muncul
+   - satu easing "back" untuk elemen yang perlu terasa memantul
+   - semua primitif tunduk pada prefers-reduced-motion */
+
+:root {
+  --dur-1: 140ms; /* ganti warna, border, opacity */
+  --dur-2: 220ms; /* geser kecil, scale tombol */
+  --dur-3: 320ms; /* kartu masuk, sheet */
+  --dur-4: 560ms; /* perpindahan layar */
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --ease-back: cubic-bezier(.34, 1.56, .64, 1);
+  --jarak-masuk: 12px;
+}
+
+/* ---------- masuk berurutan ---------- */
+@keyframes fx-rise {
+  from { opacity: 0; transform: translateY(var(--jarak-masuk)); }
+  to { opacity: 1; transform: none; }
+}
+
+.fx-rise {
+  animation: fx-rise var(--dur-3) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* ---------- kartu bersusun (referensi folder macOS) ---------- */
+.fx-tumpuk {
+  position: relative;
+  isolation: isolate;
+}
+.fx-tumpuk::before,
+.fx-tumpuk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  z-index: -1;
+  transition: transform var(--dur-3) var(--ease-out), opacity var(--dur-2) ease;
+}
+.fx-tumpuk::before { transform: translateY(5px) scale(.985); opacity: .75; }
+.fx-tumpuk::after { transform: translateY(10px) scale(.97); opacity: .45; }
+.fx-tumpuk:hover::before,
+.fx-tumpuk:focus-visible::before { transform: translateY(7px) scale(.99); }
+.fx-tumpuk:hover::after,
+.fx-tumpuk:focus-visible::after { transform: translateY(14px) scale(.975); }
+
+/* ---------- verifikasi OTP ---------- */
+.otp {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.otp__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: .01;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 16px; /* cegah zoom iOS */
+  z-index: 2;
+}
+.otp__sel {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  font: 700 22px/1 var(--font-display);
+  color: var(--text);
+  transition: border-color var(--dur-1) ease, box-shadow var(--dur-2) ease,
+    background var(--dur-1) ease, transform var(--dur-3) var(--ease-out),
+    opacity var(--dur-2) ease;
+}
+.otp__sel--aktif {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-soft);
+}
+.otp__sel--aktif::after {
+  content: '';
+  width: 2px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--primary);
+  animation: fx-kedip 1.05s steps(1, end) infinite;
+}
+.otp--penuh .otp__sel { border-color: var(--primary); }
+
+@keyframes fx-kedip {
+  0%, 45% { opacity: 1; }
+  46%, 100% { opacity: 0; }
+}
+
+.otp__cek {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: var(--success);
+  color: #fff;
+  box-shadow: 0 0 0 1px var(--success), 0 12px 32px -8px var(--success);
+  opacity: 0;
+  transform: scale(.4);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.otp--sukses .otp__sel {
+  transform: scale(.25);
+  opacity: 0;
+}
+.otp--sukses .otp__sel:nth-child(2) { transition-delay: 0ms; }
+.otp--sukses .otp__sel:nth-child(3) { transition-delay: 25ms; }
+.otp--sukses .otp__sel:nth-child(4) { transition-delay: 50ms; }
+.otp--sukses .otp__sel:nth-child(5) { transition-delay: 75ms; }
+.otp--sukses .otp__sel:nth-child(6) { transition-delay: 100ms; }
+.otp--sukses .otp__sel:nth-child(7) { transition-delay: 125ms; }
+.otp--sukses .otp__cek {
+  animation: fx-cek-muncul 420ms var(--ease-back) 260ms both;
+}
+.otp--sukses .otp__input { pointer-events: none; }
+
+@keyframes fx-cek-muncul {
+  0% { opacity: 0; transform: scale(.4); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* kartu ikut berdenyut hijau sebentar */
+.masuk--sukses {
+  animation: fx-glow-hijau 900ms var(--ease-out) both;
+}
+@keyframes fx-glow-hijau {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  30% { box-shadow: 0 0 0 6px var(--success-soft); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ---------- dorongan tombol ---------- */
+.fx-tekan { transition: transform var(--dur-1) var(--ease-out); }
+.fx-tekan:active { transform: scale(.97); }
+
+/* ---------- tekan taktil (referensi tactile micro-interactions) ----------
+   Turun cepat saat ditekan (140 ms, ease-out), naik memantul saat dilepas (220 ms, ease-back). */
+.btn, .back, .seg button, .tab, .ikon-bundar, .ikon-apl, .lb-act, .lb-cari__hapus, .baris-tujuan {
+  transition: transform var(--dur-2) var(--ease-back), background-color var(--dur-1) ease, color var(--dur-1) ease,
+    border-color var(--dur-1) ease, box-shadow var(--dur-2) ease;
+}
+.btn:active:not(:disabled), .back:active, .seg button:active, .tab:active, .ikon-apl:active, .lb-cari__hapus:active, .baris-tujuan:active {
+  transform: scale(.96); transition-duration: var(--dur-1); transition-timing-function: var(--ease-out);
+}
+.btn--primary { box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 8px 18px -8px color-mix(in srgb, var(--primary) 70%, transparent); }
+.btn--primary:hover { box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 12px 24px -10px color-mix(in srgb, var(--primary) 80%, transparent); }
+
+/* ---------- pergantian tema: warna memudar, bukan meloncat (kelas dipasang 420 ms oleh shared/gerak.js) ---------- */
+html.tema-berganti, html.tema-berganti *, html.tema-berganti *::before, html.tema-berganti *::after {
+  transition: background-color 350ms ease, color 350ms ease, border-color 350ms ease, fill 350ms ease, stroke 350ms ease, box-shadow 350ms ease !important;
+}
+
+/* ---------- view transitions (pindah layar & kartu → detail) ----------
+   Layar: memudar + naik 8 px. Kartu → detail: easeInOutCubic 420 ms seperti referensi travel (lerp rect + radius). */
+@keyframes fx-vt-keluar { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes fx-vt-masuk { from { opacity: 0; transform: translateY(8px); } }
+::view-transition-old(root) { animation: fx-vt-keluar 180ms var(--ease-in-out) both; }
+::view-transition-new(root) { animation: fx-vt-masuk 260ms var(--ease-out) both; }
+::view-transition-group(lb-hero) { animation-duration: 420ms; animation-timing-function: var(--ease-in-out); }
+::view-transition-old(lb-hero), ::view-transition-new(lb-hero) { animation-duration: 420ms; height: 100%; object-fit: cover; }
+
+/* ---------- penanda tab yang bergeser dengan pegas (posisi diisi app/app.js) ---------- */
+.tab-penanda { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; border-radius: 22px; background: var(--surface);
+  box-shadow: var(--shadow-1), inset 0 1px 0 var(--glass-hi);
+  width: var(--pw, 0); height: var(--ph, 0); transform: translate(var(--px, 0), var(--py, 0));
+  transition: transform 420ms var(--ease-back), width 320ms var(--ease-out), height 320ms var(--ease-out); }
+/* tab bar HP sudah position:absolute (jadi wadah penanda); hanya rail desktop yang perlu relative */
+.rail__seg.punya-penanda { position: relative; }
+.punya-penanda > .tab { position: relative; z-index: 1; }
+.punya-penanda > .tab[aria-current="page"] { background: none; box-shadow: none; }
+.tab [data-icon] { transition: transform var(--dur-3) var(--ease-back); transform-origin: 50% 70%; }
+.tab[aria-current="page"] [data-icon] { transform: translateY(-1px) scale(1.08); }
+/* dock: skala dari --dok (diisi app.js); cepat saat mengikuti penunjuk, memantul saat dilepas */
+.rail__seg .tab [data-icon] { transform: translateY(calc((1 - var(--dok, 1)) * 7px)) scale(calc(var(--dok, 1) * var(--aktif, 1))); }
+.rail__seg .tab[aria-current="page"] { --aktif: 1.08; }
+.rail__seg.is-dok .tab [data-icon] { transition: transform 90ms cubic-bezier(.23,1,.32,1); }
+.rail__seg .tab span:last-child { transition: opacity var(--dur-2) ease, transform var(--dur-2) var(--ease-out); }
+.rail__seg.is-dok .tab:not(:hover) span:last-child { opacity: .55; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .back, .seg button, .tab, .ikon-bundar, .ikon-apl, .lb-act, .lb-cari__hapus, .baris-tujuan, .tab-penanda, .tab [data-icon] { transition: none; }
+  .btn:active, .back:active, .seg button:active, .tab:active, .ikon-apl:active, .baris-tujuan:active { transform: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  .fx-rise { animation: none; }
+  .fx-tumpuk::before, .fx-tumpuk::after { transition: none; }
+  .otp--sukses .otp__cek { animation: none; opacity: 1; transform: none; }
+  .masuk--sukses { animation: none; }
+  .otp__sel { transition: none; }
+  .otp--sukses .otp__sel { display: none; }
+}

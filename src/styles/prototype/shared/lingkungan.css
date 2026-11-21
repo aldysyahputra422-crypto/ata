@@ -1,0 +1,165 @@
+/* Disalin dari prototipe shared/lingkungan.css (R0.05-3). Satu-satunya perubahan: path url(assets/…) → /prototype/assets/…. */
+/* =====================================================================
+   LINGKUNGAN + MATERIAL KACA — satu sistem, bukan wallpaper + kartu bening.
+   Lapisan (bawah → atas), semuanya di dalam .app (isolation: isolate):
+     1. foto senja (aset asli, palet Senja)         .lingkungan__foto
+     2. cahaya matahari yang bernapas pelan          .lingkungan__cahaya
+     3. tirai keterbacaan (warna --bg, bergradasi)   .lingkungan__tirai
+   Material di atasnya (3 tingkat, dipilih per hierarki, bukan "kaca di mana-mana"):
+     lensa  — dock/rail/pil aktif: bias tepi (SVG displacement, Chromium) + blur tipis + kilau tepi
+     kaca   — sheet, bilah lengket, tombol hero: blur 22 + saturasi, latar masih terbaca
+     padat  — kartu berisi teks: 84–88 % opak + blur, latar hanya terasa sebagai suhu warna
+   Halaman di dalam iframe menggambar lingkungan yang SAMA; shell mengirim ukuran & posisinya
+   (--lw/--lh/--lx/--ly) sehingga latar menyambung mulus melintasi rail dan iframe.
+   ===================================================================== */
+
+:root {
+  --lingkungan-foto: url(/prototype/assets/lingkungan/senja-2000.webp);
+  --tirai-atas: rgba(255, 248, 243, .10);
+  --tirai-bawah: rgba(255, 248, 243, .58);
+  --foto-filter: saturate(1.05) brightness(1.02);
+  /* material */
+  --kaca-isi: linear-gradient(180deg, rgba(255,255,255,.46), rgba(255,255,255,.24));
+  --kaca-isi-tebal: linear-gradient(180deg, rgba(255,251,248,.70), rgba(255,247,242,.52));
+  --kaca-tepi: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.22), inset 0 0 0 1px rgba(255,255,255,.34);
+  --kaca-bayang: 0 1px 1px rgba(74,30,16,.06), 0 10px 24px -10px rgba(74,30,16,.30), 0 30px 60px -28px rgba(120,40,60,.35);
+  --kaca-blur: blur(22px) saturate(1.8) brightness(1.04);
+  --lensa-blur: blur(9px) saturate(1.9) brightness(1.06);
+  --padat-isi: rgba(255, 252, 249, .86);
+  --padat-blur: blur(16px) saturate(1.35);
+  --surface: rgba(255, 253, 251, .86);
+  --glass: rgba(255, 255, 255, .36); --glass-hi: rgba(255, 255, 255, .78);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tirai-atas: rgba(26, 15, 12, .38); --tirai-bawah: rgba(26, 15, 12, .82);
+    --foto-filter: saturate(.9) brightness(.62);
+    --kaca-isi: linear-gradient(180deg, rgba(60,36,30,.52), rgba(30,18,15,.40));
+    --kaca-isi-tebal: linear-gradient(180deg, rgba(48,29,24,.80), rgba(32,19,16,.72));
+    --kaca-tepi: inset 0 1px 0 rgba(255,220,200,.22), inset 0 -1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(255,255,255,.08);
+    --kaca-bayang: 0 1px 1px rgba(0,0,0,.3), 0 12px 28px -10px rgba(0,0,0,.6), 0 30px 60px -28px rgba(0,0,0,.7);
+    --padat-isi: rgba(42, 25, 21, .86); --surface: rgba(42, 25, 21, .86);
+    --glass: rgba(42, 25, 21, .46); --glass-hi: rgba(255, 255, 255, .10);
+  }
+}
+:root[data-theme="dark"] {
+  --tirai-atas: rgba(26, 15, 12, .38); --tirai-bawah: rgba(26, 15, 12, .82);
+  --foto-filter: saturate(.9) brightness(.62);
+  --kaca-isi: linear-gradient(180deg, rgba(60,36,30,.52), rgba(30,18,15,.40));
+  --kaca-isi-tebal: linear-gradient(180deg, rgba(48,29,24,.80), rgba(32,19,16,.72));
+  --kaca-tepi: inset 0 1px 0 rgba(255,220,200,.22), inset 0 -1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(255,255,255,.08);
+  --kaca-bayang: 0 1px 1px rgba(0,0,0,.3), 0 12px 28px -10px rgba(0,0,0,.6), 0 30px 60px -28px rgba(0,0,0,.7);
+  --padat-isi: rgba(42, 25, 21, .86); --surface: rgba(42, 25, 21, .86);
+  --glass: rgba(42, 25, 21, .46); --glass-hi: rgba(255, 255, 255, .10);
+}
+
+/* ---------- lingkungan ---------- */
+.app { background: var(--bg); }
+.app::before { display: none; } /* halo-blob lama diganti lingkungan */
+.lingkungan { position: absolute; z-index: -1; pointer-events: none; overflow: hidden;
+  left: calc(-1 * var(--lx, 0px)); top: calc(-1 * var(--ly, 0px)); width: var(--lw, 100%); height: var(--lh, 100%); }
+.lingkungan__foto { position: absolute; inset: -24px; background: var(--lingkungan-foto) var(--fokus, 38% 46%) / cover no-repeat;
+  filter: var(--foto-filter); transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0) scale(1.02);
+  transition: transform 900ms cubic-bezier(.23,1,.32,1); will-change: transform; }
+/* cahaya: kilau matahari di lembah (kiri-tengah foto), bernapas 26 dtk; fase disamakan antar-iframe lewat --fase */
+.lingkungan__cahaya { position: absolute; inset: 0; mix-blend-mode: soft-light;
+  background: radial-gradient(42% 38% at var(--matahari, 27% 42%), rgba(255,214,150,.85), rgba(255,170,120,.25) 45%, transparent 72%);
+  animation: lingkungan-napas 26s ease-in-out infinite; animation-delay: var(--fase, 0s); }
+@keyframes lingkungan-napas { 0%, 100% { opacity: .55; transform: scale(1); } 50% { opacity: .9; transform: scale(1.06); } }
+.lingkungan__tirai { position: absolute; inset: 0;
+  background: linear-gradient(180deg, var(--tirai-atas) 0%, color-mix(in srgb, var(--tirai-bawah) 70%, transparent) 38%, var(--tirai-bawah) 100%); }
+/* HP potret: potongan gunung + matahari, tirai sedikit lebih rapat karena teks memenuhi layar */
+@container app (max-width: 640px) {
+  .lingkungan__foto { --lingkungan-foto: url(/prototype/assets/lingkungan/senja-potret.webp); background-position: 50% 30%; }
+}
+/* bila ukuran lingkungan dikirim shell (iframe), pilihan foto ikut lebar SHELL, bukan lebar iframe */
+.lingkungan[data-lebar="sempit"] .lingkungan__foto { --lingkungan-foto: url(/prototype/assets/lingkungan/senja-potret.webp); background-position: 50% 30%; }
+.lingkungan[data-lebar="lebar"] .lingkungan__foto { --lingkungan-foto: url(/prototype/assets/lingkungan/senja-2000.webp); background-position: var(--fokus, 38% 46%); }
+
+/* halaman & wadah tidak boleh menutup lingkungan */
+html[data-embed], html[data-embed] body, .layar__bingkai, .lapis__bingkai { background: transparent !important; }
+
+/* ---------- material ---------- */
+.m-kaca { background: var(--kaca-isi); -webkit-backdrop-filter: var(--kaca-blur); backdrop-filter: var(--kaca-blur);
+  box-shadow: var(--kaca-tepi), var(--kaca-bayang); border-color: transparent; }
+.m-kaca-tebal { background: var(--kaca-isi-tebal); -webkit-backdrop-filter: var(--kaca-blur); backdrop-filter: var(--kaca-blur);
+  box-shadow: var(--kaca-tepi), var(--kaca-bayang); border-color: transparent; }
+/* lensa: di Chromium bias tepi lewat SVG #kaca-lensa (disuntik shared/lingkungan.js), lainnya blur biasa */
+/* catatan: .tabbar sudah position:absolute (mengapung) — jangan ditimpa; hanya .m-lensa & .rail__seg yang relative */
+.m-lensa, .rail__seg { position: relative; }
+.m-lensa, .tabbar, .rail__seg { background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.08));
+  -webkit-backdrop-filter: blur(14px) saturate(1.9) brightness(1.06); backdrop-filter: blur(14px) saturate(1.9) brightness(1.06);
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,.9), inset 0 -1px 1px rgba(255,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.38),
+    inset 0 0 22px rgba(255,255,255,.18), var(--kaca-bayang); border-color: transparent; }
+html.bisa-lensa :is(.m-lensa, .tabbar, .rail__seg) { backdrop-filter: url(#kaca-lensa) var(--lensa-blur); }
+/* kilau specular: garis cahaya lengkung di tepi atas, seperti bevel kaca tebal */
+.m-lensa::after, .tabbar::after, .rail__seg::after, .m-kaca::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 34%), radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.35), transparent 60%);
+  mix-blend-mode: soft-light; }
+.m-kaca { position: relative; }
+.m-padat { background: var(--padat-isi); -webkit-backdrop-filter: var(--padat-blur); backdrop-filter: var(--padat-blur); }
+
+/* dock: pil aktif = lensa terang di dalam lensa (referensi: segmen aktif berbeda bahan, bukan sekadar warna) */
+.tab-penanda { background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(255,255,255,.48));
+  box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(255,255,255,.4), 0 6px 16px -6px rgba(120,40,30,.35), 0 0 0 1px rgba(255,255,255,.5); }
+:root[data-theme="dark"] .tab-penanda { background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.07)); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 6px 16px -6px rgba(0,0,0,.6); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tab-penanda { background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.07)); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 6px 16px -6px rgba(0,0,0,.6); } }
+.tabbar .tab, .rail__seg .tab { color: var(--text); }
+.tabbar .tab[aria-current="page"], .rail__seg .tab[aria-current="page"] { color: var(--primary); }
+.rail__seg { background: none; border-color: transparent; }
+
+/* sheet: berisi teks & formulir → kaca tebal */
+.sheet { background: var(--kaca-isi-tebal); -webkit-backdrop-filter: var(--kaca-blur); backdrop-filter: var(--kaca-blur); box-shadow: var(--kaca-tepi), var(--shadow-3); }
+
+/* kartu berisi teks memakai kaca padat (dibaca, bukan dipamerkan) */
+/* HANYA elemen yang punya latar + radius sendiri. Blur pada elemen tanpa radius (mis. .sapaan) menghasilkan
+   persegi bersudut tajam: itu akar "tepi blur kasar" yang sempat terlihat di Hari Ini. */
+.card, .lb-row, .sert, .statistik__kotak, .lb-petak__isi, .lb-syarat li, .lb-sidang, .lb-step, .lb-card,
+.angka-baris, .baris-tujuan { /* .slot-baris kini folder bertopeng SVG: kacanya ada di tutup depan sendiri */
+  -webkit-backdrop-filter: var(--padat-blur); backdrop-filter: var(--padat-blur);
+}
+
+/* preferensi pengguna: Efek Kaca ringan/mati, dan sistem "kurangi transparansi" */
+.app[data-glass="ringan"] .m-lensa, .app[data-glass="ringan"] .m-kaca { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.app[data-glass="mati"] .m-lensa, .app[data-glass="mati"] .m-kaca, .app[data-glass="mati"] .m-kaca-tebal { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; }
+@media (prefers-reduced-transparency: reduce) {
+  .m-lensa, .m-kaca, .m-kaca-tebal { background: var(--bg) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  .lingkungan__tirai { background: var(--bg); opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lingkungan__cahaya { animation: none; opacity: .7; }
+  .lingkungan__foto { transition: none; transform: none; }
+}
+
+/* wordmark biru tua tetap terbaca di senja gelap */
+:root[data-theme="dark"] .kepala-apl__logo, :root[data-theme="dark"] .rail > img { filter: brightness(1.55) saturate(.9) drop-shadow(0 0 1px rgba(255,255,255,.35)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .kepala-apl__logo, :root:not([data-theme="light"]) .rail > img { filter: brightness(1.55) saturate(.9) drop-shadow(0 0 1px rgba(255,255,255,.35)); } }
+
+/* ---------- kontras (diukur pada render, WCAG AA) ----------
+   teks redup #6E574C di atas langit merah muda ±3:1 → digelapkan; tirai atas dinaikkan agar judul di atas foto tetap ≥4.5:1 */
+:root { --text-muted: #5A4339; --tautan: #A82A10; --peringatan-teks: #8A3A06; --tirai-atas: rgba(255, 248, 243, .36); }
+:root[data-theme="dark"] { --tautan: #FFA07A; --peringatan-teks: #FBBF24; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tautan: #FFA07A; --peringatan-teks: #FBBF24; } }
+:root .linkbtn, :root .msg__bubble--md a { color: var(--tautan); } /* :root menaikkan spesifisitas di atas app.css/tanya.css */
+:root .demo-banner { color: var(--peringatan-teks); }
+/* label status hijau di atas hijau muda: 3.26:1 → teks hijau lebih dalam (≥ 5:1) */
+:root { --sukses-teks: #04674A; }
+:root[data-theme="dark"] { --sukses-teks: #6EE7B7; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sukses-teks: #6EE7B7; } }
+:root .paket-pil, :root .status--ok, :root .cek-ada, :root .lb-tag--save { color: var(--sukses-teks); }
+
+/* ---------- kontras putaran 3 (audit-kontras.js, piksel foto + tirai + penanda) ----------
+   label tab aktif: aksen #CF3A1C di atas penanda putih 86 % di atas foto = 4.24:1 → aksen teks lebih dalam.
+   teks sekunder yang langsung di atas foto (tanpa kaca) = 4.39:1 → token khusus teks-di-foto. */
+:root { --aksen-teks: #A82A10; --teks-di-foto: #2A1410; } /* foto senja terang (L≈.30): teks redup apa pun gagal, hierarki lewat ukuran & berat */
+:root[data-theme="dark"] { --aksen-teks: #FFA07A; --teks-di-foto: #F6E6DC; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --aksen-teks: #FFA07A; --teks-di-foto: #F6E6DC; } }
+:root .tabbar .tab[aria-current="page"], :root .rail__seg .tab[aria-current="page"] { color: var(--aksen-teks); }
+:root .profil-kepala p, :root .judul-layar .hari, :root .lb-radar .eyebrow, :root .lb-hint,
+:root .chat__body .empty p, :root .demo-galat summary { color: var(--teks-di-foto); }
+:root .profil-kepala p, :root .judul-layar .hari, :root .lb-hint, :root .demo-galat summary { font-weight: 500; }
+/* kepala layar di atas foto (eyebrow, lede) dan nama Slot di sapaan: teks-di-foto, bukan aksen/redup */
+:root .view > :is(header, div) > :is(.eyebrow, .lede), :root .sapaan strong { color: var(--teks-di-foto); }
+/* banner demo gelap: kuning di atas kuning tembus = 4.09:1 → alas gelap pekat */
+:root[data-theme="dark"] .demo-banner { background: rgba(26, 15, 12, .86); color: #FCD34D; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .demo-banner { background: rgba(26, 15, 12, .86); color: #FCD34D; } }

@@ -1,6 +1,79 @@
 # Status
 
-Terakhir diperbarui: 12 November 2026 · tahap **SETUP (PROMPT 1)** · berhenti di **Gerbang 1**.
+Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 3 (Tanya Ata) selesai dibangun.
+
+## R0.05 Migrasi bertahap ke Next.js (21 November 2026)
+
+Acuan: blueprint di prototipe, `docs/blueprint/16-entitlement-dan-migrasi.md` §5 dan §7 (keputusan PO: satu repo, satu aplikasi Next.js, migrasi per modul tanpa rewrite).
+
+| Tahap | Isi | Status |
+|---|---|---|
+| R0.05-0 | Repo dipindah keluar iCloud ke `~/Developer/ata` (rsync termasuk perubahan yang belum di-commit; `node_modules` dipasang ulang dari lockfile). Repo lama di iCloud (`~/ata` → `HermesWorkspace/Projects/ata`) dibiarkan sebagai arsip | selesai; baseline typecheck/lint hijau, 26/26 uji |
+| R0.05-1 | 47 modul logika murni prototipe disalin **apa adanya** ke `src/lib/prototype/` (struktur folder sama); 35 berkas uji dipindah ke `tests/unit/prototype/*.test.mjs` (kasus uji tidak diubah, hanya import & path); aset ke `public/prototype/assets`; Vitest dipisah menjadi project `unit` (jsdom) dan `prototype` (node) | selesai; 226 uji = 227 di prototipe dikurangi 1 uji teks layar Radar yang pindah bersama layarnya (M1) |
+| R0.05-2 | `src/lib/entitlements/config.ts` = satu sumber batas paket (Pro 3 Slot final; angka lain usulan sampai matriks K-23 disetujui); uji: cocok dengan prototipe, tidak ada kredit/kuota AI, tidak ada angka batas di `src/components`/`src/app` | selesai |
+| R0.05-3 | 23 berkas CSS prototipe disalin ke `src/styles/prototype/` (satu-satunya perubahan: `url(assets/…)` → `/prototype/assets/…`); aset di `public/prototype/assets`. Root layout baru `src/app/(ata)/` untuk layar hasil migrasi (CSS prototipe + Plus Jakarta Sans lewat `next/font`), terpisah dari root layout lama yang dipindah ke `src/app/(fondasi)/` tanpa mengubah URL. Route uji `/uji-visual` (hanya dev; 404 di produksi) merender potongan markup yang **sama** dengan `_r005-referensi.html` di prototipe | selesai |
+
+**Kesetaraan visual R0.05-3** (Playwright, halaman penuh, perbandingan piksel PIL; prototipe `:4321/_r005-referensi.html` vs Next `:3100/uji-visual`):
+
+| Viewport | Tema | Hasil |
+|---|---|---|
+| 390 | terang | identik (0 piksel berbeda) |
+| 390 | gelap | identik |
+| 1280 | terang | 899 piksel berbeda dengan selisih maksimum 2/255 (derau rendering di area folder/blur; tidak terlihat) |
+| 1280 | gelap | identik |
+
+Batasan: yang dibandingkan adalah komponen dasar (tombol, label/status, permata, banner, isian, folder Slot, skeleton, aset maskot), belum layar lengkap. Uji 768/1024, audit kontras, dan axe dijalankan per layar di M1. Browser Playwright milik repo belum terpasang, jadi perbandingan memakai Playwright MCP; otomatisasi di CI menyusul bersama `pnpm test:e2e`.
+
+Pemeriksaan: `pnpm typecheck` lulus · `pnpm lint` lulus (5 peringatan `no-unused-vars` di kode prototipe yang disalin apa adanya) · `pnpm test` 260/260 · `pnpm build` lulus.
+Cabang kerja: `r005-migrasi-logika` (belum di-commit).
+
+## Prototipe desain (13 November 2026)
+
+Spec: `docs/superpowers/specs/2026-11-13-ata-desain-fitur-design.md` · Rencana: `docs/superpowers/plans/2026-11-13-fondasi-dan-sidang-juri.md`.
+Berkas prototipe ada di luar repo: `~/Documents/Claude/ata-prototype/`. **Sejak 17 Nov folder itu dataless (iCloud)** — semua 141 berkas tidak bisa dibuka dan unduhan gagal. Backup terbaca ada di `claude_artifacts/ata-prototype/` (di-ignore Git). Salinan kerja lengkap semua kelompok: `~/HermesWorkspace/ata-prototype/` — buka `hub.html`, 158 uji `node --test` lulus.
+
+| Kelompok | Isi | Status | Tautan |
+|---|---|---|---|
+| Beranda | Semua prototipe | terbit | https://claude.ai/artifact/3DtVSRgBrQtwdSttLiHTJt |
+| 0 | Hari Ini, Profil (kamar 360° + buku 3D), Bioskop, Labirin | ditinjau | https://claude.ai/artifact/VZU6DAQULeBdVedENvFrYY |
+| 1 | Sambungkan AI (slot mitra lokal) + Sidang Juri | siap ditinjau | https://claude.ai/artifact/RaCppZidoTdoUfVQQBuhzK |
+| 2 | Lomba: Radar tumpukan kartu, Tersimpan, Detail, Slot, Peta Jalan labirin 3D | siap ditinjau | https://claude.ai/artifact/56j7fmCHkauEbJXSJREgFZ |
+| 3 | Tanya Ata: chat + kartu aksi, Resep jalur pipa, papan Ingatan | siap ditinjau (lokal: `~/HermesWorkspace/ata-prototype/tanya.html`) | belum terbit |
+| 4 | Portofolio: Galeri sertifikat, tautan orang tua, Laporan Bulanan | siap ditinjau (lokal: `portofolio.html`) | belum terbit |
+| 5 | Masuk/OTP, onboarding, Progres, Pengaturan, Paket | siap ditinjau (lokal: `masuk.html`) | belum terbit |
+
+Perubahan di repo dari putaran ini: palet **Senja** di `src/styles/tokens.css`, `fx.css`, `components.css` dan `docs/DESIGN-SYSTEM.md` (ASSUMPTIONS S18); kolom `partner`, `priceIdr`, `payments` di `content/providers.json`. `pnpm test` 26/26 dan `pnpm test:e2e` 18/18 lulus.
+
+## Prototipe kelompok 3 · Tanya Ata (17 November 2026)
+
+Rencana: `docs/superpowers/plans/2026-11-13-tanya-ata.md` · Spec: `docs/superpowers/specs/2026-11-13-tanya-ata-design.md` · Ledger: `.superpowers/sdd/2026-11-13-tanya-ata/progress.md`.
+
+| Task | Isi | Status |
+|---|---|---|
+| 1 | Data 8 Resep, Ingatan awal, profil demo + logika murni (templat, resep, konteks, saringan, penjawab) | selesai, 38/38 uji |
+| 2 | `tanya.html`, chat, baris konteks, aksi cepat, streaming, kartu aksi, Mode Tanpa Key, 3 galat demo | selesai, diuji di browser |
+| 3 | Pustaka Resep, Punyaku, stepper jalur pipa, pratinjau privasi, salin/tempel, aliran hasil, ekspor Markdown | selesai, diuji di browser |
+| 4 | Papan Ingatan 4 jenis, sematkan, sunting, hapus + urungkan, Lupakan semua, Ingat otomatis | selesai, diuji di browser |
+| 5 | Tinjauan 390/1280 px terang-gelap, peninjau independen, terbit | tinjauan selesai; terbit belum |
+
+Tinjauan independen menemukan 2 Critical (XSS di daftar ingatan dan di judul/tujuan langkah Racikan) dan 13 Important; semuanya sudah diperbaiki, termasuk ekspor Markdown yang selalu berisi `{{…}}` mentah, saringan sensitif yang hanya berjalan saat usul, dan fokus sheet yang mendarat di tombol destruktif.
+
+Catatan: FR-CCH, FR-MEM, dan FR-RCP di bawah tetap **belum** — yang selesai adalah prototipe desainnya, bukan implementasi Next.js.
+
+## Prototipe kelompok 4 dan 5 (17 November 2026)
+
+Rencana: `docs/superpowers/plans/2026-11-17-portofolio.md`, `docs/superpowers/plans/2026-11-17-masuk-dan-progres.md`.
+Spec: `docs/superpowers/specs/2026-11-17-portofolio-design.md`, `docs/superpowers/specs/2026-11-17-masuk-dan-progres-design.md`.
+Ledger: `.superpowers/sdd/2026-11-17-portofolio/`, `.superpowers/sdd/2026-11-17-masuk-dan-progres/`.
+
+| Kelompok | Isi | Verifikasi |
+|---|---|---|
+| 4 · Portofolio | Galeri + kirim sertifikat (validasi per bidang, hapus+urungkan), tautan orang tua baca-saja (buat, pilih bagian, salin, WhatsApp, cabut, kedaluwarsa), Laporan Bulanan A4 (periode, bagian, pesan 280, kode verifikasi, cetak) | 27 uji logika + 17 pemeriksaan UI |
+| 5 · Masuk & Progres | Masuk Google/OTP (kode demo 000000, batas 5×, kirim ulang 60 dtk), onboarding 7 langkah autosave, Progres (cincin, linimasa, heatmap 12 minggu, timer fokus, check-in, kesiapan submit), Pengaturan (tema, Efek Kaca, data, hapus akun), Paket (DEMO-PRO) | 38 uji logika + 26 pemeriksaan UI |
+
+Uji total prototipe: **158** (`node --test tests/*.test.mjs`). Semua halaman terbuka dari `hub.html` di `http://127.0.0.1:4321`.
+
+Catatan jujur: Laporan PDF dihasilkan lewat dialog cetak (bukan server-side), berkas sertifikat tidak benar-benar diunggah, dan Drive disimulasikan dengan status per berkas. Tautan orang tua memakai token demo yang tidak kriptografis.
 
 ## Versi terpasang
 
@@ -80,18 +153,59 @@ Belum ada FR aplikasi yang dikerjakan; tahap SETUP hanya fondasi.
 
 | Kelompok | Rencana | Status |
 |---|---|---|
-| FR-AUTH-01–10 | Hari 1 | belum |
-| FR-ONB-01–08 | Hari 1 | belum |
+| FR-AUTH-01–10 | Hari 1 | belum — prototipe desain selesai (kelompok 5) |
+| FR-ONB-01–08 | Hari 1 | belum — prototipe desain selesai (kelompok 5) |
 | FR-PWA-01–08 | Hari 1 dan 3 | belum (FR-PWA-08 Efek Kaca: mekanisme siap, layar Pengaturan belum) |
 | FR-SLT-01–05 | Hari 2 | belum |
 | FR-RDM-01–12 | Hari 2 | belum |
-| FR-PRG-01–10 | Hari 2 | belum (komponen cincin siap) |
+| FR-PRG-01–10 | Hari 2 | belum — prototipe desain selesai (kelompok 5) |
 | FR-BYOK-01–10 | Hari 3 | belum (registri `content/providers.json` siap) |
-| FR-CCH-01–08, FR-MEM-01–07 | Hari 3 | belum |
-| FR-RCP-01–11 | Hari 3 | belum |
+| FR-CCH-01–08, FR-MEM-01–07 | Hari 3 | belum — prototipe desain selesai (kelompok 3) |
+| FR-RCP-01–11 | Hari 3 | belum — prototipe desain selesai (kelompok 3) |
 | FR-SCN-* (Radar) | Hari 3 | belum |
-| FR-RPT-* (Laporan), FR-MNT-* (Mentor) | Hari 4 | belum |
+| FR-RPT-* (Laporan), FR-MNT-* (Mentor) | Hari 4 | belum — prototipe Laporan & tautan orang tua selesai (kelompok 4) |
 | FR-ADM-01–07 | Hari 4 | belum |
 | DEMO-01 | — | selesai (banner) |
 | DEMO-06 | — | sebagian: gerbang `isDemoMode()` + uji; jalur demo lain belum ada |
 | DEMO-02–05, 07, 08 | Hari 3–4 | belum |
+
+## Shell aplikasi + efek visual (19 November 2026)
+
+Spec: `docs/superpowers/specs/2026-11-19-referensi-visual.md` · Ledger: `.superpowers/sdd/2026-11-19-efek/progress.md`.
+
+| Task | Isi | Status |
+|---|---|---|
+| A1–A4 | `app.html` — shell lima tab (Hari Ini, Lomba, Tanya Ata, Progres, Profil), router `#/…`, rail desktop / tab bar HP, lapis untuk Portofolio-Paket-Pengaturan, panel demo | selesai, harness 20/20 |
+| A5 | Halaman kelompok dipasang `?embed=1` (`shared/embed.css`): chrome prototipe dan tab bar internal disembunyikan | selesai |
+| C1 | Token motion `shared/fx.css` (`--dur-1…4`, `--ease-out`, `--ease-back`) + `fx-rise` | selesai |
+| C2 | Kode OTP jadi enam sel; saat benar sel menyatu dan centang hijau muncul (referensi Animated OTP V2) | selesai, `_selftest-masuk` 26/26 |
+| C3 | Kartu Slot bersusun dua lapis + angkat 2 px (referensi folder macOS) | selesai |
+| C4 | Wordmark Sobat Ambis dipakai pada rasio aslinya di kepala layar | selesai |
+| C5 | Karusel 3D "Mirip dengan ini" di detail Lomba (geser, tombol, panah keyboard) | selesai, `_selftest-lomba` 13/13 |
+
+Uji: `node --test` 158/158, harness aplikasi 20/20, Lomba 13/13, Portofolio 17/17, Masuk 26/26.
+Halaman tinjauan efek: `_efek.html`.
+
+**Catatan operasional:** iCloud kembali mengevict seluruh folder prototipe (153/153 berkas `dataless`,
+server 4321 mati). Salinan kerja dipindah ke `~/Developer/ata-mirror/ata-prototype` (lokal, 0 dataless)
+dan disalin balik ke `~/HermesWorkspace/ata-prototype` setiap selesai tugas. Bila ini berulang,
+matikan "Optimize Mac Storage" atau pindahkan proyek keluar iCloud.
+
+## Sisa efek + perbaikan shell (20 November 2026)
+
+| Task | Isi | Status |
+|---|---|---|
+| C6 | Pencarian lengket di Tersimpan, menyusut jadi pill kaca saat digulir | selesai, `cari-lomba.test.mjs` |
+| C7 | Chip kategori bulat (Radar, Tersimpan, Peta Jalan) | selesai |
+| C8 | Grid 2 kolom Galeri sejak 390 px (sampul 4:3, metadata 2 baris) | selesai, `_selftest-portofolio` 17/17 |
+| C9 | Sheet berpegas + rubber-band untuk semua panel bawah (`shared/sheet.js`) | selesai, `pegas.test.mjs` |
+| A6 | Panel demo: focus trap + shell inert | selesai, `_selftest-app` 23/23 |
+| A7 | Ganti tema tanpa memuat ulang iframe (postMessage); tema shell kini juga berlaku di Lomba/Portofolio/Sidang/Progres | selesai |
+| C10 | Karusel 3D melingkar | selesai, `_selftest-lomba` 16/16 |
+
+Uji: `node --test` 175/175, harness aplikasi 23/23, Lomba 16/16, Portofolio 17/17, Masuk 26/26.
+Dikerjakan langsung di folder iCloud (tanpa mirror), 0 berkas `dataless`.
+| A8 | State demo bersama lintas tab (`ata-bersama`): Slot, Peta Jalan = tugas, paket, jumlah sertifikat; adapter Lomba, Masuk/Progres, Hari Ini, Profil, Tanya, Portofolio, Sidang; sinkron live via event `storage` | selesai, `bersama.test.mjs` 12 tes, `_selftest-app` 29/29 |
+
+Uji akhir: `node --test` 187/187, harness aplikasi 29/29, Lomba 16/16, Portofolio 17/17, Masuk 26/26.
+| C11 | Overhaul gerak & visual: detail Lomba gaya travel (hero parallax, lembar bergrip, bilah aksi menempel), kartu → detail via View Transitions, folder condong, penanda tab berpegas, tema memudar, tekan taktil | selesai, `gerak.test.mjs`; `node --test` 191/191, harness 29/16/26/17 |

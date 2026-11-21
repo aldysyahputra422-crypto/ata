@@ -11,8 +11,25 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
-    include: ["tests/unit/**/*.test.{ts,tsx}"],
-    setupFiles: ["tests/unit/setup.ts"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          environment: "jsdom",
+          include: ["tests/unit/**/*.test.{ts,tsx}"],
+          setupFiles: ["tests/unit/setup.ts"],
+        },
+      },
+      {
+        // R0.05-1: logic modules moved verbatim from the prototype, with their original test cases (node, no DOM setup)
+        extends: true,
+        test: {
+          name: "prototype",
+          environment: "node",
+          include: ["tests/unit/prototype/**/*.test.mjs"],
+        },
+      },
+    ],
   },
 });

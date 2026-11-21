@@ -1,0 +1,36 @@
+/* Disalin dari prototipe shared/maskot.css (R0.05-3). Satu-satunya perubahan: path url(assets/…) → /prototype/assets/…. */
+/* Maskot Red Panda (shared/maskot.js). Satu tombol bundar; dua lapis sprite 3×3, satu yang tampil. */
+.maskot {
+  position: relative; flex: none; width: var(--ukuran, 64px); height: var(--ukuran, 64px); padding: 0; border: 0;
+  border-radius: 50%; background: none; cursor: pointer; transform-origin: 50% 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+.maskot:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.maskot__lapis { position: absolute; inset: 0; background-size: 300% 300%; background-repeat: no-repeat; background-position: 50% 50%; }
+.maskot__lapis[hidden] { display: none; }
+/* bayangan lantai lembut agar maskot "berdiri" di atas UI */
+.maskot::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 2%; height: 8%; border-radius: 50%;
+  background: radial-gradient(closest-side, var(--shadow-c), transparent); opacity: .5; z-index: -1; }
+
+/* di rail desktop: di bawah logo */
+.rail .maskot { margin-top: -6px; }
+/* di kepala Hari Ini / Profil (HP) */
+.kepala-apl .maskot { margin-left: auto; margin-right: 6px; }
+
+/* maskot "mengintip" dari tepi atas saat tugas selesai di tab yang tidak menampilkan maskot */
+.maskot-intip {
+  position: absolute; top: 0; left: 50%; z-index: 60; pointer-events: none;
+  transform: translate(-50%, -110%); transition: transform 520ms var(--ease-back, cubic-bezier(.34,1.56,.64,1));
+  padding: 6px 12px 8px; border-radius: 0 0 28px 28px; background: var(--glass);
+  backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid var(--glass-hi); border-top: 0; box-shadow: var(--shadow-3);
+}
+.maskot-intip.is-tampil { transform: translate(-50%, 0); }
+.maskot-intip .maskot { pointer-events: auto; }
+
+/* desktop: maskot sudah ada di rail, jadi yang di kepala layar disembunyikan */
+@container app (min-width: 900px) { .kepala-apl .maskot { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .maskot-intip { transition: none; }
+}
