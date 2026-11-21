@@ -30,6 +30,14 @@ export default defineConfig({
           include: ["tests/unit/prototype/**/*.test.mjs"],
         },
       },
+      {
+        extends: true,
+        test: {
+          name: "backend",
+          environment: "node",
+          include: ["tests/backend/**/*.test.ts"],
+        },
+      },
     ],
   },
 });

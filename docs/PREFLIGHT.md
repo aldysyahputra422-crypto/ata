@@ -1,5 +1,31 @@
 # Preflight (PRD Lampiran E.4)
 
+## R0.1 — Supabase development
+
+| Alat | Tersedia | Versi | Catatan | Jalur cadangan |
+|---|---|---|---|---|
+| Node.js / pnpm | Ya | 22.23.5 / 10.28.0 | Aktifkan NVM jika perintah belum ada di PATH VM | — |
+| Git / GitHub | Ya | 2.56.0 | Repo dan cabang R0.05 dapat diakses | — |
+| Docker / Supabase CLI | Ya | 29.9.2 / 3.1.0 | Stack lokal berjalan dan migrasi `0001`–`0003` lulus dari database kosong | PGlite untuk uji SQL dan RLS |
+| Playwright | Ya | 1.63.0 | R0.1 mengubah backend. Uji HTTP memakai Next.js dan Supabase lokal | — |
+| Supabase Cloud | Akses baca | Free Tier | `ata-dev` aktif. Riwayat migrasi dan skema `public` masih kosong saat diperiksa | Koneksi PostgreSQL Session pooler khusus `ata-dev` untuk DDL |
+| Google OAuth | Belum aktif | — | Endpoint PKCE tersedia. Uji kontrak memakai respons Auth tiruan | Supabase Auth lokal dengan akun email khusus uji |
+
+### Pengujian lokal
+
+1. Jalankan `pnpm exec supabase start` dan `pnpm exec supabase migration up`.
+2. Isi variabel URL dasar API, anon key, dan service-role key di lingkungan proses Next.js dengan nilai stack lokal. Untuk smoke test, gunakan `APP_ORIGIN=http://127.0.0.1:3000` dan jalankan `pnpm dev --hostname 127.0.0.1`.
+3. Jalankan `pnpm test` untuk uji kontrak akun dan migrasi PGlite. Jalankan `node scripts/test-account-local.mjs` untuk uji HTTP terhadap stack Docker. Skrip membuat akun sementara dan kode redeem khusus uji.
+
+### Migrasi ke `ata-dev`
+
+1. Ambil URL PostgreSQL dari **Connect → Session pooler** di proyek `ata-dev`. Simpan URL dengan kata sandinya sebagai secret `SUPABASE_DB_URL`. Tiga secret API Supabase dipakai oleh aplikasi dan pemeriksaan HTTP.
+2. Periksa target dan daftar migrasi dengan `pnpm exec supabase db push --remote="$SUPABASE_DB_URL" --skip-vault --dry-run`. Setelah target development terverifikasi, terapkan dengan perintah yang sama tanpa `--dry-run`.
+3. Verifikasi riwayat migrasi, seed, RLS dan `/api/health` dari Next.js lokal yang terhubung ke `ata-dev`. Pakai URL dasar proyek untuk `NEXT_PUBLIC_SUPABASE_URL`.
+4. Untuk menguji Google sungguhan, aktifkan penyedia Google di Supabase Auth dan daftarkan URL callback aplikasi yang tepat, misalnya `http://127.0.0.1:3000/api/v1/auth/google/callback`. Daftarkan callback Supabase di Google Cloud sesuai [panduan Supabase](https://supabase.com/docs/guides/auth/social-sign-in/auth-google).
+
+## Catatan preflight awal
+
 Dijalankan 12 November 2026 di sesi cloud Claude Code (Linux), bukan di Mac Product Owner.
 
 | Alat | Tersedia | Versi | Catatan | Jalur cadangan |

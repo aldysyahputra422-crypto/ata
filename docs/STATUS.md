@@ -2,6 +2,13 @@
 
 Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 3 (Tanya Ata) selesai dibangun.
 
+## R0.1 Fondasi backend
+
+- **Lulus di Supabase lokal.** Migrasi mencakup profil, matriks entitlement berversi, grant Pro, redeem atomik, audit, izin AI, dan persetujuan. RLS serta kontrak isolasi dua akun diuji di PGlite dan di stack Docker. Batas Slot tetap Free 3 dan Pro 3 sesuai konfigurasi yang berlaku sambil menunggu K-23.
+- **FR-AUTH-04/06/08/09.** API akun menggunakan sesi Supabase yang diverifikasi, menyimpan versi persetujuan di skema, membaca peran dari metadata tepercaya, dan mendukung ekspor serta hapus akun dengan cascade. Integrasi UI akun dan onboarding mengikuti tahap layar R0.2.
+- **FR-AUTH-01.** Endpoint Google OAuth memakai PKCE. Uji kontrak berjalan dengan Supabase Auth tiruan. Uji Google sungguhan tertunda sampai penyedia Google aktif di proyek dev.
+- **Cloud.** Proyek `ata-dev` aktif di Free Tier. Penerapan migrasi menunggu akses PostgreSQL dengan hak tulis. Lihat langkah verifikasi di `docs/PREFLIGHT.md`.
+
 ## R0.05 Migrasi bertahap ke Next.js (21 November 2026)
 
 Acuan: blueprint di prototipe, `docs/blueprint/16-entitlement-dan-migrasi.md` §5 dan §7 (keputusan PO: satu repo, satu aplikasi Next.js, migrasi per modul tanpa rewrite).
