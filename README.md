@@ -1,10 +1,10 @@
 # Ata
 
 Asisten lomba untuk siswa dan mahasiswa: PWA mobile-first oleh Sobat Ambis.
-Saat ini repo berisi **fondasi** (kerangka Next.js 15 dan design system "Airy Glass"); fitur aplikasi belum dibangun.
+Saat ini repo berisi fondasi backend akun (R0.1) dan migrasi bertahap layar dari prototipe ke Next.js 15 (R0.2/M1).
 
 - Kebutuhan produk: [docs/PRD.md](docs/PRD.md)
-- Design system: [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)
+- Design system (mengikuti prototipe): [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) · catatan migrasi UI: [docs/MIGRASI-UI.md](docs/MIGRASI-UI.md)
 - Status pengerjaan: [docs/STATUS.md](docs/STATUS.md)
 - Aturan kerja: [CLAUDE.md](CLAUDE.md)
 

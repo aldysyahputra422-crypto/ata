@@ -1,5 +1,5 @@
-/* Ata design tokens. Source of truth: docs/DESIGN-SYSTEM.md sections 3 and 8.
-   Do not change values here without updating that document. */
+/* Legacy "Airy Glass" tokens for the old (fondasi) routes only (docs/arsip/DESIGN-SYSTEM-airy-glass.md).
+   Not a source of truth: migrated screens use src/styles/prototype/shared/ds.css. Retired with the last (fondasi) route. */
 
 :root,
 [data-theme="light"] {

@@ -2,6 +2,13 @@
 
 Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 3 (Tanya Ata) selesai dibangun.
 
+## R0.2-0 Fondasi migrasi UI (22 November 2026)
+
+- K-23 diterapkan: Gratis 1 Slot aktif, Pro 3 (final). Batas lain tetap usulan. Migrasi `0004` (belum diterapkan ke `ata-dev`).
+- /styleguide sekarang merender referensi komponen prototipe; styleguide dan komponen lama yang tidak dipakai lagi dihapus setelah audit dependensi.
+- Paritas piksel /styleguide vs prototipe: 0 piksel beda di 390/1280, terang/gelap. Dua cacat kontras milik prototipe menunggu keputusan PO.
+- Rincian: [docs/MIGRASI-UI.md](MIGRASI-UI.md).
+
 ## R0.1 Fondasi backend
 
 - **Lulus di Supabase lokal.** Migrasi mencakup profil, matriks entitlement berversi, grant Pro, redeem atomik, audit, izin AI, dan persetujuan. RLS serta kontrak isolasi dua akun diuji di PGlite dan di stack Docker. Batas Slot tetap Free 3 dan Pro 3 sesuai konfigurasi yang berlaku sambil menunggu K-23.

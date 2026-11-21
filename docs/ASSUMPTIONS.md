@@ -2,6 +2,27 @@
 
 Keputusan yang diambil tanpa bertanya, sesuai aturan kerja. Ubah di sini bila salah.
 
+## K-23: matriks paket Gratis vs Pro (keputusan PO, R0.2-0)
+
+Hanya **Slot aktif** yang final. Semua batas lain adalah **usulan (belum final)**: dievaluasi PO, tidak boleh ditampilkan sebagai ketentuan permanen. Sumber tunggal: `src/lib/entitlements/config.ts` (`CONFIG_VERSION = 2`), dicerminkan di tabel `plan_features` oleh migrasi `0004_entitlement_k23_active_slots.sql`.
+
+| Fitur | Gratis | Pro | Status |
+|---|---|---|---|
+| Slot aktif | 1 | 3 | **final** (Gratis K-23, Pro K-03) |
+| Lomba manual tersimpan | 10 | tanpa batas | usulan (belum final) |
+| Handoff Pack | 15/bulan | tanpa batas | usulan (belum final) |
+| Validasi berkas | 3/bulan | 50/bulan (kalibrasi dari biaya nyata) | usulan (belum final) |
+| Prompt tersimpan | 10 | tanpa batas | usulan (belum final) |
+| Jury Pack | 5/bulan | tanpa batas | usulan (belum final) |
+| Persona juri | 1 | tanpa batas | usulan (belum final) |
+| Riwayat versi juri | 3 | tanpa batas | usulan (belum final) |
+| Item portofolio | 10 | tanpa batas | usulan (belum final) |
+| Laporan orang tua | 1/bulan | tanpa batas | usulan (belum final) |
+| Jendela analitik | 28 hari | tanpa batas | usulan (belum final) |
+| Konteks pribadi penuh, Peta Jalan adaptif, workflow multi-langkah, panel juri, Red Team juri, rubrik resmi, workflow multi-koneksi, pemantauan sumber, laporan evaluasi PDF | tidak | ya | usulan (belum final) |
+
+**Slot di atas batas** (mis. Pro turun ke Gratis, atau data demo): Slot lama, arsip, riwayat, dan Data Progres tidak dihapus dan tidak diarsipkan otomatis. Batas hanya mencegah menambah atau mengaktifkan Slot baru. Pengguna memilih sendiri Slot yang tetap aktif lewat UI (M1). Penegakan di database (trigger) dibuat bersama tabel Slot per akun di M1.
+
 ## Dari PRD Bagian 12 (asumsi default dipakai)
 
 Semua 14 butir memakai kolom "Asumsi default". Yang paling memengaruhi tahap awal:

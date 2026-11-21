@@ -6,9 +6,13 @@ import { PLAN_FEATURES, featuresFor, withinLimit } from "@/lib/entitlements/conf
 import { HAK } from "@/lib/prototype/shared/logic/hak.js";
 
 describe("entitlement config (single source)", () => {
-  it("Pro has 3 active Slots, decided (K-03); Free is still a proposal", () => {
+  it("active Slots are final: Free 1 (K-23), Pro 3 (K-03); every other limit is still a proposal", () => {
     expect(PLAN_FEATURES.pro.activeSlots).toMatchObject({ limit: 3, status: "final" });
-    expect(PLAN_FEATURES.free.activeSlots.status).toBe("proposed");
+    expect(PLAN_FEATURES.free.activeSlots).toMatchObject({ limit: 1, status: "final" });
+    for (const features of Object.values(PLAN_FEATURES)) {
+      const final = Object.entries(features).filter(([, setting]) => setting.status === "final").map(([name]) => name);
+      expect(final).toEqual(["activeSlots"]);
+    }
   });
 
   it("matches the prototype's single source until the prototype screens are migrated", () => {
@@ -22,6 +26,8 @@ describe("entitlement config (single source)", () => {
   });
 
   it("limits are enforced from config: reaching the limit refuses adding more; null means unlimited", () => {
+    expect(withinLimit("free", "activeSlots", 0)).toBe(true);
+    expect(withinLimit("free", "activeSlots", 1)).toBe(false);
     expect(withinLimit("pro", "activeSlots", 2)).toBe(true);
     expect(withinLimit("pro", "activeSlots", 3)).toBe(false);
     expect(withinLimit("pro", "savedPrompts", 10_000)).toBe(true);
