@@ -7,10 +7,12 @@
  * - The plan itself (free/pro) always comes from the server (entitlements table), never from the client.
  * - No feature grants AI or search usage paid by Ata. BYOK only: AI and search run on the user's own keys,
  *   or through prompts the user runs in external apps.
- * - `status: "proposed"` values are NOT final until the Product Owner approves the entitlement matrix (K-23).
+ * - K-23 (PO decision): only the active-Slot limit is final (Free 1, Pro 3). Every other value is `status: "proposed"`:
+ *   a proposal pending PO evaluation, never presented as a permanent plan term.
+ * - Slots above the limit (e.g. after a downgrade) are kept; the limit only blocks adding or activating more.
  */
 
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 2;
 
 export type Plan = "free" | "pro";
 export type Status = "final" | "proposed";
@@ -47,8 +49,7 @@ const on = (enabled: boolean, status: Status = "proposed"): Toggle => ({ enabled
 
 export const PLAN_FEATURES: Readonly<Record<Plan, PlanFeatures>> = Object.freeze({
   free: {
-    // PO recommendation is 1 active Slot for Free; the prototype still runs 3 until the matrix is approved.
-    activeSlots: p(3, "proposed", { note: "PO recommends 1; final after K-23 approval" }),
+    activeSlots: p(1, "final", { note: "K-23" }),
     manualCompetitions: p(10),
     handoffPacks: p(15, "proposed", { period: "month" }),
     fileValidations: p(3, "proposed", { period: "month" }),

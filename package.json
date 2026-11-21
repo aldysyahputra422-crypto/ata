@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed:reset": "node scripts/seed-reset.mjs",
-    "screenshots": "node scripts/styleguide-screenshots.mjs"
+    "screenshots": "node scripts/styleguide-screenshots.mjs",
+    "visual:parity": "node scripts/visual-parity.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.102",

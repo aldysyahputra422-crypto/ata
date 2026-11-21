@@ -1,22 +1,25 @@
 // @vitest-environment node
 // Dipindah dari prototipe tests/paket-ata.test.mjs (R0.05-1). Kasus uji tidak diubah; hanya import & path.
+// R0.2-0: kasus batas Slot mengikuti K-23 (Gratis 1, Pro 3).
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PAKET } from '@/lib/prototype/masuk/data/paket.js';
 import * as L from '@/lib/prototype/masuk/logic/paket.js';
 const { batasSlot, bisaTambahSlot, fiturTerkunci, labelPaket } = L;
 
-test('K-03: Gratis dan Pro sama-sama tiga Slot aktif', () => {
-  assert.equal(batasSlot('gratis'), 3);
+test('K-23/K-03: Gratis satu Slot aktif, Pro tiga', () => {
+  assert.equal(batasSlot('gratis'), 1);
   assert.equal(batasSlot('pro'), 3);
-  assert.equal(batasSlot('tidak-ada'), 3);
+  assert.equal(batasSlot('tidak-ada'), 1);
 });
 
-test('Slot keempat ditolak di Gratis maupun Pro', () => {
-  assert.equal(bisaTambahSlot('gratis', 2).boleh, true);
-  const penuh = bisaTambahSlot('gratis', 3);
+test('Slot kedua ditolak di Gratis, Slot keempat ditolak di Pro', () => {
+  assert.equal(bisaTambahSlot('gratis', 0).boleh, true);
+  const penuh = bisaTambahSlot('gratis', 1);
   assert.equal(penuh.boleh, false);
   assert.equal(penuh.sisa, 0);
+  assert.equal(bisaTambahSlot('gratis', 2).sisa, 0, 'di atas batas: sisa tidak negatif');
+  assert.equal(bisaTambahSlot('pro', 2).boleh, true);
   assert.equal(bisaTambahSlot('pro', 3).boleh, false);
 });
 
@@ -47,4 +50,5 @@ test('entitlement limits come from ONE config (shared/logic/hak.js)', async () =
     assert.equal(BATAS_PAKET[p], HAK[p].slotAktif);
   }
   assert.equal(HAK.pro.slotAktif, 3, 'K-03: Pro 3 active Slots');
+  assert.equal(HAK.gratis.slotAktif, 1, 'K-23: Gratis 1 active Slot');
 });

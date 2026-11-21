@@ -4,7 +4,7 @@ Empat repo yang diminta Product Owner untuk membantu menaikkan kualitas hasil. S
 dibaca pada 12 November 2026. **Belum ada yang dipasang ke repo ini**: isinya instruksi pihak ketiga, jadi
 diperlakukan sebagai referensi dan alat kritik, bukan sebagai aturan proyek.
 
-Aturan pakai: `docs/DESIGN-SYSTEM.md` dan PRD tetap pemegang keputusan. Saran skill dipakai hanya bila tidak bertentangan.
+Aturan pakai: PRD, blueprint, prototipe (visual), dan `docs/DESIGN-SYSTEM.md` tetap pemegang keputusan. Saran skill dipakai hanya bila tidak bertentangan.
 
 | Repo | Lisensi | Commit dibaca | Isinya | Dipakai untuk Ata | Catatan penting |
 |---|---|---|---|---|---|

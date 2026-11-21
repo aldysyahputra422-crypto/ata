@@ -62,3 +62,6 @@ public/swe-worker*
 
 # arsip backup dari Claude (artifact + prototipe), bukan bagian repo
 /claude_artifacts/
+
+# visual:parity output
+/docs/screenshots/parity/

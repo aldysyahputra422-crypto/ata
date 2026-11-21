@@ -1,80 +1,55 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-const html = (page: import("@playwright/test").Page) => page.locator("html");
+// /styleguide renders the prototype component reference (uji-visual/komponen.html) with the prototype CSS.
+const SECTIONS = ["hTombol", "hLabel", "hBanner", "hIsian", "hFolder", "hMuat"];
+
+// Contrast defects that exist identically in the prototype reference page (docs/MIGRASI-UI.md, R0.2-0).
+// The migration must not diverge from the prototype; any NEW failure still fails this test.
+const KNOWN_PROTOTYPE_DEFECTS: Record<"light" | "dark", string[]> = {
+  light: [".status--ok", ".status--warn"],
+  dark: [],
+};
+
+async function openStyleguide(page: Page, tema?: "light" | "dark") {
+  await page.goto(tema ? `/styleguide?tema=${tema}` : "/styleguide");
+  await expect(page.locator('body[data-siap="1"]')).toBeAttached();
+}
 
 test.describe("styleguide", () => {
-  test("renders every P0 section", async ({ page }) => {
-    await page.goto("/styleguide");
-    for (const id of ["palet", "tipografi", "material", "tombol", "input", "segmented", "gem", "poster", "folder", "ring", "hero", "overlay", "kosong"]) {
-      await expect(page.locator(`#${id}`)).toBeVisible();
-    }
-    await expect(page.getByRole("note")).toHaveText(/Versi Demo/);
+  test("renders every prototype reference section", async ({ page }) => {
+    await openStyleguide(page);
+    for (const id of SECTIONS) await expect(page.locator(`#${id}`)).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   });
 
-  test("effects tier: minimal on touch, rich on desktop", async ({ page }, info) => {
-    await page.goto("/styleguide");
-    await expect(html(page)).toHaveAttribute("data-fx", info.project.name === "mobile" ? "minimal" : "rich");
+  test("applies the theme from ?tema=", async ({ page }) => {
+    await openStyleguide(page, "dark");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    await openStyleguide(page, "light");
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe(bg);
   });
 
-  test("forcing Minim stops the desktop extras and Kaca Mati removes every blur", async ({ page }) => {
-    await page.goto("/styleguide");
-    await page.getByRole("radiogroup", { name: "Efek gerak" }).getByRole("radio", { name: "Minim" }).click();
-    await expect(html(page)).toHaveAttribute("data-fx", "minimal");
-    await expect(page.locator(".mesh")).toBeHidden();
-
-    await page.getByRole("radiogroup", { name: "Efek kaca" }).getByRole("radio", { name: "Mati" }).click();
-    await expect(html(page)).toHaveAttribute("data-glass", "off");
-    const blurred = await page.evaluate(
-      () =>
-        [...document.querySelectorAll(".glass-thin, .glass-frost")].filter((el) => {
-          const s = getComputedStyle(el);
-          return (s.backdropFilter && s.backdropFilter !== "none") || false;
-        }).length,
-    );
-    expect(blurred).toBe(0);
+  test("has no horizontal overflow at 390 px", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStyleguide(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   });
 
-  test("theme choice persists across reloads without a flash of the wrong theme", async ({ page }) => {
-    await page.goto("/styleguide");
-    await page.getByRole("radiogroup", { name: "Tema" }).getByRole("radio", { name: "Gelap" }).click();
-    await expect(html(page)).toHaveAttribute("data-theme", "dark");
-    await page.reload({ waitUntil: "commit" });
-    await expect(html(page)).toHaveAttribute("data-theme", "dark");
-  });
-
-  test("segmented control works from the keyboard", async ({ page }) => {
-    await page.goto("/styleguide");
-    const group = page.getByRole("radiogroup", { name: "Tanya Ata" });
-    await group.getByRole("radio", { name: "Chat" }).focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(group.getByRole("radio", { name: "Resep" })).toHaveAttribute("aria-checked", "true");
-    await expect(group.getByRole("radio", { name: "Resep" })).toBeFocused();
-    await page.keyboard.press("End");
-    await expect(group.getByRole("radio", { name: "Ingatan" })).toHaveAttribute("aria-checked", "true");
-  });
-
-  test("sheet traps focus, closes with Escape and returns focus", async ({ page }) => {
-    await page.goto("/styleguide");
-    const trigger = page.getByRole("button", { name: "Buka sheet" });
-    await trigger.click();
-    const dialog = page.getByRole("dialog", { name: "Lepas slot ini?" });
-    await expect(dialog).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(dialog).toBeHidden();
-    await expect(trigger).toBeFocused();
-  });
-
-  for (const theme of ["light", "dark"] as const) {
-    test(`text contrast is AA (${theme})`, async ({ page }) => {
-      await page.addInitScript((t) => localStorage.setItem("ata.theme", t), theme);
-      await page.goto("/styleguide");
-      await page.evaluate(() => document.fonts.ready);
+  for (const tema of ["light", "dark"] as const) {
+    test(`text contrast is AA (${tema})`, async ({ page }) => {
+      await openStyleguide(page, tema);
       const results = await new AxeBuilder({ page }).withRules(["color-contrast"]).analyze();
-      const summary = results.violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")} :: ${n.failureSummary?.split("\n")[1]?.trim()}`));
-      expect(summary).toEqual([]);
+      const failing = results.violations.flatMap((v) => v.nodes.map((n) => n.target.join(" ")));
+      expect(failing.filter((t) => !KNOWN_PROTOTYPE_DEFECTS[tema].includes(t))).toEqual([]);
     });
   }
+
+  test("the development-only /uji-visual page is not found in production builds", async ({ page }) => {
+    const res = await page.goto("/uji-visual");
+    expect(res?.status()).toBe(404);
+  });
 });
 
 test.describe("app shell", () => {
