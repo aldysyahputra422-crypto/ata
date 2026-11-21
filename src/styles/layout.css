@@ -115,12 +115,8 @@
   border-radius: 16px;
   font-weight: 800;
   font-size: 1.125rem;
-  color: var(--primary-ink);
-  background: linear-gradient(160deg, var(--hero-a), var(--primary));
+  color: #ffffff; /* white on coral: ≥ 4.5:1 across the whole gradient */
+  background: linear-gradient(160deg, #cf3a1c, #a8290f);
   text-decoration: none;
   box-shadow: var(--shadow-2);
-}
-[data-theme="dark"] .navrail__brand {
-  color: #fff;
-  background: linear-gradient(160deg, #6a4cf0, #3f2bb8);
 }

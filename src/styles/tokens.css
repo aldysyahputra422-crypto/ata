@@ -3,34 +3,35 @@
 
 :root,
 [data-theme="light"] {
-  /* Mist: neutrals with a hint of violet */
+  /* Mist: warm neutrals (Senja palette, 12 Nov 2026) */
   --mist-0: #ffffff;
-  --mist-50: #f7f6fb;
-  --mist-100: #efeef6;
-  --mist-200: #e2e1ec;
-  --mist-300: #cdccdb;
-  --mist-500: #8b8ca3; /* decorative/disabled only, NOT for text */
-  --mist-600: #5b5f77; /* secondary text */
-  --mist-800: #26274a;
-  --mist-900: #14142b;
+  --mist-50: #fff8f3;
+  --mist-100: #fbeee6;
+  --mist-200: #f3e0d5;
+  --mist-300: #e5ccbf;
+  --mist-500: #a98e82; /* decorative/disabled only, NOT for text */
+  --mist-600: #6e574c; /* secondary text */
+  --mist-800: #4a2a20;
+  --mist-900: #2a1410;
 
   --bg: var(--mist-50);
   --surface: #ffffff;
   --surface-sunken: var(--mist-100);
   --text: var(--mist-900);
   --text-muted: var(--mist-600);
-  --border: rgba(20, 20, 43, 0.1);
-  --border-strong: rgba(20, 20, 43, 0.18);
+  --border: rgba(74, 30, 16, 0.12);
+  --border-strong: rgba(74, 30, 16, 0.22);
 
   /* Brand */
-  --primary: #5b3df5;
-  --primary-hover: #4b2de0;
+  --primary: #cf3a1c;
+  --primary-hover: #b42f14;
   --primary-ink: #ffffff;
-  --primary-soft: #ece8ff;
-  --hero-a: #8b6cff;
-  --hero-b: #2f6bff;
-  --spark: #c6ff3d; /* fill only; never text colour on light theme */
-  --spark-ink: #1b2300;
+  --primary-soft: #ffe8de;
+  --hero-a: #ffb07a;
+  --hero-b: #ff7fa3;
+  --spark: #ffc400; /* fill only; never text colour on light theme */
+  --spark-ink: #3a2a00;
+  --on-hero: #3a1208; /* text on the peach-to-pink hero gradient */
 
   /* Semantic */
   --success: #059669;
@@ -43,32 +44,32 @@
   --info-soft: #dcebff;
 
   /* Background halos */
-  --halo-1: rgba(139, 108, 255, 0.18);
-  --halo-2: rgba(77, 163, 255, 0.18);
-  --halo-3: rgba(255, 184, 107, 0.2);
+  --halo-1: rgba(255, 160, 100, 0.28);
+  --halo-2: rgba(255, 120, 160, 0.22);
+  --halo-3: rgba(255, 205, 120, 0.26);
 
   /* Track + knob (TactileSegmented) */
-  --seg-track: linear-gradient(180deg, #f6f6f8, #ececef);
+  --seg-track: linear-gradient(180deg, #fff6f0, #f8e9df);
   --ring-track: var(--mist-200);
-  --scrim: rgba(20, 20, 43, 0.32);
+  --scrim: rgba(42, 20, 16, 0.32);
 
   color-scheme: light;
 }
 
 [data-theme="dark"] {
-  --bg: #0d0d1f;
-  --surface: #17172e;
-  --surface-sunken: #11112a;
-  --text: #f4f4ff;
-  --text-muted: #a9abc8;
+  --bg: #1a0f0c;
+  --surface: #2a1915;
+  --surface-sunken: #21130f;
+  --text: #fff3ec;
+  --text-muted: #d6b8aa;
   --border: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.2);
 
-  --primary: #8b6cff;
-  --primary-hover: #9f85ff;
-  --primary-ink: #0d0d1f;
-  --primary-soft: rgba(139, 108, 255, 0.18);
-  --spark-ink: #1b2300;
+  --primary: #ff8a5c;
+  --primary-hover: #ffa07a;
+  --primary-ink: #2a0e05;
+  --primary-soft: rgba(255, 138, 92, 0.18);
+  --spark-ink: #3a2a00;
 
   --success: #34d399;
   --warn: #fbbf24;
@@ -79,11 +80,11 @@
   --danger-soft: rgba(251, 113, 133, 0.16);
   --info-soft: rgba(96, 165, 250, 0.16);
 
-  --halo-1: rgba(139, 108, 255, 0.28);
-  --halo-2: rgba(47, 107, 255, 0.22);
-  --halo-3: rgba(255, 140, 70, 0.1);
+  --halo-1: rgba(255, 130, 80, 0.26);
+  --halo-2: rgba(255, 90, 140, 0.18);
+  --halo-3: rgba(255, 190, 90, 0.1);
 
-  --seg-track: linear-gradient(180deg, #1d1d38, #15152c);
+  --seg-track: linear-gradient(180deg, #33201a, #261611);
   --ring-track: rgba(255, 255, 255, 0.12);
   --scrim: rgba(0, 0, 0, 0.55);
 
@@ -95,9 +96,13 @@
   --gem-mint-top: #d9fbc9;
   --gem-mint-bot: #b4f08f;
   --gem-mint-ink: #2f6b12;
-  --gem-lavender-top: #e4dbff;
-  --gem-lavender-bot: #c4b0ff;
-  --gem-lavender-ink: #4a2fb8;
+  --gem-coral-top: #ffe3d8;
+  --gem-coral-bot: #ffb9a0;
+  --gem-coral-ink: #8a2409;
+  /* legacy alias: lavender was replaced by coral; remove after components migrate */
+  --gem-lavender-top: var(--gem-coral-top);
+  --gem-lavender-bot: var(--gem-coral-bot);
+  --gem-lavender-ink: var(--gem-coral-ink);
   --gem-apricot-top: #ffe8c2;
   --gem-apricot-bot: #ffcb85;
   --gem-apricot-ink: #8a4a00;
@@ -112,11 +117,11 @@
   --gem-lemon-ink: #6b5600;
 
   /* Shadows */
-  --shadow-1: 0 1px 2px rgba(20, 20, 43, 0.06), 0 2px 8px rgba(20, 20, 43, 0.05);
-  --shadow-2: 0 2px 4px rgba(20, 20, 43, 0.05), 0 12px 28px -8px rgba(20, 20, 43, 0.14);
-  --shadow-3: 0 4px 8px rgba(20, 20, 43, 0.05), 0 28px 48px -16px rgba(20, 20, 43, 0.22);
+  --shadow-1: 0 1px 2px rgba(74, 30, 16, 0.06), 0 2px 8px rgba(74, 30, 16, 0.05);
+  --shadow-2: 0 2px 4px rgba(74, 30, 16, 0.05), 0 12px 28px -8px rgba(74, 30, 16, 0.14);
+  --shadow-3: 0 4px 8px rgba(74, 30, 16, 0.05), 0 28px 48px -16px rgba(74, 30, 16, 0.22);
   /* tinted shadow: --tint is the poster's dominant colour */
-  --shadow-tint: 0 28px 44px -18px color-mix(in srgb, var(--tint, #8b8ca3) 55%, transparent);
+  --shadow-tint: 0 28px 44px -18px color-mix(in srgb, var(--tint, #a98e82) 55%, transparent);
 
   /* Radius */
   --r-chip: 999px;

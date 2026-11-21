@@ -59,3 +59,6 @@ public/sw.js
 public/sw.js.map
 public/swe-worker*
 !.env.example
+
+# arsip backup dari Claude (artifact + prototipe), bukan bagian repo
+/claude_artifacts/

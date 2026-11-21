@@ -63,75 +63,77 @@
 
 ### 3.1 Warna (terang = bawaan)
 
+> **Diganti 12 November 2026 atas keputusan Product Owner:** palet ungu-biru terasa generik ("AI slop"). Palet sekarang **Senja**: netral hangat, koral sebagai warna utama, dan gradasi peach ke merah muda untuk hero. Nama token tidak berubah, jadi komponen tidak perlu diubah.
+
 ```css
 /* src/styles/tokens.css */
 :root,
 [data-theme="light"] {
-  /* Mist: netral dengan sedikit ungu */
+  /* Mist: netral hangat */
   --mist-0:   #FFFFFF;
-  --mist-50:  #F7F6FB;
-  --mist-100: #EFEEF6;
-  --mist-200: #E2E1EC;
-  --mist-300: #CDCCDB;
-  --mist-500: #8B8CA3;  /* dekoratif/disabled saja, BUKAN untuk teks */
-  --mist-600: #5B5F77;  /* teks sekunder (±5,7:1 di atas --bg) */
-  --mist-800: #26274A;
-  --mist-900: #14142B;
+  --mist-50:  #FFF8F3;
+  --mist-100: #FBEEE6;
+  --mist-200: #F3E0D5;
+  --mist-300: #E5CCBF;
+  --mist-500: #A98E82;  /* dekoratif/disabled saja, BUKAN untuk teks */
+  --mist-600: #6E574C;  /* teks sekunder */
+  --mist-800: #4A2A20;
+  --mist-900: #2A1410;
 
   --bg:             var(--mist-50);
   --surface:        #FFFFFF;
   --surface-sunken: var(--mist-100);
   --text:           var(--mist-900);
   --text-muted:     var(--mist-600);
-  --border:         rgba(20, 20, 43, 0.10);
-  --border-strong:  rgba(20, 20, 43, 0.18);
+  --border:         rgba(74, 30, 16, 0.12);
+  --border-strong:  rgba(74, 30, 16, 0.22);
 
   /* Merek */
-  --primary:        #5B3DF5;  /* Ambis Violet */
-  --primary-hover:  #4B2DE0;
-  --primary-ink:    #FFFFFF;  /* teks di atas primary (±6:1) */
-  --primary-soft:   #ECE8FF;
-  --hero-a:         #8B6CFF;
-  --hero-b:         #2F6BFF;
-  --spark:          #C6FF3D;  /* HANYA sebagai isian; jangan jadi warna teks di tema terang */
-  --spark-ink:      #1B2300;
+  --primary:        #CF3A1C;  /* Koral Senja */
+  --primary-hover:  #B42F14;
+  --primary-ink:    #FFFFFF;
+  --primary-soft:   #FFE8DE;
+  --hero-a:         #FFB07A;  /* peach */
+  --hero-b:         #FF7FA3;  /* merah muda */
+  --on-hero:        #3A1208;  /* teks di atas gradasi hero */
+  --spark:          #FFC400;  /* HANYA sebagai isian */
+  --spark-ink:      #3A2A00;
 
-  /* Semantik */
+  /* Semantik: tidak berubah */
   --success: #059669;  --success-soft: #D8F5E8;
   --warn:    #B45309;  --warn-soft:    #FFEBC7;
   --danger:  #BE123C;  --danger-soft:  #FFDDE5;
   --info:    #1D5FD6;  --info-soft:    #DCEBFF;
 
   /* Halo latar */
-  --halo-1: rgba(139, 108, 255, 0.18);
-  --halo-2: rgba(77, 163, 255, 0.18);
-  --halo-3: rgba(255, 184, 107, 0.20);
+  --halo-1: rgba(255, 160, 100, 0.28);
+  --halo-2: rgba(255, 120, 160, 0.22);
+  --halo-3: rgba(255, 205, 120, 0.26);
 }
 
 [data-theme="dark"] {
-  --bg:             #0D0D1F;
-  --surface:        #17172E;
-  --surface-sunken: #11112A;
-  --text:           #F4F4FF;
-  --text-muted:     #A9ABC8;
+  --bg:             #1A0F0C;
+  --surface:        #2A1915;
+  --surface-sunken: #21130F;
+  --text:           #FFF3EC;
+  --text-muted:     #D6B8AA;
   --border:         rgba(255, 255, 255, 0.10);
   --border-strong:  rgba(255, 255, 255, 0.20);
 
-  --primary:        #8B6CFF;
-  --primary-hover:  #9F85FF;
-  --primary-ink:    #0D0D1F;
-  --primary-soft:   rgba(139, 108, 255, 0.18);
-  --spark-ink:      #1B2300;
+  --primary:        #FF8A5C;
+  --primary-hover:  #FFA07A;
+  --primary-ink:    #2A0E05;
+  --primary-soft:   rgba(255, 138, 92, 0.18);
 
   --success-soft: rgba(52, 211, 153, 0.16);
-  --warn-soft:    rgba(251, 191, 36, 0.16);
-  --danger-soft:  rgba(251, 113, 133, 0.16);
-  --info-soft:    rgba(96, 165, 250, 0.16);
+  --warn-soft: rgba(251, 191, 36, 0.16);
+  --danger-soft: rgba(251, 113, 133, 0.16);
+  --info-soft: rgba(96, 165, 250, 0.16);
   --success: #34D399; --warn: #FBBF24; --danger: #FB7185; --info: #60A5FA;
 
-  --halo-1: rgba(139, 108, 255, 0.28);
-  --halo-2: rgba(47, 107, 255, 0.22);
-  --halo-3: rgba(255, 140, 70, 0.10);
+  --halo-1: rgba(255, 130, 80, 0.26);
+  --halo-2: rgba(255, 90, 140, 0.18);
+  --halo-3: rgba(255, 190, 90, 0.10);
 }
 ```
 
@@ -144,7 +146,7 @@ Dipakai untuk GemChip, stiker, dan penanda kategori. Teks `ink` sudah dihitung �
 | Nama | top | bot | ink | Dipakai untuk |
 |---|---|---|---|---|
 | `mint` | `#D9FBC9` | `#B4F08F` | `#2F6B12` | Kategori bisnis |
-| `lavender` | `#E4DBFF` | `#C4B0FF` | `#4A2FB8` | Merek, kategori PKM/karya tulis, chip mentor |
+| `coral` | `#FFE3D8` | `#FFB9A0` | `#8A2409` | Merek, kategori PKM/karya tulis, chip mentor (menggantikan `lavender` sejak 12 Nov 2026; `--gem-lavender-*` tetap ada sebagai alias sementara) |
 | `apricot` | `#FFE8C2` | `#FFCB85` | `#8A4A00` | Kategori poster/desain/foto, stempel sisa hari, chip mentor |
 | `sky` | `#D6ECFF` | `#A7D3FF` | `#0F4C9A` | Kategori olimpiade/hackathon, chip mentor |
 | `rose` | `#FFDCE5` | `#FFB3C6` | `#9B1B45` | Kategori kreatif/video, chip mentor |
@@ -153,7 +155,7 @@ Dipakai untuk GemChip, stiker, dan penanda kategori. Teks `ink` sudah dihitung �
 ```css
 :root {
   --gem-mint-top:#D9FBC9;     --gem-mint-bot:#B4F08F;     --gem-mint-ink:#2F6B12;
-  --gem-lavender-top:#E4DBFF; --gem-lavender-bot:#C4B0FF; --gem-lavender-ink:#4A2FB8;
+  --gem-coral-top:#FFE3D8;    --gem-coral-bot:#FFB9A0;    --gem-coral-ink:#8A2409;
   --gem-apricot-top:#FFE8C2;  --gem-apricot-bot:#FFCB85;  --gem-apricot-ink:#8A4A00;
   --gem-sky-top:#D6ECFF;      --gem-sky-bot:#A7D3FF;      --gem-sky-ink:#0F4C9A;
   --gem-rose-top:#FFDCE5;     --gem-rose-bot:#FFB3C6;     --gem-rose-ink:#9B1B45;
@@ -706,9 +708,9 @@ Anatomi: **panel belakang** (abu muda bertab) → **hingga 3 thumbnail** menyemb
 
 ```css
 .gem {
-  --top: var(--gem-lavender-top);
-  --bot: var(--gem-lavender-bot);
-  --ink: var(--gem-lavender-ink);
+  --top: var(--gem-coral-top);
+  --bot: var(--gem-coral-bot);
+  --ink: var(--gem-coral-ink);
   display: inline-flex; align-items: center; gap: 6px;
   height: 32px; padding: 0 14px;
   border-radius: 999px;
@@ -1114,7 +1116,7 @@ Gunakan `document.startViewTransition` (deteksi fitur) pada navigasi klien antar
 | **TaskRow** | Tinggi min 56; kotak centang 24 px bulat; judul 16/22; estimasi menit caption; chip mentor di kanan bila ada saran; selesai = coret halus + `--text-muted` |
 | **Sheet / Dialog** | Mobile (< 768): sheet dari bawah, radius atas 28, pegangan 36×4; ≥ 768: dialog tengah maks 520 px; panel samping 420 px untuk Kotak Saran di `lg`. `glass-frost`, latar redup `rgba(20,20,43,.32)` |
 | **Toast** | `glass-thin`, di atas tab bar (mobile) / pojok kanan bawah (desktop), 4 detik, bisa ditutup |
-| **Badge** | `DATA DEMO` = pil `--warn-soft` dengan ikon; `Sobat Ambis` = `GemChip lavender`; ConfidenceBadge = ikon + kata ("Yakin", "Cek poster asli") |
+| **Badge** | `DATA DEMO` = pil `--warn-soft` dengan ikon; `Sobat Ambis` = `GemChip coral`; ConfidenceBadge = ikon + kata ("Yakin", "Cek poster asli") |
 | **Tabs (nonsegmented)** | Garis bawah 2 px `--primary`, hanya untuk navigasi dalam halaman di desktop |
 | **Tooltip** | Hanya desktop; tidak membawa informasi penting |
 | **Skeleton** | Blok `--surface-sunken` dengan kilau lembut 1,4 dtk; berhenti dengan `prefers-reduced-motion` |
@@ -1214,8 +1216,8 @@ Prinsip: gerak **menjelaskan perubahan**; hiburan hanya di `rich`. Hanya `transf
 | Kategori | Tone | Ikon stiker (Lucide, sementara) |
 |---|---|---|
 | `business_plan` | mint | `briefcase-business` |
-| `pkm` | lavender | `flask-conical` |
-| `kti_essay` | lavender | `file-text` |
+| `pkm` | coral | `flask-conical` |
+| `kti_essay` | coral | `file-text` |
 | `olympiad` | sky | `atom` |
 | `hackathon` | sky | `code-xml` |
 | `poster` | apricot | `image` |

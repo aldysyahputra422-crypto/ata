@@ -859,7 +859,7 @@ textarea.input {
   bottom: -4%;
   height: 42%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(139, 108, 255, 0.55), rgba(77, 163, 255, 0.35), transparent);
+  background: radial-gradient(closest-side, rgba(255, 176, 122, 0.55), rgba(255, 127, 163, 0.35), transparent);
   filter: blur(40px);
   z-index: 0;
 }
@@ -873,13 +873,13 @@ textarea.input {
   background: rgba(255, 255, 255, 0.86);
   -webkit-backdrop-filter: blur(var(--blur-l));
   backdrop-filter: blur(var(--blur-l));
-  box-shadow: -8px 12px 40px -14px rgba(31, 91, 240, 0.35);
+  box-shadow: -8px 12px 40px -14px rgba(207, 58, 28, 0.3);
   border: 1px solid var(--glass-edge);
   border-right: 0;
   border-bottom: 0;
 }
 [data-theme="dark"] .hero-card__window {
-  background: rgba(23, 23, 46, 0.72);
+  background: rgba(42, 25, 21, 0.72);
 }
 .hero-card__dots {
   display: flex;
