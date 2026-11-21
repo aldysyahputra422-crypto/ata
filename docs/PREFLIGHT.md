@@ -8,7 +8,7 @@
 | Git / GitHub | Ya | 2.56.0 | Repo dan cabang R0.05 dapat diakses | — |
 | Docker / Supabase CLI | Ya | 29.9.2 / 3.1.0 | Stack lokal berjalan dan migrasi `0001`–`0003` lulus dari database kosong | PGlite untuk uji SQL dan RLS |
 | Playwright | Ya | 1.63.0 | R0.1 mengubah backend. Uji HTTP memakai Next.js dan Supabase lokal | — |
-| Supabase Cloud | Akses baca | Free Tier | `ata-dev` aktif. Riwayat migrasi dan skema `public` masih kosong saat diperiksa | Koneksi PostgreSQL Session pooler khusus `ata-dev` untuk DDL |
+| Supabase Cloud | Ya | Free Tier | `ata-dev` aktif. Migrasi `0001`–`0003` diterapkan lewat Session pooler. Konektor MCP hanya baca | Secret repo `SUPABASE_DB_URL` untuk DDL |
 | Google OAuth | Belum aktif | — | Endpoint PKCE tersedia. Uji kontrak memakai respons Auth tiruan | Supabase Auth lokal dengan akun email khusus uji |
 
 ### Pengujian lokal
