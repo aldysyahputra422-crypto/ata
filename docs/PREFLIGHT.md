@@ -8,7 +8,7 @@
 | Git / GitHub | Ya | 2.56.0 | Repo dan cabang R0.05 dapat diakses | — |
 | Docker / Supabase CLI | Ya | 29.9.2 / 3.1.0 | Stack lokal berjalan dan migrasi `0001`–`0003` lulus dari database kosong | PGlite untuk uji SQL dan RLS |
 | Playwright | Ya | 1.63.0 | R0.1 mengubah backend. Uji HTTP memakai Next.js dan Supabase lokal | — |
-| Supabase Cloud | Ya | Free Tier | `ata-dev` aktif. Migrasi `0001`–`0003` diterapkan lewat Session pooler. Konektor MCP hanya baca | Secret repo `SUPABASE_DB_URL` untuk DDL |
+| Supabase Cloud | Ya | Free Tier | `ata-dev` aktif. Migrasi `0001`–`0004` diterapkan lewat Session pooler. Konektor MCP hanya baca | Secret repo `SUPABASE_DB_URL` untuk DDL |
 | Google OAuth | Aktif di `ata-dev` (Testing) | — | Klien Web dengan redirect `https://yupsktehhzhclntuizrd.supabase.co/auth/v1/callback`. Redirect URLs Supabase: `localhost`/`127.0.0.1:3000/api/v1/auth/google/callback` | Supabase Auth lokal dengan akun email khusus uji |
 
 ### Pengujian lokal
@@ -22,6 +22,17 @@
 1. Ambil URL PostgreSQL dari **Connect → Session pooler** di proyek `ata-dev`. Simpan URL dengan kata sandinya sebagai secret `SUPABASE_DB_URL`. Tiga secret API Supabase dipakai oleh aplikasi dan pemeriksaan HTTP.
 2. Periksa target dan daftar migrasi dengan `pnpm exec supabase db push --remote="$SUPABASE_DB_URL" --skip-vault --dry-run`. Setelah target development terverifikasi, terapkan dengan perintah yang sama tanpa `--dry-run`.
 3. Verifikasi riwayat migrasi, seed, RLS dan `/api/health` dari Next.js lokal yang terhubung ke `ata-dev`. Pakai URL dasar proyek untuk `NEXT_PUBLIC_SUPABASE_URL`.
+
+Rollback `0004` (K-23) di `ata-dev`, bila diperlukan:
+
+```sql
+begin;
+update public.plan_features set "limit" = 3, status = 'proposed', note = 'PO recommends 1; final after K-23 approval'
+  where plan = 'free' and feature = 'activeSlots';
+update public.plan_features set config_version = 1;
+delete from supabase_migrations.schema_migrations where version = '0004';
+commit;
+```
 4. Untuk menguji Google sungguhan, aktifkan penyedia Google di Supabase Auth dan daftarkan URL callback aplikasi yang tepat, misalnya `http://127.0.0.1:3000/api/v1/auth/google/callback`. Daftarkan callback Supabase di Google Cloud sesuai [panduan Supabase](https://supabase.com/docs/guides/auth/social-sign-in/auth-google).
 
 ## Catatan preflight awal

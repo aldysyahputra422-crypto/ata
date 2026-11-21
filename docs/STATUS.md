@@ -4,9 +4,9 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 
 ## R0.2-0 Fondasi migrasi UI (22 November 2026)
 
-- K-23 diterapkan: Gratis 1 Slot aktif, Pro 3 (final). Batas lain tetap usulan. Migrasi `0004` (belum diterapkan ke `ata-dev`).
+- K-23 diterapkan: Gratis 1 Slot aktif, Pro 3 (final). Batas lain tetap usulan. Migrasi `0004` sudah diterapkan ke `ata-dev` (22 November 2026): hanya baris `free/activeSlots` yang berubah, jumlah record di semua tabel tetap. Rollback: lihat docs/PREFLIGHT.md.
 - /styleguide sekarang merender referensi komponen prototipe; styleguide dan komponen lama yang tidak dipakai lagi dihapus setelah audit dependensi.
-- Paritas piksel /styleguide vs prototipe: 0 piksel beda di 390/1280, terang/gelap. Dua cacat kontras milik prototipe menunggu keputusan PO.
+- Paritas piksel /styleguide vs prototipe: 0 piksel beda di 390/1280, terang/gelap. Dua cacat kontras label status sudah diperbaiki di prototipe dan disalin ke sini (R0.2-0a); `pnpm visual:parity` lulus tanpa pengecualian.
 - Rincian: [docs/MIGRASI-UI.md](MIGRASI-UI.md).
 
 ## R0.1 Fondasi backend

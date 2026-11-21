@@ -82,7 +82,7 @@ Tidak ada regresi piksel. Fitur styleguide lama yang hilang bersama komponennya:
 
 ### Keterbatasan
 
-- **Kontras di prototipe (terang):** label `.status--ok` "Aktif" 3,26:1 dan `.status--warn` "Perlu cek" 4,29:1 (butuh 4,5:1). Cacat ini identik di prototipe. Di layar prototipe, `lingkungan.css` menimpa warna `.status--ok` (#04674A), tetapi `.status--warn` tidak ditimpa. Uji e2e mencatat dua selector ini sebagai cacat prototipe yang diketahui; kegagalan baru tetap menggagalkan uji. `pnpm visual:parity` tetap keluar gagal karena aturan "nol kegagalan kontras". Menunggu keputusan PO.
+- Kontras label status di tema terang: diperbaiki di R0.2-0a (lihat di bawah).
 - `hak.js` di repo prototipe masih Gratis 3 Slot, jadi layar Paket prototipe dapat berbeda dari produksi sampai prototipe diperbarui. `src/lib/prototype/lomba/logic/radar.js` masih punya default `BATAS_SLOT = 3` (salinan prototipe, tidak diubah).
 - Data demo `SLOT_AWAL` berisi 2 Slot, jadi pengguna demo Gratis berada di atas batas 1 Slot dan butuh UI pemilihan Slot aktif di M1.
 - `pnpm visual:parity` hanya lokal; prototipe tidak tersedia di CI. CI juga belum menjalankan `pnpm test:e2e`.
@@ -90,3 +90,18 @@ Tidak ada regresi piksel. Fitur styleguide lama yang hilang bersama komponennya:
 ### Verifikasi fitur prototipe
 
 Referensi komponen (tombol, label/status, banner, isian, folder Slot, memuat dan aset maskot) identik piksel di 390 dan 1280 px, terang dan gelap. Layar lengkap diverifikasi per layar di M1.
+
+## R0.2-0a Kontras label status (22 November 2026)
+
+Keputusan PO: perbaiki di prototipe dulu, lalu salin ke produksi.
+
+| Label (tema terang) | Sebelum | Sesudah |
+|---|---|---|
+| `.status--ok` "Aktif" di atas `--success-soft` | `--success` #059669, 3,26:1 | `--sukses-teks` #04674A, 5,96:1 |
+| `.status--warn` "Perlu cek" di atas `--warn-soft` | `--warn` #B45309, 4,29:1 | `--peringatan-teks` #8A3A06, di atas 4,5:1 |
+
+- Rona hijau dan jingga, latar `-soft`, ikon, dan kata tetap; hanya warna teks yang diperdalam. Tidak ada perubahan opacity.
+- Kedua token sudah dipakai `lingkungan.css` di layar prototipe; sekarang didefinisikan di `shared/ds.css` sehingga referensi komponen ikut benar.
+- Tema gelap: token bernilai sama dengan `--success`/`--warn` gelap (#34D399, #FBBF24), jadi piksel tidak berubah.
+- Berkas: `src/styles/prototype/shared/ds.css` (salinan dari prototipe), `tests/e2e/design-system.spec.ts` (pengecualian kontras dihapus), `docs/screenshots/styleguide-*.png`.
+- `pnpm visual:parity`: LULUS. 0 piksel beda dan 0 kegagalan kontras (prototipe dan app) di 390/1280, terang/gelap.
