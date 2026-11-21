@@ -9,7 +9,7 @@
 | Docker / Supabase CLI | Ya | 29.9.2 / 3.1.0 | Stack lokal berjalan dan migrasi `0001`–`0003` lulus dari database kosong | PGlite untuk uji SQL dan RLS |
 | Playwright | Ya | 1.63.0 | R0.1 mengubah backend. Uji HTTP memakai Next.js dan Supabase lokal | — |
 | Supabase Cloud | Ya | Free Tier | `ata-dev` aktif. Migrasi `0001`–`0003` diterapkan lewat Session pooler. Konektor MCP hanya baca | Secret repo `SUPABASE_DB_URL` untuk DDL |
-| Google OAuth | Belum aktif | — | Endpoint PKCE tersedia. Uji kontrak memakai respons Auth tiruan | Supabase Auth lokal dengan akun email khusus uji |
+| Google OAuth | Aktif di `ata-dev` (Testing) | — | Klien Web dengan redirect `https://yupsktehhzhclntuizrd.supabase.co/auth/v1/callback`. Redirect URLs Supabase: `localhost`/`127.0.0.1:3000/api/v1/auth/google/callback` | Supabase Auth lokal dengan akun email khusus uji |
 
 ### Pengujian lokal
 

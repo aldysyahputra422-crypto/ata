@@ -6,7 +6,7 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 
 - **Lulus di Supabase lokal.** Migrasi mencakup profil, matriks entitlement berversi, grant Pro, redeem atomik, audit, izin AI, dan persetujuan. RLS serta kontrak isolasi dua akun diuji di PGlite dan di stack Docker. Batas Slot tetap Free 3 dan Pro 3 sesuai konfigurasi yang berlaku sambil menunggu K-23.
 - **FR-AUTH-04/06/08/09.** API akun menggunakan sesi Supabase yang diverifikasi, menyimpan versi persetujuan di skema, membaca peran dari metadata tepercaya, dan mendukung ekspor serta hapus akun dengan cascade. Integrasi UI akun dan onboarding mengikuti tahap layar R0.2.
-- **FR-AUTH-01.** Endpoint Google OAuth memakai PKCE. Uji kontrak berjalan dengan Supabase Auth tiruan. Uji Google sungguhan tertunda sampai penyedia Google aktif di proyek dev.
+- **FR-AUTH-01.** Endpoint Google OAuth memakai PKCE. Uji kontrak berjalan dengan Supabase Auth tiruan. Google sungguhan di `ata-dev` (Testing, localhost) terverifikasi: login membuat satu akun, profil, dan identitas. Logout mengembalikan 204 dan cookie lama ditolak. Login ulang dengan akun yang sama memakai ID yang sama. Sesi yang `not_after`-nya lewat ditolak `/me` dan ekspor (401). Audit `login`/`logout` tercatat. Galat OAuth dari Supabase (mis. `bad_oauth_state`) kini mendarat di `/?error=…` tanpa pesan UI; tangani di R0.2.
 - **Cloud.** Migrasi `0001`–`0003` sudah diterapkan ke `ata-dev` (Free Tier, tanpa deploy). RLS aktif di 10 tabel, seed `plan_features` berisi 20 fitur per paket, dan uji HTTP dua akun dari Next.js lokal ke `ata-dev` lulus. Data uji sementara sudah dihapus.
 
 ## R0.05 Migrasi bertahap ke Next.js (21 November 2026)
