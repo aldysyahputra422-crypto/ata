@@ -96,6 +96,7 @@ export const slotRingkas = () => { const b = bacaBersama(); return ringkasSlot(b
 export const tugasBersama = () => { const b = bacaBersama(); return daftarTugas(b, katalog(b)); };
 export const batasKini = () => batasSlot(bacaBersama().paket);
 const NAMA_PAKET = { gratis: 'Gratis', pro: 'Pro' };
+export const namaPaketKini = () => NAMA_PAKET[bacaBersama().paket] || NAMA_PAKET.gratis;
 /* batas boleh diisi dari server (app); tanpa itu memakai paket di store */
 export const slotLebih = (batas = batasKini(), paket = bacaBersama().paket) =>
   pesanSlotLebih(bacaBersama().slot.length, batas, NAMA_PAKET[paket] || NAMA_PAKET.gratis);

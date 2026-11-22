@@ -57,3 +57,4 @@ Semua 14 butir memakai kolom "Asumsi default". Yang paling memengaruhi tahap awa
 | S20 | "Pakai tanpa akun dulu" hanya menyimpan penanda di perangkat (`localStorage`) lalu membuka `/hari-ini` | Onboarding dan penyimpanan lokal prototipe belum dimigrasikan |
 | S21 | "Slot terpakai" di `/paket` selalu 0 | Tabel Slot per akun baru dibuat saat Lomba dimigrasikan; batasnya sudah dari entitlement server (K-23) |
 | S22 | Hari Ini membaca Slot dan tugas dari penyimpanan perangkat (`ata-bersama`), bukan dari database | Tabel Slot per akun baru dibuat saat Lomba dimigrasikan; batas Slot tetap dari server (K-23) |
+| S23 | Lomba lokal-dulu: data perangkat (`ata-bersama`) tetap sumber layar; baris akun digabung saat masuk dan perubahan dicerminkan ke `/api/v1/user-competitions`. Antrean Radar tidak disimpan per akun | Prototipe memakai store perangkat; keadaan belum masuk dan API gagal harus tetap bekerja |

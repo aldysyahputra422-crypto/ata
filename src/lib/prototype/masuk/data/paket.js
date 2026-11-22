@@ -5,9 +5,9 @@
 import { batasSlotPaket } from '../../shared/logic/hak.js';
 
 /* id fitur yang belum bisa dipakai dari layar di build ini */
-/* Production differs from the prototype repository on this line only: Lomba, Hari Ini, Progres, Tanya Ata and Sidang
+/* Production differs from the prototype repository on this line only: Progres, Tanya Ata and Sidang
    are not migrated yet (docs/MIGRASI-UI.md). Remove an id when its screen works end to end here. */
-const BELUM = new Set(['radar-peta', 'progres', 'tanya', 'resep', 'juri-latihan', 'juri-panel', 'konteks-analitik']);
+const BELUM = new Set(['progres', 'tanya', 'resep', 'juri-latihan', 'juri-panel', 'konteks-analitik']);
 /* teks butir Slot; angkanya selalu dari konfigurasi hak (prototipe: hak.js, produksi: server) */
 export const labelSlot = (paket, batas) => (paket === 'pro'
   ? `${batas.pro} Slot lomba aktif (Gratis: ${batas.gratis})`
