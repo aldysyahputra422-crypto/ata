@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
 // Prototype design system, moved verbatim in R0.05-3 (docs: blueprint 15 §1 — the prototype wins over the old DS).
 import "@/styles/prototype/shared/ds.css";
-import "@/styles/prototype/shared/states.css";
-import "@/styles/prototype/shared/fx.css";
-import "@/styles/prototype/shared/folder.css";
+// The remaining sheets are imported per route group, in the order of that prototype page's <link> tags:
+// rules of equal specificity (e.g. .tab-penanda in lingkungan.css and fx.css) depend on it.
 import "./fonts.css";
 
 export const metadata: Metadata = { title: { default: "Ata · asisten lombamu", template: "%s · Ata" } };

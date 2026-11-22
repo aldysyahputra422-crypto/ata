@@ -6,7 +6,7 @@ import { HAK, batasSlotPaket } from './hak.js';
 
 export const KUNCI_BERSAMA = 'ata-bersama';
 export const VERSI_BERSAMA = 2; /* v2: Slot awal pindah ke lomba nyata; simpanan v1 berisi lomba fiktif → mulai ulang */
-export const SLOT_AWAL = ['interval-2027', 'cipta-karya-2026'];
+export const SLOT_AWAL = ['interval-2027'];
 /* batas dari konfigurasi entitlement terpusat (shared/logic/hak.js); jangan menulis angka di sini */
 export const BATAS_PAKET = Object.fromEntries(Object.entries(HAK).map(([k, v]) => [k, v.slotAktif]));
 

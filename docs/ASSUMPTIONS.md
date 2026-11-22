@@ -43,7 +43,7 @@ Semua 14 butir memakai kolom "Asumsi default". Yang paling memengaruhi tahap awa
 | S6 | Bentuk panel depan folder memakai mask SVG + garis tepi SVG | Satu lapisan blur per folder (batas ≤ 3 blur di HP) dengan tab menyatu seperti referensi 2 |
 | S7 | Lencana di atas poster (`DATA DEMO`, deadline) berlatar solid terang di kedua tema | Poster selalu pastel; uji kontras otomatis gagal dengan warna semantik tema gelap |
 | S8 | Panel sheet/dialog dan toast dibuat hampir solid (86–94%) walau Kaca Penuh | Ada teks di atasnya; kontras AA harus terjaga di atas latar bergerak |
-| S9 | Lima rute tab (`/hari-ini`, `/lomba`, `/ata`, `/progres`, `/profil`) berisi placeholder | Hanya untuk meninjau kerangka responsif; belum ada fitur |
+| S9 | Empat rute tab (`/lomba`, `/ata`, `/progres`, `/profil`) berisi placeholder; `/hari-ini` sudah dimigrasikan | Hanya untuk meninjau kerangka responsif; belum ada fitur |
 | S10 | `/api/health` memakai service role dan mengembalikan `{ok}` saja | `system_flags` hanya terbaca pengguna terautentikasi; ping keepalive tidak login |
 | S11 | `DEMO_MODE` dibaca saat build untuk halaman statis | Mengubah `DEMO_MODE` di Vercel perlu redeploy |
 | S12 | Stiker kategori = glif Lucide di atas bentuk gem, ditandai `TODO(design)` | DESIGN-SYSTEM 10: sementara, diganti ilustrasi desainer sebelum publik |
@@ -56,3 +56,4 @@ Semua 14 butir memakai kolom "Asumsi default". Yang paling memengaruhi tahap awa
 | S19 | Harga Pro tetap ditampilkan di `/paket` (Rp69.000/bulan, tahunan diskon 10%, dihitung di `src/lib/billing/price.ts`) dan tombol bayar hanya menampilkan "Pembayaran belum diaktifkan di server ini" | Mengikuti prototipe dan blueprint 16; tanpa payment gateway (Lampiran D) |
 | S20 | "Pakai tanpa akun dulu" hanya menyimpan penanda di perangkat (`localStorage`) lalu membuka `/hari-ini` | Onboarding dan penyimpanan lokal prototipe belum dimigrasikan |
 | S21 | "Slot terpakai" di `/paket` selalu 0 | Tabel Slot per akun baru dibuat saat Lomba dimigrasikan; batasnya sudah dari entitlement server (K-23) |
+| S22 | Hari Ini membaca Slot dan tugas dari penyimpanan perangkat (`ata-bersama`), bukan dari database | Tabel Slot per akun baru dibuat saat Lomba dimigrasikan; batas Slot tetap dari server (K-23) |

@@ -51,7 +51,6 @@
     --halo-1:rgba(255,130,80,.26); --halo-2:rgba(255,90,140,.18); --halo-3:rgba(255,190,90,.10);
     --glass:rgba(42,25,21,.72); --glass-hi:rgba(255,255,255,.08); --seg-a:#33201A; --seg-b:#261611; --shadow-c:rgba(0,0,0,.5);
     --frame:#3D2820; --scrim:rgba(0,0,0,.6); --skeleton:#33201A; --skeleton-hi:#3D2820;
-  --gem-isi:rgba(255,255,255,.09); --gem-tinta:#F6E6DC; --gem-garis:rgba(255,255,255,.14); --text-tertiary:#C4A698;
     --gem-isi:rgba(255,255,255,.09); --gem-tinta:#F6E6DC; --gem-garis:rgba(255,255,255,.14); --text-tertiary:#C4A698;
     --shadow-1:0 1px 2px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.25);
     --shadow-2:0 2px 4px rgba(0,0,0,.3),0 12px 28px -8px rgba(0,0,0,.5);
@@ -68,6 +67,7 @@
   --halo-1:rgba(255,130,80,.26); --halo-2:rgba(255,90,140,.18); --halo-3:rgba(255,190,90,.10);
   --glass:rgba(42,25,21,.72); --glass-hi:rgba(255,255,255,.08); --seg-a:#33201A; --seg-b:#261611; --shadow-c:rgba(0,0,0,.5);
   --frame:#3D2820; --scrim:rgba(0,0,0,.6); --skeleton:#33201A; --skeleton-hi:#3D2820;
+  --gem-isi:rgba(255,255,255,.09); --gem-tinta:#F6E6DC; --gem-garis:rgba(255,255,255,.14); --text-tertiary:#C4A698;
   --shadow-1:0 1px 2px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.25);
   --shadow-2:0 2px 4px rgba(0,0,0,.3),0 12px 28px -8px rgba(0,0,0,.5);
   --shadow-3:0 4px 8px rgba(0,0,0,.3),0 28px 48px -16px rgba(0,0,0,.6);

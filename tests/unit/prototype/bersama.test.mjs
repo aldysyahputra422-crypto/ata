@@ -1,6 +1,7 @@
 // @vitest-environment node
 // Dipindah dari prototipe tests/bersama.test.mjs (R0.05-1). Kasus uji tidak diubah; hanya import & path.
 // R0.2-0: kasus batas Slot mengikuti K-23 (Gratis 1, Pro 3) + kasus Slot di atas batas tetap disimpan.
+// K-23 seed: default demo has 1 Slot; over-limit cases use fixtures/slot.mjs.
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
@@ -11,6 +12,7 @@ import { LOMBA } from '@/lib/prototype/lomba/data/lomba.js';
 import { usulkanLangkah, tambahHari } from '@/lib/prototype/lomba/logic/peta.js';
 import { buatDeck, putuskan, samakanSlot, BATAS_SLOT } from '@/lib/prototype/lomba/logic/radar.js';
 import { PROFIL } from '@/lib/prototype/lomba/data/lomba.js';
+import { SLOT_LEBIH, bersamaLebih } from './fixtures/slot.mjs';
 
 const HARI = '2026-11-20';
 const waktu = { hariIni: HARI, tambahHari };
@@ -25,14 +27,21 @@ test('K-23/K-03: Gratis holds 1 active Slot, Pro 3; unknown plans fall back to G
 });
 
 test('K-23: Slots above the Gratis limit are kept, never dropped, and the UI is told to ask which stay active', () => {
-  const b = { ...awalBersama(), paket: 'pro' };
+  const b = { ...bersamaLebih(), paket: 'pro' };
   assert.equal(b.slot.length, 2);
   const turun = aturPaket(b, 'gratis');
-  assert.deepEqual(turun.b.slot, SLOT_AWAL, 'downgrade keeps every Slot');
+  assert.deepEqual(turun.b.slot, SLOT_LEBIH, 'downgrade keeps every Slot');
   assert.equal(turun.lebih, 1);
-  assert.deepEqual(aturSlot(turun.b, [...SLOT_AWAL, 'kspi-2026']).slot, SLOT_AWAL, 'over the limit nothing new is added');
-  assert.deepEqual(aturSlot(turun.b, SLOT_AWAL).slot, SLOT_AWAL, 'existing Slots survive re-saving');
-  assert.deepEqual(rapikanBersama(turun.b, ada).slot, SLOT_AWAL, 'tidying keeps them too');
+  assert.deepEqual(aturSlot(turun.b, [...SLOT_LEBIH, 'kspi-2026']).slot, SLOT_LEBIH, 'over the limit nothing new is added');
+  assert.deepEqual(aturSlot(turun.b, SLOT_LEBIH).slot, SLOT_LEBIH, 'existing Slots survive re-saving');
+  assert.deepEqual(rapikanBersama(turun.b, ada).slot, SLOT_LEBIH, 'tidying keeps them too');
+});
+
+test('K-23: the default demo seed fits the Gratis limit, so a new Gratis user is not blocked', () => {
+  const b = awalBersama();
+  assert.equal(b.paket, 'gratis');
+  assert.equal(b.slot.length, batasSlot('gratis'));
+  assert.equal(aturPaket(b, 'gratis').lebih, 0);
 });
 
 test('a missing, broken or old store starts from the demo default', () => {
@@ -57,8 +66,8 @@ test('an uploaded poster Slot is kept through its card even though the catalogue
 });
 
 test('every Slot gets a Peta Jalan; the demo Slot is approved, three steps done, one overdue', () => {
-  const b = siap(awalBersama());
-  assert.deepEqual(Object.keys(b.peta).sort(), [...SLOT_AWAL].sort());
+  const b = siap(bersamaLebih());
+  assert.deepEqual(Object.keys(b.peta).sort(), [...SLOT_LEBIH].sort());
   const p = b.peta['interval-2027'];
   assert.equal(p.disetujui, true);
   assert.equal(p.langkah.filter((s) => s.selesai).length, 3);
@@ -81,7 +90,7 @@ test('ring numbers and tasks come from the same Peta Jalan', () => {
 });
 
 test('ticking a task updates the ring everywhere; unapproved maps cannot be ticked', () => {
-  const b = siap(awalBersama());
+  const b = siap(bersamaLebih());
   const id = daftarTugas(b, cari(b))[0].id;
   const r = centangTugas(b, id);
   assert.equal(r.selesai, true);
@@ -95,7 +104,8 @@ test('ticking a task updates the ring everywhere; unapproved maps cannot be tick
 test('the Slot list respects the plan: one for Gratis, three for Pro; existing Slots above it are not dropped', () => {
   const ids = LOMBA.map((l) => l.id);
   assert.equal(aturSlot({ ...awalBersama(), slot: [] }, ids).slot.length, 1);
-  assert.equal(aturSlot(awalBersama(), ids).slot.length, SLOT_AWAL.length, 'the two demo Slots stay above the Gratis limit');
+  assert.equal(aturSlot(awalBersama(), ids).slot.length, 1, 'the default demo seed already fills the Gratis limit');
+  assert.equal(aturSlot(bersamaLebih(), ids).slot.length, SLOT_LEBIH.length, 'two existing Slots stay above the Gratis limit');
   const pro = aturPaket(awalBersama(), 'pro').b;
   assert.equal(aturSlot(pro, ids).slot.length, 3);
   const lama = { ...awalBersama(), slot: ids.slice(0, 5) };
@@ -113,7 +123,7 @@ test('the plan always follows the server; extra legacy Slots are reported, never
 });
 
 test('releasing a Slot keeps its Peta Jalan so taking it again resumes progress', () => {
-  const b = siap(awalBersama());
+  const b = siap(bersamaLebih());
   const lepas = lepasSlotBersama(b, 'interval-2027');
   assert.deepEqual(lepas.slot, ['cipta-karya-2026']);
   assert.ok(lepas.peta['interval-2027']);
