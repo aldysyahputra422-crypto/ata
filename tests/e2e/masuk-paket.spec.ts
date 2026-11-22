@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-// M1 Masuk/Paket (FR-AUTH-01, FR-PLAN-01). The account API is stubbed so every state is deterministic.
+// M1 Masuk/Paket (FR-AUTH-01, FR-AUTH-08, K-23). The account API is stubbed so every state is deterministic.
 const features = (limit: number) => ({ activeSlots: { status: "final", limit } });
 const base = { config: { google: true, payments: false }, ai: { mode: "B", connections: 0, search_connections: 0 } };
 const signedOut = { ...base, signed_in: false, plan: { plan: "free", status: "free", sources: [], features: features(1) } };
@@ -87,6 +87,7 @@ test.describe("masuk", () => {
     let body: unknown = free;
     await page.route("**/api/v1/me", (route) => route.fulfill({ json: body }));
     await page.route("**/api/v1/account", (route) => {
+      expect(route.request().postDataJSON()).toEqual({ confirm: "HAPUS" });
       deleted++;
       body = signedOut;
       return route.fulfill({ status: 204 });

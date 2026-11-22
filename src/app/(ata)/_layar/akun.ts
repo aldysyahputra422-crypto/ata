@@ -32,7 +32,13 @@ async function panggil<T>(path: string, init?: RequestInit): Promise<Hasil<T>> {
 
 export const bacaAkun = () => panggil<Akun>("/api/v1/me");
 export const keluar = () => panggil<null>("/api/v1/auth/logout", { method: "POST" });
-export const hapusAkun = () => panggil<null>("/api/v1/account", { method: "DELETE" });
+// The sheet's explicit confirm button is the confirmation the DELETE handler asks for.
+export const hapusAkun = () =>
+  panggil<null>("/api/v1/account", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirm: "HAPUS" }),
+  });
 export const ekspor = () => panggil<unknown>("/api/v1/account/export");
 export const tukarKode = (code: string) =>
   panggil<{ days: number }>("/api/v1/redeem", {
