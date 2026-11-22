@@ -1,11 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
+import { progresAkun } from "./akun";
 
-// M1 Hari Ini (FR-SLT-01, K-23). Slot and task data live on the device (demo seed: one Slot); the account API is stubbed.
+// M1 Hari Ini (FR-SLT-01, FR-PRG-03, K-23). Signed out, Slot and task data live on the device (demo seed: one Slot).
+// Signed in, they are the account's (stubbed in ./akun) and the device data is set aside.
 const features = (limit: number) => ({ activeSlots: { status: "final", limit } });
 const base = { slot_limits: { free: 1, pro: 3 }, config: { google: true, payments: false }, ai: { mode: "B", connections: 0, search_connections: 0 } };
 const user = { id: "u1", email: "raka@example.com", display_name: "Raka", role: "user" };
+const out = { ...base, signed_in: false, user: null, plan: { plan: "free", status: "free", sources: [], features: features(1) } };
 const free = { ...base, signed_in: true, user, plan: { plan: "free", status: "free", sources: [], features: features(1) } };
 const pro = { ...base, signed_in: true, user, plan: { plan: "pro", status: "active", sources: ["redeem"], features: features(3) } };
 
@@ -20,6 +23,7 @@ const open = async (page: Page, query = "") => {
 test.describe("hari ini", () => {
   test("shell: five tabs, tab bar on phones and rail on desktop", async ({ page }, info) => {
     await me(page, free);
+    await progresAkun(page);
     await open(page);
     const nav = page.locator(info.project.name === "mobile" ? "#tabbar" : "#rail");
     await expect(nav).toBeVisible();
@@ -29,7 +33,7 @@ test.describe("hari ini", () => {
   });
 
   test("Gratis: one demo Slot fills the limit, no empty Slot card", async ({ page }) => {
-    await me(page, free);
+    await me(page, out);
     await open(page);
     await expect(page.getByRole("heading", { name: "Hari Ini", level: 1 })).toBeVisible();
     await expect(page.locator(".slot-baris")).toHaveCount(1);
@@ -39,6 +43,7 @@ test.describe("hari ini", () => {
 
   test("Pro: the server limit of 3 leaves two Slots free", async ({ page }) => {
     await me(page, pro);
+    await progresAkun(page, { limit: 3, plan: "pro" });
     await open(page);
     await expect(page.locator(".folder-ata--kosong")).toContainText("2 tersisa");
   });
@@ -50,7 +55,7 @@ test.describe("hari ini", () => {
   });
 
   test("more Slots than the limit are kept and shown (K-23)", async ({ page }) => {
-    await me(page, free);
+    await me(page, out);
     await open(page);
     // an account that already held two Slots before the Gratis limit became 1
     await page.evaluate(() => {
@@ -69,24 +74,20 @@ test.describe("hari ini", () => {
 
   test("over-limit notice follows the server limit, not a fixed number", async ({ page }) => {
     await me(page, pro);
+    await progresAkun(page, { slot: ["interval-2027", "cipta-karya-2026"], plan: "pro", limit: 3 });
     await open(page);
-    await expect(page.locator(".slot-lebih")).toHaveCount(0);
-    await page.evaluate(() => {
-      const b = JSON.parse(localStorage.getItem("ata-bersama") ?? "{}");
-      localStorage.setItem("ata-bersama", JSON.stringify({ ...b, slot: ["interval-2027", "cipta-karya-2026"] }));
-    });
-    await page.reload();
     await expect(page.locator(".slot-baris")).toHaveCount(2);
     await expect(page.locator(".folder-ata--kosong")).toHaveCount(1); // 2 of 3 on Pro: still room, no notice
     await expect(page.locator(".slot-lebih")).toHaveCount(0);
-    await page.unroute("**/api/v1/me");
+    await page.unrouteAll();
     await me(page, { ...pro, plan: { ...pro.plan, features: features(1) } });
+    await progresAkun(page, { slot: ["interval-2027", "cipta-karya-2026"], plan: "pro", limit: 1 });
     await page.reload();
     await expect(page.locator(".slot-lebih")).toHaveText("2 Slot aktif. Paket Pro mencakup 1 Slot aktif. Atur Slot aktif di Lomba.");
   });
 
   test("sample data carries a DATA DEMO label, also after reset; the user's own competition does not", async ({ page }) => {
-    await me(page, free);
+    await me(page, out);
     await open(page);
     const label = page.locator(".judul-layar .label-demo");
     await expect(label).toHaveText("DATA DEMO");
@@ -104,7 +105,7 @@ test.describe("hari ini", () => {
 
   test("page left open across midnight: completion date, XP and streak use the new day and survive a reload", async ({ page }) => {
     await page.clock.install({ time: new Date(2026, 10, 21, 23, 58) });
-    await me(page, free);
+    await me(page, out);
     await open(page);
     const selesaiPada = () =>
       page.evaluate(() => {
@@ -137,7 +138,7 @@ test.describe("hari ini", () => {
   // Glass sits over photos and posters, which axe cannot see: contrast is measured from rendered pixels.
   for (const tema of ["terang", "gelap"]) {
     test(`tab labels reach 4.5:1 against the pixels behind them (${tema})`, async ({ page }, info) => {
-      await me(page, free);
+      await me(page, out);
       await open(page, `?tema=${tema}`);
       await page.addStyleTag({ content: "*, *::before, *::after { animation: none !important; transition: none !important; }" });
       const lin = (c: number) => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -165,7 +166,7 @@ test.describe("hari ini", () => {
   }
 
   test("finishing a task updates the count and confirms the XP", async ({ page }) => {
-    await me(page, free);
+    await me(page, out);
     await open(page);
     const tersisa = page.locator(".tugas-kartu .pill");
     const sebelum = Number.parseInt((await tersisa.textContent()) ?? "", 10);
@@ -175,7 +176,7 @@ test.describe("hari ini", () => {
   });
 
   test("display settings: theme switch, demo reset restores the seed", async ({ page }) => {
-    await me(page, free);
+    await me(page, out);
     await open(page);
     await page.locator(".tugas-cek").first().click();
     const tersisa = page.locator(".tugas-kartu .pill");
@@ -188,16 +189,153 @@ test.describe("hari ini", () => {
   });
 
   test("has no horizontal overflow", async ({ page }) => {
-    await me(page, free);
+    await me(page, out);
     await open(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   });
 
   for (const tema of ["terang", "gelap"] as const) {
-    test(`no axe violations (${tema})`, async ({ page }) => {
-      await me(page, free);
-      await open(page, `?tema=${tema}`);
-      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-    });
+    for (const [siapa, akun] of [["device", out], ["account", free]] as const) {
+      test(`no axe violations (${tema}, ${siapa})`, async ({ page }) => {
+        await me(page, akun);
+        await progresAkun(page);
+        await open(page, `?tema=${tema}`);
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+      });
+    }
   }
+});
+
+// M1 Personal Progress (FR-PRG-03): signed in, Hari Ini shows the account's Slots, tasks, XP, level and streak.
+test.describe("hari ini, account", () => {
+  const xp = (page: Page) => page.locator(".xp-baris__level");
+  const store = (page: Page) => page.evaluate(() => JSON.stringify(Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith("ata-lokal:")))));
+
+  test("tasks come from the account's approved roadmap, not from the device's sample data", async ({ page }) => {
+    await me(page, free);
+    await progresAkun(page);
+    await open(page);
+    await expect(page.locator(".slot-baris")).toHaveCount(1);
+    await expect(page.locator(".tugas-daftar li")).toHaveCount(3);
+    await expect(page.locator(".tugas-daftar")).toContainText("Langkah akun 1");
+    await expect(xp(page)).toHaveText("Level 10 XP");
+    await expect(page.locator(".judul-layar .label-demo")).toHaveCount(0);
+    await page.getByRole("button", { name: "Pengaturan tampilan" }).click();
+    await expect(page.getByRole("button", { name: "Reset data demo" })).toHaveCount(0);
+  });
+
+  test("an account without a Slot shows none, whatever the device holds", async ({ page }) => {
+    await me(page, free);
+    await progresAkun(page, { slot: [] });
+    await open(page);
+    await expect(page.locator(".slot-baris")).toHaveCount(0);
+    await expect(page.locator(".tugas-daftar li")).toHaveCount(0);
+    await expect(xp(page)).toHaveText("Level 10 XP");
+  });
+
+  test("finishing a task sends only the status; XP is the server's and survives a reload", async ({ page }) => {
+    await me(page, free);
+    const { sent } = await progresAkun(page);
+    await open(page);
+    await page.locator(".tugas-cek").first().click();
+    await expect(page.locator(".toast")).toContainText("Selesai. +10 XP");
+    await expect(page.locator(".tugas-kartu .pill")).toHaveText("2 tersisa");
+    await expect(xp(page)).toHaveText("Level 110 XP");
+    await expect(page.locator(".xp-baris__streak")).toContainText("1 hari beruntun");
+    expect(sent).toEqual([{ key: "interval-2027", step: "s1", body: { status: "done" } }]);
+    await page.reload();
+    await expect(page.locator(".hari-grid")).toBeVisible();
+    await expect(xp(page)).toHaveText("Level 110 XP");
+    await expect(page.locator(".tugas-kartu .pill")).toHaveText("2 tersisa");
+    await expect(page.locator(".tugas-selesai-hari")).toHaveText("1 selesai hari ini");
+  });
+
+  test("another browser signed in to the same account sees the same progress", async ({ page, browser }) => {
+    await me(page, free);
+    const akun = await progresAkun(page);
+    await open(page);
+    await page.locator(".tugas-cek").first().click();
+    await expect(xp(page)).toHaveText("Level 110 XP");
+    const lain = await (await browser.newContext()).newPage();
+    await me(lain, free);
+    const kedua = await progresAkun(lain);
+    akun.status.forEach((v, k) => kedua.status.set(k, v)); // one account, one server state
+    await open(lain);
+    await expect(xp(lain)).toHaveText("Level 110 XP");
+    await expect(lain.locator(".tugas-kartu .pill")).toHaveText("2 tersisa");
+    await lain.context().close();
+  });
+
+  test("a save the account refused is not shown as done", async ({ page }) => {
+    const server = { gagal: undefined as number | undefined };
+    await me(page, free);
+    const { sent } = await progresAkun(page, { fail: () => server.gagal });
+    await open(page);
+    server.gagal = 503;
+    await page.locator(".tugas-cek").first().click();
+    await expect(page.locator(".toast")).toContainText("Belum tersimpan ke akun. Coba lagi.");
+    await expect(page.locator(".tugas-kartu .pill")).toHaveText("3 tersisa");
+    await expect(xp(page)).toHaveText("Level 10 XP");
+    expect(sent).toHaveLength(1);
+  });
+
+  test("loading, then an error with retry; device data is never shown in its place", async ({ page }) => {
+    let gagal: number | undefined = 503;
+    await me(page, free);
+    await progresAkun(page, { fail: () => gagal });
+    await page.goto("/hari-ini");
+    await expect(page.getByText("Data akunmu belum bisa dimuat.")).toBeVisible();
+    await expect(page.locator(".slot-baris")).toHaveCount(0);
+    gagal = undefined;
+    await page.getByRole("button", { name: "Coba lagi" }).click();
+    await expect(page.locator(".tugas-daftar")).toContainText("Langkah akun 1");
+  });
+
+  test("signing in sets the device's progress aside untouched; signing out brings it back and drops the account's", async ({ page }) => {
+    await me(page, out);
+    await open(page);
+    await page.locator(".tugas-cek").first().click();
+    await expect(page.locator(".toast")).toContainText(/Selesai\. \+\d+ XP/);
+    const lokal = await page.evaluate(() => localStorage.getItem("ata-bersama"));
+    const xpLokal = await xp(page).innerText();
+
+    await page.unroute("**/api/v1/me");
+    await me(page, free);
+    const { sent } = await progresAkun(page);
+    await page.reload();
+    await expect(page.locator(".tugas-daftar")).toContainText("Langkah akun 1");
+    await expect(xp(page)).toHaveText("Level 10 XP"); // the device's XP did not follow the user into the account
+    expect(JSON.parse(await store(page))["ata-lokal:ata-bersama"]).toBe(lokal);
+    expect(sent).toEqual([]);
+    await page.locator(".tugas-cek").first().click();
+    await expect(xp(page)).toHaveText("Level 110 XP");
+
+    await page.unroute("**/api/v1/me");
+    await me(page, out);
+    await page.reload();
+    await expect(page.locator(".hari-grid")).toBeVisible();
+    await expect(page.locator(".tugas-daftar")).not.toContainText("Langkah akun");
+    expect(await xp(page).innerText()).toBe(xpLokal);
+    expect(await page.evaluate(() => localStorage.getItem("ata-bersama"))).toBe(lokal);
+    expect(await store(page)).toBe("{}");
+  });
+
+  test("a second account on the same device sees its own progress only", async ({ page }) => {
+    await me(page, free);
+    await progresAkun(page);
+    await open(page);
+    await page.locator(".tugas-cek").first().click();
+    await expect(xp(page)).toHaveText("Level 110 XP");
+    await page.unroute("**/api/v1/me");
+    await page.unroute("**/api/v1/progress");
+    await page.unroute("**/api/v1/tasks/*/*");
+    await me(page, { ...free, user: { ...user, id: "u2", display_name: "Sinta" } });
+    await progresAkun(page, { slot: ["cipta-karya-2026"] });
+    await page.reload();
+    await expect(page.locator(".hari-grid")).toBeVisible();
+    await expect(xp(page)).toHaveText("Level 10 XP");
+    await expect(page.locator(".tugas-kartu .pill")).toHaveText("3 tersisa");
+    await expect(page.locator(".slot-baris")).toHaveCount(1);
+  });
 });

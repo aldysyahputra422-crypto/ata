@@ -6,8 +6,17 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 
 - Selesai: Radar, Tersimpan, Detail, Slot, Peta Jalan di `/lomba` (K-03, K-23, FR-RDM-03, FR-PRG-03); tabel `user_competitions` dengan RLS dan trigger batas Slot aktif; sinkron akun lokal-dulu.
 - Selesai: migrasi 0005 diterapkan di `ata-dev` dan diuji dengan sesi sungguhan (batas Gratis 1/Pro 3, RLS dua akun, turun paket, ekspor, dua permintaan Slot bersamaan). Halaman Paket menghitung Slot terpakai dari baris akun di server (`GET /api/v1/user-competitions`); belum masuk memakai data perangkat; gagal muat dinyatakan, bukan 0. Slot yang sama dikirim dua kali bersamaan tidak lagi ditolak 409.
-- Tertunda: Hari Ini masih memakai data perangkat walau sudah masuk, pencarian lewat API key (hanya kata kunci siap pakai), paritas sudut bingkai sudah diperbaiki dari prototipe; gerbang akhir (paritas lima layar, e2e yang dilewati, lint, 0005 di Supabase lokal) ada di docs/gerbang-m1-lomba.md.
+- Tertunda: pencarian lewat API key (hanya kata kunci siap pakai), paritas sudut bingkai sudah diperbaiki dari prototipe; gerbang akhir (paritas lima layar, e2e yang dilewati, lint, 0005 di Supabase lokal) ada di docs/gerbang-m1-lomba.md.
 - Tertunda: Tanya Ata, Progres, Profil (masih halaman fondasi lama).
+
+## M1 Progres per akun (23 November 2026)
+
+- Selesai (FR-PRG-03): status tugas per akun di tabel `task_progress` (migrasi 0006, RLS baca-milik-sendiri, tulis hanya lewat fungsi `set_task_status`). Tugas diturunkan dari Peta Jalan yang disetujui pada Slot aktif akun. XP, level, dan streak dihitung server dari baris itu; client hanya mengirim `{ status }`.
+- Selesai: `GET /api/v1/progress` dan `PUT /api/v1/tasks/{lomba}/{langkah}`; Hari Ini membaca dan menulis ke akun saat masuk, dan tetap memakai data perangkat saat belum masuk. Ekspor akun memuat `task_progress`.
+- Selesai: data perangkat/demo dan data akun dipisah (`ata-lingkup`). Data perangkat disisihkan saat masuk dan dikembalikan saat keluar; tidak ada lagi unggah otomatis data perangkat ke akun.
+- Diuji: PGlite (RLS, idempotensi, pembatalan, zona waktu, ekspor, cascade), stack Supabase lokal lewat HTTP dengan dua akun (`scripts/test-account-local.mjs`: 6 dan 8 permintaan bersamaan, isolasi, zona waktu), e2e Hari Ini dan Lomba.
+- Tertunda: migrasi 0006 belum dijalankan di `ata-dev` (menunggu persetujuan PO). Riwayat peristiwa tak-terubah (`activity_events` di blueprint) belum dibuat; `task_progress` hanya menyimpan status efektif terakhir. Layar Progres dan Profil belum membaca akun. Pengaturan zona waktu belum punya UI.
+- Keputusan sementara yang menunggu PO: S24–S27 di docs/ASSUMPTIONS.md.
 
 ## M1 Hari Ini (22 November 2026)
 

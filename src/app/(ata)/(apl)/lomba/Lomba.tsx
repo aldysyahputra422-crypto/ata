@@ -6,6 +6,7 @@ import "@/styles/prototype/lomba/lomba.css";
 import "@/styles/prototype/shared/tarik.css";
 import "./lomba-apl.css";
 import { bacaAkun } from "../../_layar/akun";
+import { lingkupKini, pakaiLingkup } from "../../_layar/lingkup";
 import {
   bacaCatatan,
   bacaServer,
@@ -38,6 +39,11 @@ export function Lomba() {
     let lepas = () => {};
     void (async () => {
       try {
+        // Device data and an account's copy never share the stores: settle whose data this is before any module reads it.
+        const me = await bacaAkun();
+        if (batal) return;
+        const lingkup = me.ok ? pakaiLingkup(me.data.signed_in && me.data.user ? me.data.user.id : null) : "tetap";
+        if (lingkup === "ganti") return window.location.reload();
         // The prototype modules read localStorage while loading, so they are imported in the browser only.
         const [{ pasangLomba }, st, bersama, logika, katalog] =
           await Promise.all([
@@ -65,13 +71,12 @@ export function Lomba() {
         lepas = () => {
           kejadian.forEach((k) => document.removeEventListener(k, ubah, true));
           window.removeEventListener("pagehide", pergi);
+          if (tersambung) void penyinkron?.sekarang(); // leaving the tab must not drop a change waiting to be sent
           penyinkron?.henti();
           terpasang.lepas();
         };
 
-        const me = await bacaAkun();
-        if (batal) return;
-        if (!me.ok) return setAkun("terputus");
+        if (!me.ok) return setAkun(lingkupKini() === "lokal" ? "lokal" : "terputus");
         // The plan always follows the server; Slots above its limit are kept (aturPaket never removes any).
         const paket =
           me.data.signed_in && me.data.plan.plan === "pro" ? "pro" : "gratis";
@@ -93,15 +98,11 @@ export function Lomba() {
           terpasang.ctx.render();
         }
         if (!me.data.signed_in || !me.data.user) return setAkun("lokal");
+        // storage blocked: device data cannot be set aside, so nothing of it may reach the account
+        if (lingkup === "gagal") return setAkun("terputus");
 
         const akunId = me.data.user.id;
-        // Device data last synced with another account belongs to that account: it must not be shown to this one or
-        // copied into it, so the device starts again from the sample data before this account's rows are laid over it.
         const catatan = bacaCatatan();
-        if (catatan && catatan.akun !== akunId) {
-          st.reset();
-          terpasang.ctx.render();
-        }
         const dasarAwal = catatan?.akun === akunId ? catatan.dasar : {};
         const sinkron = buatPenyinkron(
           () => lokalDari(state),
@@ -129,7 +130,7 @@ export function Lomba() {
             (id) => ids.has(id),
             dasar?.akun === akunId ? dasar.dasar : {},
           );
-          if (hasil.dipakai.length) {
+          if (server.items.length) {
             state.unggahan = hasil.lokal.unggahan;
             const kartu = Object.fromEntries(
               hasil.lokal.unggahan.map((u) => [u.id, u]),
@@ -147,9 +148,10 @@ export function Lomba() {
             terpasang.ctx.render();
           }
           sinkron.catat(hasil.dipakai);
+          sinkron.catatStatus(server.items);
           tersambung = true;
           setAkun("akun");
-          // first sign-in: what the device already holds goes to the account; a Slot over the limit stays on the device
+          // changes this account made on this device that have not reached the server yet
           void sinkron.sekarang();
         };
         // Another tab rewrote the device store (for example "Reset data demo"): that must never remove account rows,

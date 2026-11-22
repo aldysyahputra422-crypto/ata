@@ -2,6 +2,8 @@
 // mirrored to /api/v1/user-competitions. The database decides whether a new Slot fits the plan (409 limit_reached).
 // Rules: device data is never deleted by a sync, a rejected Slot stays on the device, and nothing is sent unless
 // the first read from the server succeeded.
+// Step status (done/doing) is not part of the roadmap row: it goes to /api/v1/tasks, where the server stamps the
+// completion day and derives XP. The account's status always comes back from the server with the roadmap.
 export type BarisServer = {
   competition_key: string;
   source: "catalog" | "manual" | "search";
@@ -25,6 +27,49 @@ export type Baris = Pick<BarisServer, "source" | "state"> & {
   roadmap?: Record<string, unknown>;
 };
 
+export type StatusServer = "todo" | "doing" | "done";
+type LangkahPeta = Record<string, unknown>;
+const langkahPeta = (roadmap?: Record<string, unknown> | null): LangkahPeta[] =>
+  Array.isArray(roadmap?.langkah) ? (roadmap.langkah as LangkahPeta[]).filter((s) => !!s && typeof s === "object") : [];
+function tanpaStatus(langkah: LangkahPeta): LangkahPeta {
+  const s = { ...langkah };
+  delete s.selesai;
+  delete s.status;
+  delete s.selesaiPada;
+  return s;
+}
+/** The roadmap as a plan: without the status fields, which are not sent with the row. */
+function rencana(roadmap: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(roadmap.langkah)) return roadmap;
+  return { ...roadmap, langkah: (roadmap.langkah as unknown[]).map((s) => (s && typeof s === "object" ? tanpaStatus(s as LangkahPeta) : s)) };
+}
+/** The device's plan with the account's step status laid over it. */
+function denganStatus(lokal: Record<string, unknown> | undefined, server: Record<string, unknown> | null) {
+  if (!lokal || !Array.isArray(lokal.langkah)) return lokal;
+  const milik = new Map(langkahPeta(server).map((s) => [String(s.id), s]));
+  return {
+    ...lokal,
+    langkah: langkahPeta(lokal).map((langkah) => {
+      const s = tanpaStatus(langkah);
+      const p = milik.get(String(s.id));
+      return { ...s, selesai: p?.selesai === true, status: p?.status ?? "belum", selesaiPada: p?.selesaiPada ?? "" };
+    }),
+  };
+}
+const statusLangkah = (s: LangkahPeta): StatusServer => (s.selesai === true ? "done" : s.status === "dikerjakan" ? "doing" : "todo");
+/** Step status per "key/step" of the approved roadmaps of active Slots. Pure. */
+export function statusPeta(slot: string[], peta: Record<string, Record<string, unknown> | null | undefined>): Map<string, StatusServer> {
+  const hasil = new Map<string, StatusServer>();
+  for (const id of slot) {
+    const p = peta[id];
+    if (p?.disetujui !== true) continue;
+    for (const s of langkahPeta(p)) hasil.set(id + "/" + String(s.id), statusLangkah(s));
+  }
+  return hasil;
+}
+export const statusServer = (items: BarisServer[]) =>
+  statusPeta(items.filter((b) => b.state === "slot").map((b) => b.competition_key), Object.fromEntries(items.map((b) => [b.competition_key, b.roadmap])));
+
 const DAFTAR = {
   slot: "slot",
   saved: "tersimpan",
@@ -41,7 +86,7 @@ export function barisLokal(lokal: Lokal): Map<string, Baris> {
       state,
       source: kartu ? "manual" : "catalog",
       ...(kartu ? { card: kartu } : {}),
-      ...(roadmap ? { roadmap } : {}),
+      ...(roadmap ? { roadmap: rencana(roadmap) } : {}),
     });
   };
   for (const id of lokal.deck.slot) isi(id, "slot");
@@ -81,8 +126,12 @@ export function gabung(
       unggahan.push({ ...b.card, id });
     if (!dikenal(id) && !unggahan.some((u) => u.id === id)) continue; // a row this build cannot show stays on the server untouched
     const milikLokal = kini.get(id);
-    if (milikLokal && id in dasar && dasar[id] !== JSON.stringify(milikLokal))
+    if (milikLokal && id in dasar && dasar[id] !== JSON.stringify(milikLokal)) {
+      // the unsent plan edit is kept; step status is the account's
+      const p = denganStatus(peta[id], b.roadmap);
+      if (p) peta[id] = p;
       continue;
+    }
     for (const k of ["antrean", "tersimpan", "dilewati", "slot"] as const)
       deck[k] = deck[k].filter((x) => x !== id);
     if (b.state !== "released") deck[DAFTAR[b.state]].push(id);
@@ -127,6 +176,21 @@ async function kirim({ key, baris }: Langkah): Promise<HasilKirim> {
   }
 }
 
+export type KirimStatus = (kunci: string, status: StatusServer) => Promise<HasilKirim>;
+async function kirimStatus(kunci: string, status: StatusServer): Promise<HasilKirim> {
+  const i = kunci.indexOf("/");
+  try {
+    const res = await fetch(
+      "/api/v1/tasks/" + encodeURIComponent(kunci.slice(0, i)) + "/" + encodeURIComponent(kunci.slice(i + 1)),
+      { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) },
+    );
+    if (res.ok) return "ok";
+    return res.status === 404 || res.status === 409 || res.status === 422 ? "batas" : "gagal";
+  } catch {
+    return "gagal";
+  }
+}
+
 export async function bacaServer(): Promise<
   { status: "ok"; items: BarisServer[] } | { status: "keluar" | "gagal" }
 > {
@@ -153,10 +217,13 @@ export function buatPenyinkron(
   kirimBaris: (l: Langkah) => Promise<HasilKirim> = kirim,
   awal: Record<string, string> = {},
   tulis: (dasar: Record<string, string>) => void = () => {},
+  kirimTugas: KirimStatus = kirimStatus,
 ) {
   const dasar = new Map<string, string>(Object.entries(awal));
   const catatDasar = () => tulis(Object.fromEntries(dasar));
   const ditolak = new Map<string, string>(); // key -> row the server refused; not retried until it changes
+  let status = new Map<string, StatusServer>(); // what the account holds per step
+  const statusDitolak = new Map<string, StatusServer>();
   let jalan: Promise<void> = Promise.resolve();
   let jeda = 0;
 
@@ -182,6 +249,22 @@ export function buatPenyinkron(
         return;
       }
     }
+    // after the rows: a roadmap has to be approved on the account before its steps can be set
+    const lokal = baca();
+    for (const [kunci, s] of statusPeta(lokal.deck.slot, lokal.peta)) {
+      if ((status.get(kunci) ?? "todo") === s || statusDitolak.get(kunci) === s) continue;
+      const hasil = await kirimTugas(kunci, s);
+      if (hasil === "ok") {
+        status.set(kunci, s);
+        statusDitolak.delete(kunci);
+      } else if (hasil === "batas") {
+        statusDitolak.set(kunci, s);
+        lapor("Status langkah ini belum bisa disimpan ke akun. Muat ulang untuk melihat data akunmu.");
+      } else {
+        lapor("Belum tersimpan ke akun. Perubahanmu aman di perangkat ini dan dikirim lagi nanti.");
+        return;
+      }
+    }
   };
 
   return {
@@ -193,6 +276,11 @@ export function buatPenyinkron(
         if (b) dasar.set(k, JSON.stringify(b));
       }
       catatDasar();
+    },
+    /** Step status the account holds, from the rows just read. */
+    catatStatus(items: BarisServer[]) {
+      status = statusServer(items);
+      statusDitolak.clear();
     },
     sekarang: () => (jalan = jalan.then(dorong)),
     nanti() {

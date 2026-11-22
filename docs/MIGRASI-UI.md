@@ -228,3 +228,29 @@ Lima layar prototipe (Radar, Tersimpan, Detail, Slot, Peta Jalan) berjalan di `/
 - Migrasi 0005 diuji di PGlite dan di Supabase lokal (docs/gerbang-m1-lomba.md, bagian F); belum dijalankan di `ata-dev`. Pemetaan 409 dan upsert belum diuji terhadap PostgREST sungguhan.
 - Belum diuji di browser dengan sesi Google sungguhan.
 - Target paritas Masuk gagal di mesin tanpa konfigurasi Google (tombol Google nonaktif); tidak terkait perubahan ini.
+
+## M1 Progres per akun (23 November 2026)
+
+Hari Ini dan Lomba memakai markup dan class prototipe yang sama; yang berubah hanya sumber datanya.
+
+### Berkas yang diubah atau ditambah
+
+- `src/app/(ata)/(apl)/hari-ini/HariIni.tsx`, `data.ts`: sumber data `lokal` (belum masuk) atau `akun` (`/api/v1/progress`, `/api/v1/tasks`); keadaan memuat, galat akun dengan "Coba lagi", dan gagal simpan ("Belum tersimpan ke akun. Coba lagi."). "Reset data demo" dan label DATA DEMO hanya untuk data perangkat.
+- `src/app/(ata)/_layar/lingkup.ts` (baru): pemisahan store perangkat dan salinan akun.
+- `src/app/(ata)/(apl)/lomba/Lomba.tsx`, `sinkron.ts`: tidak lagi mengunggah data perangkat saat pertama masuk; status langkah dikirim lewat `/api/v1/tasks`, tidak di dalam dokumen Peta Jalan.
+- `src/lib/prototype/shared/bersama.js`, `shared/logic/bersama.js`: salinan akun tidak diisi data contoh. Ini satu-satunya penyimpangan dari logika prototipe, dan hanya berlaku saat `ata-lingkup` menunjuk akun.
+
+### Berkas yang dihapus
+
+Tidak ada.
+
+### Uji
+
+- e2e: `tests/e2e/hari-ini.spec.ts` (8 skenario akun baru, axe dan overflow untuk data perangkat dan akun, terang/gelap), `tests/e2e/lomba.spec.ts` (masuk tidak mengirim data contoh; keluar mengembalikannya).
+- Unit/backend: `tests/unit/account-progress.test.ts`, `tests/unit/lomba-sinkron.test.ts`, `tests/backend/task-progress.test.ts`, `tests/backend/tasks-http.test.ts`.
+
+### Regresi dan keterbatasan
+
+- Perilaku yang sengaja berubah: akun yang masuk tidak lagi melihat atau menerima Slot contoh dari perangkat.
+- `pnpm visual:parity` tidak dijalankan ulang: tidak ada CSS atau markup yang berubah.
+- Layar Progres dan Profil belum dimigrasikan, jadi XP akun baru tampil di Hari Ini.

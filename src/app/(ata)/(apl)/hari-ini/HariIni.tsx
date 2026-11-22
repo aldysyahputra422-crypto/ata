@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { Ikon } from "../../_layar/Ikon";
 import { Sheet } from "../../_layar/Lapisan";
 import { bacaAkun } from "../../_layar/akun";
+import { lingkupKini, pakaiLingkup } from "../../_layar/lingkup";
 import { TAB, useDemo } from "../Cangkang";
-import { ATURAN_XP, XP, aturStatus, bacaHariIni, dengar, dengarHari, prioritas, resetDemo, type DataHariIni, type Paket, type StatusTugas, type Tugas } from "./data";
+import { ATURAN_XP, XP, aturStatus, aturStatusAkun, bacaHariIni, bacaHariIniAkun, dengar, dengarHari, prioritas, resetDemo, type DataHariIni, type Paket, type StatusTugas, type Tugas } from "./data";
 // prototype modules, copied verbatim (mascot, folder tilt)
 import { buatMaskot, reaksiSemua } from "@/lib/prototype/shared/maskot.js";
 import { pasangCondong } from "@/lib/prototype/shared/gerak.js";
@@ -34,12 +35,19 @@ const hrefTab = (id: string) => TAB.find((t) => t.id === id)?.href ?? "/hari-ini
 
 type Muatan = { status: "memuat" } | { status: "galat" } | { status: "siap"; data: DataHariIni };
 
-/** Port of the prototype's app/ui/hari-ini.js: same markup and classes. Slot limit and name come from /api/v1/me. */
+type Sumber = "memeriksa" | "lokal" | "akun" | "terputus";
+
+/**
+ * Port of the prototype's app/ui/hari-ini.js: same markup and classes. Signed in, Slots, tasks, XP and streak are the
+ * account's (/api/v1/progress); signed out, the device's. Slot limit and name come from /api/v1/me.
+ */
 export function HariIni() {
   const router = useRouter();
   const demo = useDemo();
   const [muatan, setMuatan] = useState<Muatan>({ status: "memuat" });
   const [akun, setAkun] = useState<{ batas?: number; nama?: string; paket?: Paket }>({});
+  const [sumber, setSumber] = useState<Sumber>("memeriksa");
+  const urutan = useRef(0);
   const [toast, setToast] = useState<string | null>(null);
   const [panel, setPanel] = useState(false);
   const [tema, setTema] = useState<Tema>("sistem");
@@ -49,12 +57,21 @@ export function HariIni() {
   const batas = akun.batas;
   const paket = akun.paket;
   const muat = useCallback(() => {
+    if (sumber === "memeriksa") return;
+    if (sumber === "terputus") return setMuatan({ status: "galat" });
+    if (sumber === "akun") {
+      const giliran = ++urutan.current;
+      void bacaHariIniAkun().then((data) => {
+        if (giliran === urutan.current) setMuatan(data ? { status: "siap", data } : { status: "galat" });
+      });
+      return;
+    }
     try {
       setMuatan({ status: "siap", data: bacaHariIni(batas, paket) });
     } catch {
       setMuatan({ status: "galat" });
     }
-  }, [batas, paket]);
+  }, [sumber, batas, paket]);
 
   useEffect(() => {
     muat();
@@ -62,13 +79,18 @@ export function HariIni() {
     return () => lepas.forEach((f) => f());
   }, [muat]);
 
-  // Plan and name come from the server only; a failed call keeps the device's own limit.
+  // Whose data this is comes from the server only. A failed call shows device data only when the stores hold device
+  // data; an account's copy on the device is never shown as the account's truth.
   useEffect(() => {
     const t = document.documentElement.dataset.theme;
     setTema(t === "dark" ? "gelap" : t === "light" ? "terang" : "sistem");
     void bacaAkun().then((r) => {
-      if (!r.ok) return;
+      if (!r.ok) return setSumber(lingkupKini() === "lokal" ? "lokal" : "terputus");
       const { plan, slot_limits, user } = r.data;
+      const masuk = r.data.signed_in && !!user;
+      // device data is set aside before an account's data is shown, and brought back after signing out
+      if (pakaiLingkup(masuk && user ? user.id : null) === "ganti") return window.location.reload();
+      setSumber(masuk ? "akun" : "lokal");
       setAkun({
         batas: plan.features.activeSlots?.limit ?? slot_limits[plan.plan === "pro" ? "pro" : "free"],
         nama: user?.display_name?.trim().split(/\s+/)[0] || undefined,
@@ -102,8 +124,8 @@ export function HariIni() {
   if (muatan.status === "galat") {
     return (
       <div className="tugas-kosong" role="alert">
-        <p><strong>Data di perangkat ini tidak bisa dibaca.</strong> Coba lagi, atau muat ulang halaman.</p>
-        <button type="button" className="btn btn--kecil" onClick={muat}>Coba lagi</button>
+        <p><strong>{sumber === "lokal" ? "Data di perangkat ini tidak bisa dibaca." : "Data akunmu belum bisa dimuat."}</strong> Coba lagi, atau muat ulang halaman.</p>
+        <button type="button" className="btn btn--kecil" onClick={sumber === "terputus" ? () => window.location.reload() : muat}>Coba lagi</button>
       </div>
     );
   }
@@ -118,9 +140,12 @@ export function HariIni() {
   const dekat = slot.slice().sort((a, b) => (a.c.sisaHari ?? Infinity) - (b.c.sisaHari ?? Infinity))[0];
   const keTab = (id: string) => router.push(hrefTab(id));
 
-  const ubah = (id: string, status: StatusTugas) => {
-    const r = aturStatus(id, status);
-    if (r.ditolak) return setToast(r.ditolak === "belum-disetujui" ? "Setujui Peta Jalan dulu di tab Lomba." : "Tugas tidak ditemukan.");
+  const ubah = async (id: string, status: StatusTugas) => {
+    const r = sumber === "akun" ? await aturStatusAkun(id, status, progres.xp) : aturStatus(id, status);
+    if (r.ditolak) {
+      if (r.ditolak !== "gagal") muat();
+      return setToast(r.ditolak === "belum-disetujui" ? "Setujui Peta Jalan dulu di tab Lomba." : r.ditolak === "gagal" ? "Belum tersimpan ke akun. Coba lagi." : "Tugas tidak ditemukan.");
+    }
     if (r.baruSelesai) {
       setToast(`Selesai. +${r.xp} XP`);
       reaksiSemua("tugas-selesai");
@@ -349,7 +374,7 @@ export function HariIni() {
               ))}
             </div>
           </div>
-          {demo ? (
+          {demo && sumber === "lokal" ? (
             <button
               type="button"
               className="btn btn--block"

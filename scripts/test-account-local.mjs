@@ -135,6 +135,91 @@ assert.deepEqual(await activeSlots(), ["race-same"]);
 assert.equal((await slot("race-same", "released")).status, 200);
 assert.deepEqual(await activeSlots(), []);
 
+  // FR-PRG-03: task status per account. XP, level and streak are the server's; repeats and races never count twice.
+  const [ana, budi] = [await createAccount(), await createAccount()];
+  const plan = (approved = true) => ({ disetujui: approved, langkah: [
+    { id: "s1", nama: "Baca panduan", tanggal: "2020-01-01", selesai: true, status: "selesai", selesaiPada: "2020-01-01" },
+    { id: "s2", nama: "Kerangka", tanggal: "2999-01-01" },
+  ] });
+  const task = (user, key, step, status, extra = {}) =>
+    api("/api/v1/tasks/" + key + "/" + step, { user, method: "PUT", body: { status, ...extra } });
+  const progress = async (user) => (await api("/api/v1/progress", { user })).data;
+  const taskRows = async (user) => assertSuccess(await admin.from("task_progress").select("step_id,status,completed_on").eq("user_id", user.user.id).order("step_id"));
+  assert.equal((await api("/api/v1/progress")).status, 401);
+  assert.equal((await api("/api/v1/tasks/lomba-a/s1", { method: "PUT", body: { status: "done" } })).status, 401);
+  assert.equal((await api("/api/v1/user-competitions/lomba-a", { user: ana, method: "PUT", body: { state: "slot", roadmap: plan() } })).status, 200);
+  // status a client wrote into the roadmap is dropped: nothing is done yet
+  let state = await progress(ana);
+  assert.equal(state.summary.xp, 0);
+  assert.equal(state.competitions[0].roadmap.langkah[0].selesai, false);
+  assert.equal(state.timezone, "Asia/Jakarta");
+  // the body carries a status only
+  assert.equal((await task(ana, "lomba-a", "s1", "done", { xp: 999 })).status, 422);
+  assert.equal((await task(ana, "lomba-a", "s1", "done", { completed_on: "2020-01-01" })).status, 422);
+  assert.equal((await task(ana, "lomba-a", "s9", "done")).status, 404);
+  assert.equal((await task(ana, "lomba-a", "s1", "done", {}, )).status, 200);
+  // six identical requests at once and three more afterwards: one completion, the XP of one late step
+  const burst = await Promise.all(Array.from({ length: 6 }, () => task(ana, "lomba-a", "s1", "done")));
+  assert.deepEqual(burst.map((r) => r.status), Array(6).fill(200));
+  for (let i = 0; i < 3; i++) assert.equal((await task(ana, "lomba-a", "s1", "done")).data.changed, false);
+  assert.equal((await taskRows(ana)).length, 1);
+  state = await progress(ana);
+  assert.equal(state.summary.xp, 5, "late step");
+  assert.equal(state.summary.streak, 1);
+  // a fresh step raced by eight requests: exactly one of them changes it
+  const race = await Promise.all(Array.from({ length: 8 }, () => task(ana, "lomba-a", "s2", "done")));
+  assert.equal(race.filter((r) => r.data.changed).length, 1, "one completion out of eight");
+  assert.deepEqual((await taskRows(ana)).map((r) => r.status), ["done", "done"]);
+  assert.equal((await progress(ana)).summary.xp, 5 + 10 + 20, "late + on time + roadmap finished");
+  // done and undone at once: the row ends in one consistent state and the summary agrees with it
+  const mixed = await Promise.all(["todo", "done", "todo", "done", "doing"].map((s) => task(ana, "lomba-a", "s2", s)));
+  assert.ok(mixed.every((r) => r.status === 200));
+  const [, s2] = await taskRows(ana);
+  assert.equal(s2.status === "done", s2.completed_on !== null);
+  assert.equal((await progress(ana)).summary.xp, s2.status === "done" ? 35 : 5);
+  // reversal: the completion and its XP go; the roadmap bonus goes with it
+  assert.equal((await task(ana, "lomba-a", "s2", "todo")).status, 200);
+  assert.equal((await task(ana, "lomba-a", "s1", "todo")).data.summary.xp, 0);
+  assert.equal((await progress(ana)).summary.streak, 0);
+  assert.equal((await task(ana, "lomba-a", "s1", "done")).data.summary.xp, 5);
+  // a roadmap sent again (Lomba sync) does not touch task status
+  assert.equal((await api("/api/v1/user-competitions/lomba-a", { user: ana, method: "PUT", body: { state: "slot", roadmap: plan() } })).data.roadmap.langkah[1].selesai, false);
+  assert.equal((await progress(ana)).summary.xp, 5);
+
+  // isolation: Budi has the same competition key and sees and changes only his own
+  assert.equal((await task(budi, "lomba-a", "s1", "done")).status, 404);
+  assert.equal((await api("/api/v1/user-competitions/lomba-a", { user: budi, method: "PUT", body: { state: "slot", roadmap: plan(false) } })).status, 200);
+  assert.equal((await task(budi, "lomba-a", "s1", "done")).status, 409, "roadmap not approved");
+  assert.equal((await api("/api/v1/user-competitions/lomba-a", { user: budi, method: "PUT", body: { state: "slot", roadmap: plan() } })).status, 200);
+  assert.equal((await task(budi, "lomba-a", "s1", "doing")).status, 200);
+  assert.equal((await progress(budi)).summary.xp, 0);
+  assert.equal((await progress(ana)).summary.xp, 5);
+  assert.deepEqual(assertSuccess(await budi.client.from("task_progress").select("step_id").eq("user_id", ana.user.id)), []);
+  assert.equal(assertSuccess(await budi.client.from("task_progress").select("step_id")).length, 1);
+  for (const write of [
+    budi.client.from("task_progress").update({ status: "done" }).eq("user_id", ana.user.id),
+    budi.client.from("task_progress").insert({ user_id: budi.user.id, competition_key: "lomba-a", step_id: "s2", status: "done" }),
+    budi.client.from("task_progress").delete().eq("user_id", budi.user.id),
+  ]) assert.equal((await write).error?.code, "42501");
+  assert.deepEqual((await taskRows(ana)).map((r) => r.status), ["done", "todo"]);
+  // timezone: the completion day is the account's calendar day (UTC+14 and UTC-11 are never the same day)
+  assertSuccess(await admin.from("profiles").update({ timezone: "Pacific/Kiritimati" }).eq("user_id", ana.user.id));
+  assertSuccess(await admin.from("profiles").update({ timezone: "Pacific/Pago_Pago" }).eq("user_id", budi.user.id));
+  await task(ana, "lomba-a", "s1", "todo");
+  const east = (await task(ana, "lomba-a", "s1", "done")).data;
+  const west = (await task(budi, "lomba-a", "s1", "done")).data;
+  assert.equal(Date.parse(east.task.completed_on) - Date.parse(west.task.completed_on), 864e5);
+  assert.equal(east.today, east.task.completed_on);
+  assert.equal(east.summary.streak, 1);
+  assert.equal(west.summary.streak, 1);
+  // the account export carries the task rows
+  const taskExport = (await api("/api/v1/account/export", { user: ana })).data;
+  assert.deepEqual(taskExport.task_progress.map((t) => t.step_id), ["s1", "s2"]);
+  // removing the competition removes its task rows
+  assert.equal((await api("/api/v1/user-competitions/lomba-a", { user: budi, method: "DELETE" })).status < 300, true);
+  assert.deepEqual(await taskRows(budi), []);
+  console.log("Uji progres per akun (FR-PRG-03) di Supabase lokal lulus.");
+
   const expired = await createAccount();
   assert.match(expired.sessionId, /^[0-9a-f-]{36}$/);
   execFileSync("docker", ["exec", "-i", "supabase_db_ata", "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {

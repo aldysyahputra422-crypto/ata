@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barisLokal, buatPenyinkron, gabung, selisih, type BarisServer, type HasilKirim, type Langkah, type Lokal } from "@/app/(ata)/(apl)/lomba/sinkron";
+import { barisLokal, buatPenyinkron, gabung, selisih, statusPeta, type StatusServer, type BarisServer, type HasilKirim, type Langkah, type Lokal } from "@/app/(ata)/(apl)/lomba/sinkron";
 
 // M1 Lomba account sync (K-03, K-23): device data is never dropped, a Slot the plan rejects stays on the device.
 const lokal = (over: Partial<Lokal["deck"]> = {}, extra: Partial<Lokal> = {}): Lokal => ({
@@ -109,14 +109,14 @@ describe("buatPenyinkron", () => {
 
 describe("unsent edits (three-way merge)", () => {
   const known = () => true;
-  const lama = { langkah: [{ id: 1, status: "belum" }] };
-  const baru = { langkah: [{ id: 1, status: "selesai" }] };
+  const lama = { langkah: [{ id: 1, nama: "Draf" }] };
+  const baru = { langkah: [{ id: 1, nama: "Draf akhir" }] };
 
   it("a roadmap edit that never reached the account survives the next read and is sent", async () => {
     const data = lokal({ antrean: [], slot: ["a"] }, { peta: { a: baru } });
     const dasar = { a: JSON.stringify({ state: "slot", source: "catalog", roadmap: lama }) };
     const { lokal: hasil, dipakai } = gabung(data, [server("a", "slot", { roadmap: lama })], known, dasar);
-    expect(hasil.peta.a).toEqual(baru);
+    expect(hasil.peta.a).toMatchObject(baru);
     expect(dipakai).toEqual([]);
 
     const terkirim: Langkah[] = [];
@@ -149,5 +149,63 @@ describe("unsent edits (three-way merge)", () => {
     const p = buatPenyinkron(() => lokal({ antrean: [], slot: ["a"] }), () => {}, async () => "ok", {}, (d) => tulis.push(d));
     await p.sekarang();
     expect(Object.keys(tulis.at(-1)!)).toEqual(["a"]);
+  });
+});
+
+// M1 Personal Progress (FR-PRG-03): step status is the account's, set through /api/v1/tasks, never sent inside the roadmap row.
+describe("step status", () => {
+  const known = () => true;
+  const peta = (status: string, selesai = status === "selesai") => ({ disetujui: true, langkah: [{ id: "s1", nama: "Draf", status, selesai, selesaiPada: selesai ? "2026-11-23" : "" }] });
+  const rencana = { disetujui: true, langkah: [{ id: "s1", nama: "Draf" }] };
+
+  it("is not part of the row sent to the account", () => {
+    const rows = barisLokal(lokal({ antrean: [], slot: ["a"] }, { peta: { a: peta("selesai") } }));
+    expect(rows.get("a")?.roadmap).toEqual(rencana);
+  });
+
+  it("only approved roadmaps of active Slots have tasks", () => {
+    expect([...statusPeta(["a"], { a: peta("dikerjakan"), b: peta("selesai") })]).toEqual([["a/s1", "doing"]]);
+    expect(statusPeta(["a"], { a: { ...peta("selesai"), disetujui: false } }).size).toBe(0);
+  });
+
+  it("a change is sent once as a task status, after the rows, and not again", async () => {
+    const data = lokal({ antrean: [], slot: ["a"] }, { peta: { a: peta("belum") } });
+    const urutan: string[] = [];
+    const p = buatPenyinkron(() => data, () => {}, async (l) => { urutan.push("baris:" + l.key); return "ok"; }, {}, () => {},
+      async (kunci: string, status: StatusServer) => { urutan.push(kunci + "=" + status); return "ok"; });
+    p.catatStatus([server("a", "slot", { roadmap: peta("belum") })]);
+    await p.sekarang();
+    expect(urutan).toEqual(["baris:a"]);
+    data.peta.a = peta("selesai");
+    await p.sekarang();
+    await p.sekarang();
+    expect(urutan).toEqual(["baris:a", "a/s1=done"]);
+    data.peta.a = peta("belum");
+    await p.sekarang();
+    expect(urutan.at(-1)).toBe("a/s1=todo");
+  });
+
+  it("status the account already holds is not sent back; a refused one is not retried", async () => {
+    const data = lokal({ antrean: [], slot: ["a"] }, { peta: { a: peta("selesai") } });
+    const dasar = { a: JSON.stringify(barisLokal(data).get("a")) };
+    const terkirim: string[] = [];
+    const pesan: string[] = [];
+    const p = buatPenyinkron(() => data, (m) => pesan.push(m), async () => "ok", dasar, () => {}, async (kunci) => { terkirim.push(kunci); return "batas"; });
+    p.catatStatus([server("a", "slot", { roadmap: peta("selesai") })]);
+    await p.sekarang();
+    expect(terkirim).toEqual([]);
+    data.peta.a = peta("dikerjakan");
+    await p.sekarang();
+    await p.sekarang();
+    expect(terkirim).toEqual(["a/s1"]);
+    expect(pesan).toHaveLength(1);
+  });
+
+  it("an unsent plan edit is kept, but its step status is the account's", () => {
+    const data = lokal({ antrean: [], slot: ["a"] }, { peta: { a: { disetujui: true, langkah: [{ id: "s1", nama: "Draf akhir", status: "belum", selesai: false }] } } });
+    const dasar = { a: JSON.stringify({ state: "slot", source: "catalog", roadmap: rencana }) };
+    const { lokal: hasil, dipakai } = gabung(data, [server("a", "slot", { roadmap: peta("selesai") })], known, dasar);
+    expect(dipakai).toEqual([]);
+    expect(hasil.peta.a.langkah).toEqual([{ id: "s1", nama: "Draf akhir", selesai: true, status: "selesai", selesaiPada: "2026-11-23" }]);
   });
 });
