@@ -175,8 +175,8 @@ Tidak dipasang: skills Unreal (tidak ada proyek Unreal), serta skill Three.js un
 
 | Pemeriksaan | Hasil |
 |---|---|
-| Pencarian skill sesi (`search_skills_and_knowledge`) dengan 9 kueri | 19 dari 25 skill muncul di hasil dengan deskripsinya; 6 sisanya tidak dikueri secara khusus |
-| `skill_invoke` untuk `threejs`, `router`, `camera-systems`, `web-design-guidelines` | Dimuat; sumber tertulis `/home/ubuntu/audit/ata/.devin/skills/<nama>/SKILL.md` |
+| Pencarian skill sesi (`search_skills_and_knowledge`) dengan 9 kueri | 19 dari 25 skill muncul di hasil dengan deskripsinya |
+| `skill_invoke` untuk ke-25 skill, satu per satu | Semua dimuat; sumber tertulis `/home/ubuntu/audit/ata/.devin/skills/<nama>/SKILL.md`. Rincian per skill di `.devin/skills/MANIFEST.md` |
 | `skill_invoke("vercel-react-best-practices")` | **Gagal.** Nama di frontmatter (`vercel-react-best-practices`) berbeda dari nama folder; Devin mendaftarkannya sebagai `react-best-practices` |
 | `skill_list` / `skill_search` dengan `path` worktree | Mengembalikan "No skills found", padahal pencarian sesi dan `skill_invoke` berhasil. Ketidakkonsistenan alat ini belum dijelaskan |
 | Skrip bawaan: `node .devin/skills/threejs-model-inspect/scripts/inspect.mjs --help` | Berjalan di Node v22.23.5 |
@@ -364,7 +364,7 @@ Angka performa waktu nyata belum diukur di perangkat sungguhan; pemeriksaan pera
 | Tahap | Isi | Keluaran | Gerbang |
 |---|---|---|---|
 | 0–3 | Audit, skills, inventaris, laporan | Dokumen ini | Selesai, menunggu tinjauan |
-| 4 | Keputusan PO: Opsi A/B, sumber dan lisensi aset, letak di navigasi | Catatan keputusan | Persetujuan |
+| 4 | Keputusan PO: Opsi A/B, sumber dan lisensi aset, letak di navigasi | Bagian 15 | Diputuskan 2026-11-22 |
 | 5a | Prototipe terpisah Cinema di `ata-prototype` (berkas baru, di luar `app.html`) | Halaman prototipe + uji | Persetujuan |
 | 5b | Prototipe terpisah Study Room Opsi A + buku | Halaman prototipe + uji a11y/kontras | Persetujuan |
 | 5c | (Bila B disetujui) scene glTF di belakang antarmuka yang sama | Prototipe 3D + laporan performa | Persetujuan |
@@ -372,12 +372,29 @@ Angka performa waktu nyata belum diukur di perangkat sungguhan; pemeriksaan pera
 
 M1 tidak tersentuh: semua pekerjaan audit berada di worktree dan cabang terpisah.
 
-## 15. Keputusan yang dibutuhkan
+## 15. Keputusan Product Owner (2026-11-22)
 
-1. Study Room: Opsi A dulu (pulihkan panorama), atau langsung Opsi B (ruangan 3D baru)?
-2. Dari mana asal scene kamar dan bioskop (Blender milik sendiri atau aset pihak ketiga), dan apakah berkas sumbernya masih ada di luar repo?
-3. Di mana kedua pengalaman ditempatkan: tetap di bawah Profil seperti dulu, atau tempat lain?
-4. Apakah cabang ini boleh dibuka sebagai PR agar skills terbaca di sesi berikutnya?
+| No | Pertanyaan | Keputusan |
+|---|---|---|
+| 1 | Study Room | **Tahap A:** pulihkan panorama 360° (shader WebGL lama), hotspot buku, dan buku HTML/CSS 3D termasuk buka, balik halaman, tutup; perbaiki ketajaman di desktop. **Tahap B:** prototipe terpisah ruangan dengan geometri 3D (Three.js/R3F bila audit stack tetap mendukung). Panorama adalah baseline restorasi, bukan tujuan akhir, dan tidak boleh menjadi gambar statis tanpa interaksi |
+| 2 | Asal aset | Belum dapat dipastikan. Aset di `ata-prototype` menjadi sumber awal terverifikasi. Tidak diasumsikan berasal dari Unreal. Aset lama tidak dihapus atau diganti sebelum ada pengganti terverifikasi |
+| 3 | Letak | Pintu masuk utama: kartu/area "Ruang Belajar" di Hari Ini, menuju rute khusus layar penuh dengan navigasi ke Study Room dan Cinema. Lima tab utama tetap; tanpa tab baru. Profil hanya untuk personalisasi kamar bila diperlukan. Kedua fitur tidak dipaksa menjadi satu pengalaman |
+| 4 | PR | Cabang ini dibuka sebagai PR draft. Tanpa dependensi runtime, migrasi database, perubahan Hari Ini, perubahan cabang utama, atau deploy |
+| 5 | Versi Three.js | Tidak ada upgrade paksa. r186 vs r187 diputuskan saat stack final ditetapkan dari dependensi aplikasi |
+
+Urutan berikutnya: prototipe terpisah (1) Cinema Experience Restoration dan (2) Interactive 3D Study Room, pemulihan fitur lama lebih dulu. Integrasi ke aplikasi menunggu persetujuan atas kualitas visual, interaksi, dan performa.
+
+### Status aset menurut kategori
+
+| Kategori | Isi |
+|---|---|
+| Sudah tersedia | `bioskop-desktop-bg/fg.webp`, `bioskop-phone-bg/fg.webp`, `kamar-360.webp`, `kamar-senja.webp` (di `ata-prototype/assets/` dan `ata/public/prototype/assets/`) |
+| Dapat dipulihkan dari kode lama | Shader panorama dan logika kamera, hotspot buku, buku CSS 3D, lapis dan parallax Cinema, slide Cinema (`index.html`, `parts/dossier.*`) |
+| Harus dibuat ulang | Geometri kamar (meja, rak, buku) sebagai model 3D; animasi sampul buku dan lengkung halaman; isi buku/slide dari data pengguna |
+| Butuh sumber resolusi lebih tinggi | `kamar-360.webp` (2048×1024). Tanpa scene sumber, ketajaman hanya dapat diperbaiki lewat cara tampil (DPR, FOV, filter), bukan detail baru |
+| Aset baru yang butuh lisensi/persetujuan | Setiap model, tekstur, atau HDRI untuk Tahap B. Belum ada yang dipilih |
+
+Pencarian di VM sesi ini (seluruh sistem berkas, di luar kedua repo) tidak menemukan `.uproject`, `.uasset`, `.umap`, `.blend`, `.glb`, `.gltf`, `.fbx`, `.hdr`, atau `.ktx2`, maupun salinan lain aset kamar/bioskop. Mesin lokal pemilik tidak diperiksa.
 
 ## Lampiran: bukti
 
