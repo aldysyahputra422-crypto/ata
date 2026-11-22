@@ -89,6 +89,72 @@ test.describe("lomba", () => {
     expect(sent.filter((s) => s.method === "DELETE" || s.body?.state === "released")).toEqual([]);
   });
 
+  test("the Slot limit is the server's, also when it differs from the built-in table", async ({ page }) => {
+    await stub(page, { ...free, plan: { ...free.plan, features: features(2) } }, { items: [SEED].map((k: string) => ({ competition_key: k, source: "catalog", state: "slot", card: null, roadmap: null })) });
+    await open(page, "slot");
+    await expect(page.locator(".lede")).toHaveText("1 dari 2 Slot terpakai. Paket Gratis mencakup 2 Slot aktif.");
+  });
+
+  test("another account on the same device does not see or receive the previous account's Lomba data", async ({ page }) => {
+    await stub(page, { ...free, user: { ...user, id: "u0" } }, { items: [SEED, "essay-unesa-2026"].map((k: string) => ({ competition_key: k, source: "catalog", state: "slot", card: null, roadmap: null })) });
+    await open(page, "slot");
+    await expect(page.locator(".lede")).toContainText("2 dari 1 Slot terpakai");
+    const sent = await stub(page, free); // account u1, nothing stored yet
+    await page.reload();
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await expect(page.locator(".lede")).toContainText("1 dari 1 Slot terpakai");
+    await expect.poll(() => sent.length).toBeGreaterThan(0);
+    expect(sent.filter((x) => x.key === "essay-unesa-2026")).toEqual([]);
+  });
+
+  test("a roadmap edit that failed to reach the account is kept over the older account row and sent again", async ({ page }) => {
+    const items = [SEED].map((k: string) => ({ competition_key: k, source: "catalog", state: "slot", card: null, roadmap: null }));
+    let gagal = true;
+    const sent = await stub(page, free, { items, put: () => (gagal ? 500 : 200) });
+    await open(page, "peta");
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await page.locator("#tambah").click();
+    await page.locator("#nmL").fill("Langkah belum terkirim");
+    await page.locator("#fLangkah button[type=submit]").click();
+    await expect(page.locator(".lb-steps")).toContainText("Langkah belum terkirim");
+    await expect.poll(() => sent.length).toBeGreaterThan(0);
+    gagal = false;
+    sent.length = 0;
+    await page.reload(); // the account still answers with the row that has no such step
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await expect(page.locator(".lb-steps")).toContainText("Langkah belum terkirim");
+    await expect.poll(() => JSON.stringify(sent.find((x) => x.key === SEED)?.body ?? "")).toContain("Langkah belum terkirim");
+  });
+
+  test("undo after deleting a roadmap step brings the step back", async ({ page }) => {
+    await stub(page, out);
+    await open(page, "peta");
+    const langkah = page.locator(".lb-step");
+    const jumlah = await langkah.count();
+    const nama = await langkah.first().locator("strong").innerText();
+    await langkah.first().locator("[data-edit]").click();
+    await page.locator("#hapus").click();
+    await expect(langkah).toHaveCount(jumlah - 1);
+    await page.locator(".toast button", { hasText: "Urungkan" }).click();
+    await expect(langkah).toHaveCount(jumlah);
+    await expect(langkah.first().locator("strong")).toHaveText(nama);
+    await page.reload();
+    await expect(page.locator(".lb-step")).toHaveCount(jumlah);
+  });
+
+  test("leaving and reopening Lomba keeps a single pull-to-refresh indicator", async ({ page }) => {
+    await stub(page, out);
+    await open(page, "peta");
+    const tab = (nama: string) => page.locator("#tabbar a, #rail a").filter({ hasText: nama }).locator("visible=true").first();
+    for (let i = 0; i < 2; i++) {
+      await tab("Hari Ini").click();
+      await expect(page).toHaveURL(/hari-ini/);
+      await tab("Lomba").click();
+      await expect(page.locator("#screen")).toBeVisible();
+    }
+    expect(await page.locator("body > .tarik").count()).toBe(1);
+  });
+
   test("account unreachable: device data stays, banner explains, nothing is sent", async ({ page }) => {
     const sent = await stub(page, free, { list: 503 });
     await open(page, "slot");
