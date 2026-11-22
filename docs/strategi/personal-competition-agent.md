@@ -1,6 +1,6 @@
 # ATA sebagai Personal Competition Agent: audit dan strategi
 
-**Status: Audit Strategi v1.** Disetujui Product Owner pada 22 November 2026 dengan keputusan K1–K10 (bagian 15). Revisi ini menerapkan penyempurnaan PO dari review PR #17: penghitungan completion/reversal per unit unik, batas kesebandingan B2, kueri siap pakai yang dipersonalisasi mengikuti aturan Handoff Pack, dan penambahan lomba ke Slot sebagai aktivitas pengguna aktif. Menunggu review final.
+**Status: Audit Strategi v1.** Disetujui Product Owner pada 22 November 2026 dengan keputusan K1–K10 (bagian 15). Review final PO atas substansi dilakukan pada 22 November 2026; perubahan A–E dari review PR #17 diterima. Revisi ini mencatat keputusan dari review final itu: minggu atribusi unit, kriteria idempotensi instrumentasi, dan identitas lomba kanonis.
 
 Dokumen strategi tambahan. Tidak mengubah kode, skema, dependensi, konfigurasi, environment, akun, atau deployment, dan tidak mengubah keputusan final BYOK, keamanan, dan privasi. Tidak ada implementasi Personal Agent, Knowledge Graph, orkestrasi AI, Juri v2, atau instrumentasi yang dimulai dari dokumen ini.
 
@@ -408,7 +408,7 @@ graph TD
 |---|---|
 | M1 Lomba | Slot tersimpan dan terbaca ulang per akun di `ata-dev`; Slot kedua akun Gratis ditolak dengan 409 lewat API; turun paket tidak menghapus atau mengarsipkan Slot; akun lain melihat nol baris |
 | Tugas/progres per akun | Tanggal selesai, XP, dan streak sama di dua perangkat; satu mekanisme tanggal lokal; uji lewat tengah malam lulus; RLS diuji |
-| Instrumentasi | First-party, tanpa analytics pihak ketiga; setiap unit North Star punya peristiwa dengan definisi tertulis dan kunci deduplikasi (bagian 14); uji otomatis menolak peristiwa yang memuat isi chat, prompt, dokumen, kunci API, audio, atau informasi sensitif; pengulangan request atau retry tidak menghasilkan completion atau reversal ganda (uji otomatis); jumlah peristiwa mentah tidak pernah dilaporkan sebagai jumlah unit; pengguna diberi tahu apa yang dicatat; pengiriman lomba terverifikasi tidak dihitung sebelum mekanisme dan kriteria verifikasinya ditetapkan |
+| Instrumentasi | First-party, tanpa analytics pihak ketiga; setiap unit North Star punya peristiwa dengan definisi tertulis dan kunci deduplikasi (bagian 14); uji otomatis menolak peristiwa yang memuat isi chat, prompt, dokumen, kunci API, audio, atau informasi sensitif; transisi status unit dan pencatatan peristiwanya atomik di server; request berulang dengan status efektif yang sama tidak menghasilkan peristiwa tambahan (uji otomatis); request bersamaan untuk unit yang sama tidak menghasilkan completion atau reversal ganda (uji otomatis); completion ulang setelah reversal tidak membuat unit baru dan tidak memindahkan minggu atribusi (uji otomatis); jumlah peristiwa mentah tidak pernah dilaporkan sebagai jumlah unit; pengguna diberi tahu apa yang dicatat; pengiriman lomba terverifikasi tidak dihitung sebelum mekanisme dan kriteria verifikasinya ditetapkan |
 | Izin dan audit | Delapan kategori, semua mati sejak awal, dinyalakan satu per satu; izin pemrosesan internal dan izin pengiriman ke penyedia AI tersimpan dan tampil terpisah; kategori yang dimatikan tidak pernah muncul di paket konteks (uji otomatis); di Mode A, sebelum pengiriman tampil kategori, tujuan, dan penyedia; di Mode B, Handoff Pack menampilkan kategori dan tujuan, dan tidak menyebut aplikasi tujuan yang belum dipilih pengguna; setiap pengiriman Mode A dan setiap Handoff Pack yang disalin punya entri audit; Retriever, Compiler, dan Handoff Pack tidak membaca data akun sebelum butir ini lulus |
 | Compiler + Handoff | Keluaran identik untuk masukan identik; 14 bagian IR terisi atau ditandai kosong dengan alasan; tidak ada panggilan jaringan ke penyedia AI di Mode B; label status serah-terima sesuai `14`; kueri siap pakai yang dipersonalisasi mengikuti aturan yang sama (izin kategori, pratinjau lengkap, tujuan, salin eksplisit) dan tidak memakai izin Search Provider |
 | Sidang v2 | Setiap kelemahan punya lokasi dan bukti; rubrik internal berlabel; label simulasi di setiap layar hasil; skor identik untuk jawaban identik (lapis deterministik) |
@@ -429,6 +429,7 @@ Keputusan terbuka dicatat sebagai dependensi. Fitur di kolom kanan tidak mulai d
 | Dasar pemrosesan lapis A (gerbang privasi tersendiri, belum diputuskan) dan cara menyimpan izin: lapis A, serta lapis B untuk AI Provider, Search Provider, dan Handoff Pack | K1, K10 | Layar izin AI, Context Retriever, Prompt Compiler dan Handoff Pack yang memakai data akun |
 | Kategori yang boleh dipakai untuk personalisasi kueri Search API (delapan kategori tidak otomatis relevan) | K10 | Personalisasi kueri di Search BYOK (R2.3) |
 | Mekanisme dan kriteria verifikasi pengiriman lomba (sumber bukti, metode, pemeriksa) | K9 | Menghitung pengiriman lomba terverifikasi dalam North Star |
+| Identitas kanonis lomba, termasuk perlakuan edisi atau periode untuk kompetisi yang berulang tiap tahun | K9 | Menghitung penambahan lomba ke Slot sebagai aktivitas pengguna aktif |
 | Cara membuktikan kesebandingan evaluator L2 bila penyedia tidak memberi versi; cara mengukur variasi L2 dan ambangnya | K9 | Menghitung kenaikan skor L2 sebagai B2 terverifikasi |
 | Transparansi, kebutuhan persetujuan, dan opsi pengaturan privasi untuk peristiwa | K8 | Instrumentasi |
 | ToS penyedia AI | `13-roadmap-risiko-keputusan.md` | BYOK Provider Manager, Tanya Ata Mode A |
@@ -465,7 +466,7 @@ Mengikuti `13-roadmap-risiko-keputusan.md`; dokumen ini tidak mengubah urutannya
 
 **North Star** (`01-prd.md` §7): jumlah pekerjaan kompetisi yang maju secara terverifikasi per pengguna aktif per minggu. PRD menyebut tiga jenis unit: tugas Peta Jalan selesai, revisi yang menaikkan skor pada rubrik yang sama, dan pengiriman lomba yang dikonfirmasi pengguna.
 
-PRD tidak mendefinisikan "pengguna aktif", aturan anti-duplikasi, maupun tingkat bukti. Definisi kerja di bawah memuat keputusan PO (K9) dan usulan v1 untuk review final. Tidak ada target angka baru; setiap ambang statistik yang disebut masih hipotesis.
+PRD tidak mendefinisikan "pengguna aktif", aturan anti-duplikasi, maupun tingkat bukti. Definisi kerja di bawah memuat keputusan PO (K9, termasuk review final) dan sisa usulan v1 yang ditandai di bagian 16. Tidak ada target angka baru; setiap ambang statistik yang disebut masih hipotesis.
 
 **Dua angka yang dilaporkan terpisah.**
 
@@ -482,7 +483,7 @@ Tindak lanjut dokumentasi, belum dilakukan: revisi `01-prd.md` §7 di `ata-proto
 
 | Dihitung | Tidak otomatis dihitung (administratif) |
 |---|---|
-| Menyelesaikan tugas Peta Jalan | Membatalkan centang tugas (reversal) |
+| Menyelesaikan tugas Peta Jalan, termasuk menyelesaikannya kembali setelah reversal | Membatalkan centang tugas (reversal) |
 | Menyimpan versi baru karya | Mengganti nama, mengurutkan ulang, atau menghapus tugas, langkah, atau Slot |
 | Menyelesaikan satu sesi Sidang | Mengaktifkan atau menonaktifkan Slot karena batas paket |
 | Menambah atau mengubah isi langkah Peta Jalan | Mengubah profil, izin, tema, atau pengaturan lain |
@@ -491,6 +492,8 @@ Tindak lanjut dokumentasi, belum dilakukan: revisi `01-prd.md` §7 di `ata-proto
 
 Batasan:
 - Penambahan lomba ke Slot dihitung hanya bila Slot benar-benar tersimpan di server dan lombanya bukan DATA DEMO. Penambahan ulang lomba yang sama (akun + lomba) tidak dihitung dua kali. Tindakan ini hanya aktivitas pengguna aktif, bukan unit North Star.
+- "Lomba yang sama" saat implementasi mengacu pada identitas kanonis lomba, bukan judul atau tautan yang bisa berbeda untuk lomba yang sama. Untuk kompetisi yang berulang tiap tahun, edisi atau periode dipertimbangkan sebagai bagian identitas; perlakuannya belum ditetapkan (gerbang di bagian 12).
+- Completion ulang setelah reversal dihitung sebagai aktivitas pengguna aktif pada minggu terjadinya, tetapi bukan unit North Star tambahan.
 - Penyimpanan versi karya dan perubahan isi Peta Jalan dihitung hanya bila kontennya benar-benar berubah.
 
 - Tidak mensyaratkan masuk ulang pada minggu yang sama; sesi yang masih berlaku cukup.
@@ -511,7 +514,10 @@ Batasan:
 **Pembatalan tanpa menghapus histori.** Unit dicatat sebagai peristiwa yang hanya bertambah:
 - *Completion event* saat unit terpenuhi; *reversal event* saat dibatalkan (tugas dikembalikan ke belum selesai, konfirmasi ditarik). Keduanya memuat kunci unit dan waktu server, dan disimpan append-only.
 - Tidak ada peristiwa yang dihapus atau diubah, supaya rekam jejak tetap bisa diaudit.
-- Peristiwa hanya dicatat bila status efektif unit benar-benar berubah. Request yang diulang atau retry dengan status yang sama tidak menghasilkan completion atau reversal kedua.
+- Peristiwa hanya dicatat bila status efektif unit benar-benar berubah. Request berulang dengan status efektif yang sama tidak menghasilkan peristiwa tambahan.
+- Transisi status unit dan pencatatan peristiwanya atomik di server: keduanya terjadi bersama atau tidak sama sekali.
+- Request bersamaan untuk unit yang sama tidak boleh menghasilkan completion atau reversal ganda.
+- Rancangan database dan skemanya dikerjakan pada tahap implementasi, bukan di dokumen ini.
 
 Tiga angka yang tidak boleh tertukar:
 
@@ -521,7 +527,24 @@ Tiga angka yang tidak boleh tertukar:
 | Nilai setelah koreksi | Jumlah unit unik yang status efektif terakhirnya selesai; paling banyak satu per kunci | North Star (terkoreksi) |
 | Jumlah peristiwa mentah | Seluruh completion dan reversal event | Histori audit saja; bukan jumlah unit North Star |
 
-Dashboard dapat menampilkan nilai historis dan nilai setelah koreksi, masing-masing berlabel. Contoh: tugas dicentang, dibatalkan, lalu dicentang lagi menghasilkan tiga peristiwa, nilai historis 1, dan nilai setelah koreksi 1. Usulan saya, belum diputuskan: unit tetap dicatat pada minggu completion pertamanya.
+Dashboard dapat menampilkan nilai historis dan nilai setelah koreksi, masing-masing berlabel.
+
+**Minggu atribusi unit (keputusan PO, review final).**
+- Setiap unit North Star memakai minggu completion pertamanya sebagai minggu atribusi permanen.
+- Completion ulang setelah reversal tidak menciptakan unit baru dan tidak memindahkan minggu atribusi.
+- Nilai historis tetap menunjukkan unit yang pernah selesai, pada minggu atribusinya.
+- Nilai setelah koreksi mengikuti status efektif terakhir, dan dapat mengoreksi nilai pada minggu atribusi awal.
+- Peristiwa mentah tetap memakai waktu kejadian sebenarnya, untuk audit.
+
+Contoh satu tugas: selesai di Minggu 1, reversal di Minggu 2, selesai kembali di Minggu 3. Minggu atribusinya Minggu 1.
+
+| Dilihat setelah | Peristiwa mentah (waktu sebenarnya) | Nilai historis | Nilai setelah koreksi | Aktivitas pengguna aktif dari tugas ini |
+|---|---|---|---|---|
+| Minggu 1 | 1 completion (Minggu 1) | Minggu 1: 1 | Minggu 1: 1 | Minggu 1: ya |
+| Minggu 2 | + 1 reversal (Minggu 2) | Minggu 1: 1 | Minggu 1: 0 | Minggu 2: tidak (reversal administratif) |
+| Minggu 3 | + 1 completion (Minggu 3) | Minggu 1: 1 | Minggu 1: 1 | Minggu 3: ya |
+
+Minggu 2 dan Minggu 3 tidak pernah mendapat unit dari tugas ini, di nilai historis maupun nilai setelah koreksi. Total: tiga peristiwa, satu unit.
 
 **Identitas evaluasi B2.** Dua skor hanya boleh dibandingkan bila seluruh unsur berikut sama, kecuali versi karya:
 - akun, karya, dan versi karya;
@@ -582,7 +605,7 @@ Tidak ada target angka di dokumen ini. Belum ada instrumentasi, jadi belum ada b
 
 ## 15. Keputusan Product Owner
 
-Diputuskan PO pada 22 November 2026; K9 dan K10 berasal dari review PO atas PR #16 dan disempurnakan pada review PR #17 (penomorannya dari dokumen ini). Tabel pertama mencatat keputusan dan tempat penerapannya di dokumen ini; tabel kedua menyimpan temuan asal sebagai rekam jejak.
+Diputuskan PO pada 22 November 2026; K9 dan K10 berasal dari review PO atas PR #16 dan disempurnakan pada review PR #17 serta review final PO pada 22 November 2026 (penomorannya dari dokumen ini; keputusan review final dicatat di bawah K9, tanpa nomor baru). Tabel pertama mencatat keputusan dan tempat penerapannya di dokumen ini; tabel kedua menyimpan temuan asal sebagai rekam jejak.
 
 | # | Keputusan | Diterapkan di | Tindak lanjut di luar dokumen ini (belum dilakukan) |
 |---|---|---|---|
@@ -594,7 +617,7 @@ Diputuskan PO pada 22 November 2026; K9 dan K10 berasal dari review PO atas PR #
 | K6 | STT mati sejak awal; ketik metode utama; pemberitahuan pemrosesan audio; mikrofon lewat tindakan eksplisit; tanpa klaim pemrosesan lokal yang belum teruji | Bagian 6.3, bagian 12 | Pemberitahuan di prototipe Sidang sebelum STT dibawa ke app |
 | K7 | Keputusan terbuka dicatat sebagai dependensi dan gerbang; yang belum relevan tidak perlu diselesaikan sekarang | Bagian 12 "Gerbang keputusan" | Per butir, saat tahapnya tiba |
 | K8 | Pelacakan first-party minimal; tanpa analytics pihak ketiga di tahap awal; tanpa isi chat, prompt, dokumen, kunci, audio, atau data sensitif; transparansi dan evaluasi persetujuan sebelum implementasi | Bagian 11, 12, 14 | Evaluasi persetujuan dan pengaturan privasi |
-| K9 | Pengiriman lomba yang diverifikasi sistem atau pemeriksa masuk North Star terverifikasi sebagai unit tersendiri, hanya setelah mekanisme dan kriterianya ditetapkan; tanpa bukti tetap User-Declared; dengan lampiran belum diperiksa berstatus menunggu verifikasi; catatan verifikasi wajib lengkap; screenshot atau lolos validasi format bukan verifikasi. B1 dan B2 diberi batas makna. Penyempurnaan dari review PR #17: nilai historis dan nilai setelah koreksi dihitung per unit unik, peristiwa mentah hanya histori audit, tanpa peristiwa ganda akibat retry; evaluasi L2 yang kesebandingannya tidak pasti hanya indikatif; penambahan lomba nyata ke Slot adalah aktivitas pengguna aktif, bukan unit; simpan versi dan ubah Peta Jalan dihitung hanya bila konten berubah | Bagian 12, 14 | Revisi `01-prd.md` §7 di `ata-prototype`; tetapkan mekanisme dan kriteria verifikasi; tetapkan cara membuktikan kesebandingan evaluator L2 |
+| K9 | Pengiriman lomba yang diverifikasi sistem atau pemeriksa masuk North Star terverifikasi sebagai unit tersendiri, hanya setelah mekanisme dan kriterianya ditetapkan; tanpa bukti tetap User-Declared; dengan lampiran belum diperiksa berstatus menunggu verifikasi; catatan verifikasi wajib lengkap; screenshot atau lolos validasi format bukan verifikasi. B1 dan B2 diberi batas makna. Penyempurnaan dari review PR #17: nilai historis dan nilai setelah koreksi dihitung per unit unik, peristiwa mentah hanya histori audit, tanpa peristiwa ganda akibat retry; evaluasi L2 yang kesebandingannya tidak pasti hanya indikatif; penambahan lomba nyata ke Slot adalah aktivitas pengguna aktif, bukan unit; simpan versi dan ubah Peta Jalan dihitung hanya bila konten berubah. Dari review final PO: minggu completion pertama adalah minggu atribusi permanen unit, completion ulang tidak membuat unit baru dan tidak memindahkan minggu atribusi tetapi tetap aktivitas pengguna aktif; transisi status dan pencatatan peristiwa atomik, tanpa peristiwa ganda akibat request berulang atau bersamaan; identitas lomba mengacu pada identitas kanonis | Bagian 12, 14 | Revisi `01-prd.md` §7 di `ata-prototype`; tetapkan mekanisme dan kriteria verifikasi; tetapkan cara membuktikan kesebandingan evaluator L2; tetapkan identitas kanonis lomba dan perlakuan edisi atau periode |
 | K10 | Search API termasuk lapis B; izin Search Provider terpisah dari izin AI Provider, keduanya mati sejak awal per kategori; personalisasi kueri butuh izin kategori terkait; kueri umum yang diketik pengguna berjalan tanpa data pribadi tambahan; sebelum pencarian tampil penyedia dan konteks personal; Handoff Pack tetap dengan izin kategori, pratinjau, dan salin eksplisit. Penyempurnaan dari review PR #17: kueri siap pakai yang dipersonalisasi tanpa Search API mengikuti aturan Handoff Pack, tidak memakai izin Search Provider; teks kueri umum persisnya tetap dikirim dan ditampilkan sebelum pencarian | Bagian 3, 11, 12 | Rancang penyimpanan izin; tentukan kategori yang boleh dipakai untuk personalisasi Search API |
 
 ### Temuan asal
@@ -614,7 +637,7 @@ Diputuskan PO pada 22 November 2026; K9 dan K10 berasal dari review PO atas PR #
 
 - **Blueprint `03` dan `07`–`12` belum diaudit rinci** (`03-provider-universal`, `07-langganan-biaya`, `08-keamanan`, `09-vercel-teknologi`, `10-adr`, `11-data-model`, `12-api-contract`). Bagian dokumen ini yang paling bergantung padanya adalah BYOK dan penyimpanan kunci, model data dan Knowledge Graph, kontrak API, dan biaya. Tindak lanjut wajib: pemeriksaan konsistensi ketujuh berkas itu terhadap `01`, `02`, `14`–`16` dan terhadap skema yang sudah ada, sebelum revisi besar PRD. Belum dikerjakan.
 - Dokumen ini audit internal produk dan arsitektur. Validasi pasar, analisis kompetitor, dan kesediaan membayar tidak tercakup.
-- Di bagian 14, yang sudah diputuskan PO: pemisahan angka, tiga keadaan B3, batas makna B1/B2, cara hitung nilai historis dan nilai setelah koreksi, batas kesebandingan B2, dan penambahan lomba ke Slot sebagai aktivitas pengguna aktif. Yang masih usulan: sisa daftar aktivitas kerja, minggu pencatatan unit yang dicentang ulang, dan rincian unsur identitas evaluasi B2. Semuanya belum diuji terhadap data karena belum ada instrumentasi.
+- Di bagian 14, yang sudah diputuskan PO: pemisahan angka, tiga keadaan B3, batas makna B1/B2, cara hitung nilai historis dan nilai setelah koreksi, minggu atribusi unit, kriteria idempotensi peristiwa, batas kesebandingan B2, penambahan lomba ke Slot sebagai aktivitas pengguna aktif, dan identitas lomba kanonis. Yang masih usulan: sisa daftar aktivitas kerja dan rincian unsur identitas evaluasi B2. Semuanya belum diuji terhadap data karena belum ada instrumentasi.
 - Status prototipe dinilai dari membaca kode dan komentar berkas, bukan dari menjalankan ulang setiap fitur dalam audit ini.
 - "Belum ada" untuk instrumentasi berdasarkan pencarian teks di `src/`, bukan audit menyeluruh.
 - Perilaku STT/TTS antar browser tidak diuji; pernyataan kelayakan suara adalah penilaian, bukan hasil ukur.
