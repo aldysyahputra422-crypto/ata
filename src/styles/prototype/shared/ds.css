@@ -12,6 +12,8 @@
   --spark:#FFC400; --spark-ink:#3A2A00; --bloom-rgb:255,190,60;
   --success:#059669; --success-soft:#D8F5E8; --warn:#B45309; --warn-soft:#FFEBC7;
   --danger:#BE123C; --danger-soft:#FFDDE5; --info:#1D5FD6; --info-soft:#DCEBFF;
+  /* teks status di atas latar -soft: --success 3.26:1 dan --warn 4.29:1 gagal AA, jadi teksnya memakai rona yang sama tapi lebih dalam (5.96:1 dan 6.5:1) */
+  --sukses-teks:#04674A; --peringatan-teks:#8A3A06;
   --halo-1:rgba(255,160,100,.28); --halo-2:rgba(255,120,160,.22); --halo-3:rgba(255,205,120,.26);
   --glass:rgba(255,255,255,.72); --glass-hi:rgba(255,255,255,.9);
   --seg-a:#FFF6F0; --seg-b:#F8E9DF; --shadow-c:rgba(74,30,16,.22);
@@ -45,7 +47,7 @@
     --text:#FFF3EC; --text-muted:#D6B8AA; --border:rgba(255,255,255,.10); --border-strong:rgba(255,255,255,.20);
     --primary:#FF8A5C; --primary-hover:#FFA07A; --primary-ink:#2A0E05; --primary-soft:rgba(255,138,92,.18);
     --success:#34D399; --success-soft:rgba(52,211,153,.16); --warn:#FBBF24; --warn-soft:rgba(251,191,36,.16);
-    --danger:#FB7185; --danger-soft:rgba(251,113,133,.16); --info:#60A5FA; --info-soft:rgba(96,165,250,.16);
+    --danger:#FB7185; --danger-soft:rgba(251,113,133,.16); --info:#60A5FA; --info-soft:rgba(96,165,250,.16); --sukses-teks:#34D399; --peringatan-teks:#FBBF24;
     --halo-1:rgba(255,130,80,.26); --halo-2:rgba(255,90,140,.18); --halo-3:rgba(255,190,90,.10);
     --glass:rgba(42,25,21,.72); --glass-hi:rgba(255,255,255,.08); --seg-a:#33201A; --seg-b:#261611; --shadow-c:rgba(0,0,0,.5);
     --frame:#3D2820; --scrim:rgba(0,0,0,.6); --skeleton:#33201A; --skeleton-hi:#3D2820;
@@ -62,7 +64,7 @@
   --text:#FFF3EC; --text-muted:#D6B8AA; --border:rgba(255,255,255,.10); --border-strong:rgba(255,255,255,.20);
   --primary:#FF8A5C; --primary-hover:#FFA07A; --primary-ink:#2A0E05; --primary-soft:rgba(255,138,92,.18);
   --success:#34D399; --success-soft:rgba(52,211,153,.16); --warn:#FBBF24; --warn-soft:rgba(251,191,36,.16);
-  --danger:#FB7185; --danger-soft:rgba(251,113,133,.16); --info:#60A5FA; --info-soft:rgba(96,165,250,.16);
+  --danger:#FB7185; --danger-soft:rgba(251,113,133,.16); --info:#60A5FA; --info-soft:rgba(96,165,250,.16); --sukses-teks:#34D399; --peringatan-teks:#FBBF24;
   --halo-1:rgba(255,130,80,.26); --halo-2:rgba(255,90,140,.18); --halo-3:rgba(255,190,90,.10);
   --glass:rgba(42,25,21,.72); --glass-hi:rgba(255,255,255,.08); --seg-a:#33201A; --seg-b:#261611; --shadow-c:rgba(0,0,0,.5);
   --frame:#3D2820; --scrim:rgba(0,0,0,.6); --skeleton:#33201A; --skeleton-hi:#3D2820;
@@ -176,8 +178,8 @@ a { color:var(--primary); }
 .g-lemon { --g-top:var(--gem-lemon-top); --g-bot:var(--gem-lemon-bot); --g-ink:var(--gem-lemon-ink); }
 .status { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font:600 13px/16px var(--font-body); }
 .status svg { width:16px; height:16px; }
-.status--ok { background:var(--success-soft); color:var(--success); }
-.status--warn { background:var(--warn-soft); color:var(--warn); }
+.status--ok { background:var(--success-soft); color:var(--sukses-teks); }
+.status--warn { background:var(--warn-soft); color:var(--peringatan-teks); }
 .status--info { background:var(--info-soft); color:var(--info); }
 .status--danger { background:var(--danger-soft); color:var(--danger); }
 .field { display:flex; flex-direction:column; gap:6px; }

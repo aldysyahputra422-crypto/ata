@@ -4,13 +4,6 @@ import { expect, test, type Page } from "@playwright/test";
 // /styleguide renders the prototype component reference (uji-visual/komponen.html) with the prototype CSS.
 const SECTIONS = ["hTombol", "hLabel", "hBanner", "hIsian", "hFolder", "hMuat"];
 
-// Contrast defects that exist identically in the prototype reference page (docs/MIGRASI-UI.md, R0.2-0).
-// The migration must not diverge from the prototype; any NEW failure still fails this test.
-const KNOWN_PROTOTYPE_DEFECTS: Record<"light" | "dark", string[]> = {
-  light: [".status--ok", ".status--warn"],
-  dark: [],
-};
-
 async function openStyleguide(page: Page, tema?: "light" | "dark") {
   await page.goto(tema ? `/styleguide?tema=${tema}` : "/styleguide");
   await expect(page.locator('body[data-siap="1"]')).toBeAttached();
@@ -42,7 +35,7 @@ test.describe("styleguide", () => {
       await openStyleguide(page, tema);
       const results = await new AxeBuilder({ page }).withRules(["color-contrast"]).analyze();
       const failing = results.violations.flatMap((v) => v.nodes.map((n) => n.target.join(" ")));
-      expect(failing.filter((t) => !KNOWN_PROTOTYPE_DEFECTS[tema].includes(t))).toEqual([]);
+      expect(failing).toEqual([]);
     });
   }
 

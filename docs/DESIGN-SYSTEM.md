@@ -64,7 +64,7 @@ Tema gelap: `:root[data-theme="dark"]` (dan `prefers-color-scheme` bila `data-th
 - Kontras teks AA (4,5:1; 3:1 untuk teks besar) di terang dan gelap, diukur dengan axe (Playwright) dan `audit-kontras.js`.
 - Keyboard: kontrol radiogroup memakai panah/Home/End (`mountSeg`). Fokus terlihat.
 - Hormati `prefers-reduced-motion` sesuai CSS prototipe.
-- Cacat kontras yang ada di prototipe sendiri dicatat di docs/MIGRASI-UI.md dan diputuskan PO; tidak diperbaiki diam-diam di produksi.
+- Cacat kontras yang ditemukan di prototipe diperbaiki di prototipe dulu, lalu disalin ke produksi; tidak diperbaiki diam-diam di produksi. Teks status memakai `--sukses-teks` dan `--peringatan-teks` (rona sama, lebih dalam) di atas latar `-soft`.
 
 ## 8. Review dan paritas
 
