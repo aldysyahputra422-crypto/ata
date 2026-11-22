@@ -65,10 +65,13 @@ export function pasangLomba() {
   const onHash = () => render(location.hash.slice(1));
   window.addEventListener('hashchange', onHash);
   const lepasBersama = dengarBersama((b) => { sinkronDariBersama(b); render(current); });
+  /* In the prototype every tab is its own iframe and hears the others through storage events. Here Hari Ini writes the
+     store in this same document while Lomba is unmounted, so the kept module state is refreshed on every mount. */
+  sinkronDariBersama(bacaBersama());
   render(location.hash.slice(1) || 'radar');
 
   const jamKini = () => new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
-  pasangTarik(views, {
+  const tarik = pasangTarik(views, {
     segarkan: async () => { sinkronDariBersama(bacaBersama()); render(current); return `Tenggat dihitung ulang · ${jamKini()}`; }
   });
 
@@ -77,6 +80,7 @@ export function pasangLomba() {
     lepas() {
       window.removeEventListener('hashchange', onHash);
       lepasBersama();
+      if (tarik) tarik.copot();
       clearTimeout(toastTimer);
       if (current && SCREENS[current] && SCREENS[current].pergi) SCREENS[current].pergi();
       document.querySelectorAll('#app .toast').forEach((t) => t.remove());

@@ -245,7 +245,10 @@ export function pasangTarik(wadah, { segarkan, labelAwal = 'Tarik untuk segarkan
   const akhiriPointer = (e, batal) => { if (e.pointerId !== idPointer) return; idPointer = null; lepas(batal); };
   wadah.addEventListener('pointerup', (e) => akhiriPointer(e, false));
   wadah.addEventListener('pointercancel', (e) => akhiriPointer(e, true));
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mode === 'tarik') { mode = 'tarik'; lepas(true); } });
+  const batalTarik = (e) => { if (e.key === 'Escape' && mode === 'tarik') { mode = 'tarik'; lepas(true); } };
+  window.addEventListener('keydown', batalTarik);
 
-  return { el, get mode() { return mode; } };
+  /* app only: the screen is mounted again on every visit, so what was added outside the container is taken back */
+  const copot = () => { window.removeEventListener('keydown', batalTarik); el.remove(); status.remove(); delete wadah.dataset.tarik; };
+  return { el, copot, get mode() { return mode; } };
 }
