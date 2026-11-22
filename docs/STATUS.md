@@ -5,7 +5,7 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 ## M1 Lomba (22 November 2026)
 
 - Selesai: Radar, Tersimpan, Detail, Slot, Peta Jalan di `/lomba` (K-03, K-23, FR-RDM-03, FR-PRG-03); tabel `user_competitions` dengan RLS dan trigger batas Slot aktif; sinkron akun lokal-dulu.
-- Tertunda: migrasi 0005 di `ata-dev`, uji browser dengan sesi sungguhan, pencarian lewat API key (hanya kata kunci siap pakai), paritas sudut bingkai (lihat docs/MIGRASI-UI.md).
+- Tertunda: migrasi 0005 di `ata-dev`, uji browser dengan sesi sungguhan, pencarian lewat API key (hanya kata kunci siap pakai), paritas sudut bingkai sudah diperbaiki dari prototipe; gerbang akhir (paritas lima layar, e2e yang dilewati, lint, 0005 di Supabase lokal) ada di docs/gerbang-m1-lomba.md.
 - Tertunda: Tanya Ata, Progres, Profil (masih halaman fondasi lama).
 
 ## M1 Hari Ini (22 November 2026)

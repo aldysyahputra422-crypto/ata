@@ -142,6 +142,7 @@ test.describe("lomba: four browser findings", () => {
     ["peta", ".lb-peta__head .eyebrow"],
     ["peta", "#tambah"],
     ["lomba-detail", ".lb-detail__skor", true],
+    ["lomba-detail", ".lb-detail__meta", true],
     ["lomba-detail", ".lb-detail__lembar > p.small.muted", true],
     ["lomba-detail", "#karuselHitung", true],
   ];
@@ -162,4 +163,14 @@ test.describe("lomba: four browser findings", () => {
       await noOverflow(page);
     });
   }
+
+  test("Detail: the sticky action bar sits 12px above the scroller edge and clear of the title", async ({ page }) => {
+    await open(page, "lomba-detail");
+    const m = await page.evaluate(() => {
+      const bar = document.querySelector(".lb-aksi-bawah")!, h1 = document.querySelector(".lb-detail__lembar h1")!;
+      return { bottom: getComputedStyle(bar).bottom, barTop: bar.getBoundingClientRect().top, titleBottom: h1.getBoundingClientRect().bottom };
+    });
+    expect(m.bottom).toBe("12px");
+    expect(m.barTop).toBeGreaterThanOrEqual(m.titleBottom);
+  });
 });

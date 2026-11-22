@@ -180,7 +180,8 @@ html.bisa-lensa :is(.m-lensa, .tabbar, .rail__seg) { backdrop-filter: url(#kaca-
    "N% cocok" 3.50:1 → aksen teks; "Sumber: …" 2.69:1 dan penghitung karusel 2.32:1 → teks-di-foto. */
 @container app (min-width: 900px) {
   :root .lb-detail__skor { color: var(--aksen-teks); }
-  :root .lb-detail__lembar > p.small.muted, :root #karuselHitung { color: var(--teks-di-foto); }
+  /* baris meta di samping pil skor ("Internasional · SMA, …") 3.92:1 di foto gelap → teks-di-foto; pil skor memakai warnanya sendiri */
+  :root .lb-detail__lembar > p.small.muted, :root .lb-detail__meta, :root #karuselHitung { color: var(--teks-di-foto); }
   /* warna saja belum cukup di titik foto paling terang/gelap (4.26:1 dan 4.42:1): alas pil tembus pandang di belakang teksnya */
   :root .lb-detail__skor, :root #karuselHitung { padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--bg) 46%, transparent); }
   :root .lb-detail__skor { margin-left: -8px; }

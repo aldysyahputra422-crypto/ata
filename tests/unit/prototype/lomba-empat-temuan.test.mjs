@@ -46,3 +46,21 @@ test('contrast: Lomba text that sits directly on the photo uses the on-photo tok
   assert.match(css, /\.lb-detail__skor \{ color: var\(--aksen-teks\); \}/);
   assert.match(css, /\.lb-sub-row > \.btn--ghost \{ background: color-mix/);
 });
+
+test('contrast: the Detail meta row beside the score pill uses the on-photo token (desktop)', () => {
+  assert.match(css, /:root \.lb-detail__lembar > p\.small\.muted, :root \.lb-detail__meta, :root #karuselHitung \{ color: var\(--teks-di-foto\); \}/);
+});
+
+test('embed: the frame corner is squared inside the shell despite the more specific ds.css device rule', () => {
+  const embed = baca('src/styles/prototype/shared/embed.css'), ds = baca('src/styles/prototype/shared/ds.css');
+  assert.match(ds, /\.device\[data-device="phone"\] \.app\s*\{[^}]*border-radius/);
+  assert.match(embed, /html\[data-embed\] \.app,\s*html\[data-embed\] \.device\[data-device\] \.app \{[^}]*border-radius: 0;/);
+});
+
+test('shell: the two html[data-embed] rules of lomba.css are restated for the app shell', () => {
+  const lomba = baca('src/styles/prototype/lomba/lomba.css'), apl = baca('src/app/(ata)/(apl)/lomba/lomba-apl.css');
+  assert.match(lomba, /html\[data-embed\] \.lb-detail \{ --tepi:16px; \}/);
+  assert.match(lomba, /html\[data-embed\] \.lb-aksi-bawah \{ --aksi-bawah:12px; \}/);
+  assert.match(apl, /\.lb-detail \{\s*--tepi: 16px;/);
+  assert.match(apl, /\.lb-aksi-bawah \{\s*--aksi-bawah: 12px;/);
+});

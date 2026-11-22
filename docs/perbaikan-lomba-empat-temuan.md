@@ -45,4 +45,10 @@ Rasio dihitung dari piksel screenshot: warna teks hasil render terhadap setiap p
 
 Hasil akhir: 116 teks diukur di lima layar Lomba × 2 viewport × 2 tema, 0 di bawah batas (sebelum: 9). Foto dan tirai halaman tidak diubah; aturan ada di `shared/lingkungan.css` ("kontras putaran 4"). Perubahan di Detail hanya berlaku pada tata letak desktop, karena di HP isinya berdiri di atas lembar beralas.
 
-Nilai terendah yang tersisa: baris meta Detail desktop tema gelap, 4,70:1.
+## Lanjutan: gerbang akhir M1 Lomba
+
+**Baris meta Detail (desktop, tema gelap).** Persentil ke-5 baris "Internasional · SMA, …" 4,70:1, tetapi piksel terburuknya 3,92:1 pada uji browser dengan sesi Google sungguhan. Baris itu kini memakai `--teks-di-foto` seperti "Sumber: …" di sebelahnya: 9,77:1 terang, 7,18:1 gelap (persentil ke-5). Pil skor di dalamnya tetap memakai `--aksen-teks`.
+
+**Sudut bingkai di dalam shell.** `shared/embed.css` bermaksud menghapus sudut bingkai layar yang dimuat di dalam `app.html` (`html[data-embed] .app { border-radius: 0 }`), tetapi aturan `ds.css` `.device[data-device="phone"] .app` (38 px) dan `.device[data-device="desktop"] .app` (18 px) lebih spesifik, sehingga sudut tetap membulat dan memotong isi layar di keempat pojok. Selektor embed kini menyertakan `.device[data-device]`. Bingkai perangkat saat layar dibuka sendiri (tanpa shell) tidak berubah.
+
+Hasil akhir setelah lanjutan: 116 teks diukur, 0 di bawah batas; nilai terendah teks normal 5,13:1.

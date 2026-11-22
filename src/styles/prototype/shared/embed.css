@@ -41,7 +41,10 @@ html[data-embed] .device[data-device="desktop"] {
   box-shadow: none;
 }
 
-html[data-embed] .app {
+/* .device[data-device] ikut di selektor: tanpa itu aturan sudut bingkai di ds.css
+   (.device[data-device="phone"] .app, 38 px / 18 px) lebih spesifik dan sudutnya tetap membulat di dalam shell */
+html[data-embed] .app,
+html[data-embed] .device[data-device] .app {
   height: 100%;
   border-radius: 0;
 }
