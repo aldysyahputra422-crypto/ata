@@ -100,6 +100,9 @@
 .paket__fitur li { display:flex; gap:8px; font-size:13px; line-height:18px; align-items:flex-start; }
 .cek-ada { color:var(--success); font-weight:800; width:14px; flex:none; }
 .cek-tidak { color:var(--text-muted); width:14px; flex:none; }
+/* fitur yang belum bisa dipakai: penanda kecil di ujung label, tidak lebih menonjol dari harga dan manfaat */
+.paket__fitur .belum { vertical-align:middle; display:inline-block; margin-left:4px; padding:0 7px; border-radius:999px; background:var(--surface-sunken);
+  color:var(--text-muted); font:600 11.5px/18px var(--font-body); white-space:nowrap; }
 
 /* ---------- layar lebar ---------- */
 @container app (min-width: 640px) {

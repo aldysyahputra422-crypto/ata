@@ -5,6 +5,8 @@ export type Akun = {
   signed_in: boolean;
   config: { google: boolean; payments: boolean };
   user?: { id: string; email: string | null; display_name: string | null; role: string };
+  /** active-Slot limit per plan, from the server's entitlement config */
+  slot_limits: { free: number; pro: number };
   plan: {
     plan: Plan;
     status: "free" | "active" | "expired";

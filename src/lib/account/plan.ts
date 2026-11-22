@@ -4,6 +4,17 @@ import { PLAN_FEATURES, type Plan } from "@/lib/entitlements/config";
 
 export const freePlan = { plan: "free", status: "free", sources: [], features: PLAN_FEATURES.free } as const;
 
+/** Active-Slot limit of every plan, so the plan screen can compare them without hard-coding numbers. */
+export const configSlotLimits = { free: PLAN_FEATURES.free.activeSlots.limit, pro: PLAN_FEATURES.pro.activeSlots.limit };
+
+export async function slotLimits(client: SupabaseClient) {
+  const rows = await client.from("plan_features").select("plan,limit").eq("feature", "activeSlots");
+  if (rows.error) return null;
+  const limit = (plan: Plan) => rows.data.find((row) => row.plan === plan)?.limit;
+  const [free, pro] = [limit("free"), limit("pro")];
+  return typeof free === "number" && typeof pro === "number" ? { free, pro } : null;
+}
+
 export async function currentPlan(client: SupabaseClient) {
   const entitlements = await client.from("entitlements").select("status,source,starts_at,ends_at")
     .order("ends_at", { ascending: false });
