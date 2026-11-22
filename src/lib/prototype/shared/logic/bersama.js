@@ -28,6 +28,21 @@ export function aturIzinAI(b, kategori, nilai) {
 const objek = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const teks = (x) => (typeof x === 'string' ? x : '');
 
+/* Tanggal LOKAL perangkat (YYYY-MM-DD), bukan UTC: pagi hari di WIB, UTC masih tanggal kemarin.
+   Satu-satunya sumber "hari ini" untuk pencatatan tugas, XP, dan streak. */
+export const tanggalLokal = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/* K-23: Slot di atas batas paket tidak dibuang; layar hanya memberi tahu dan mengarahkan ke Lomba.
+   jumlah dan batas selalu dari pemanggil (store dan entitlement), tidak ada angka tetap di sini. */
+export function pesanSlotLebih(jumlah, batas, namaPaket) {
+  if (!Number.isFinite(jumlah) || !Number.isFinite(batas) || jumlah <= batas) return null;
+  return { jumlah, batas, ringkas: `${jumlah} Slot aktif.`, rinci: `Paket ${namaPaket} mencakup ${batas} Slot aktif.`, arahan: 'Atur Slot aktif di Lomba' };
+}
+
+/* Slot yang lombanya berasal dari katalog contoh bawaan (bukan lomba yang ditulis pengguna): dasar label "DATA DEMO". */
+export const slotContoh = (b, dikenal) => (Array.isArray(b?.slot) ? b.slot : []).filter((id) => dikenal(id));
+
 export const STATUS_TUGAS = ['belum', 'dikerjakan', 'selesai'];
 const tglIso = (x) => (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : '');
 /* langkah: status tiga tahap (belum/dikerjakan/selesai), selesaiPada = tanggal benar-benar dicentang (untuk XP & streak).

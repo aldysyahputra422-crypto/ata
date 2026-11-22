@@ -164,3 +164,22 @@ Keputusan PO: perbaiki di prototipe dulu, lalu salin ke produksi.
 - Slot dan tugas belum tersimpan per akun di database; tabel Slot dibuat saat Lomba dimigrasikan.
 - Tautan Slot dan tab Lomba membuka halaman fondasi lama.
 - Belum diuji di browser dengan sesi Google sungguhan; e2e memakai respons `/api/v1/me` tiruan.
+
+## M1 Hari Ini: empat temuan uji browser (22 November 2026)
+
+Diperbaiki di prototipe dulu (ata-prototype PR #7), lalu disalin.
+
+- **Tanggal lewat tengah malam:** `HARI_INI` di `src/lib/prototype/shared/bersama.js` kini binding hidup dari `tanggalLokal()` dan disegarkan pada setiap baca store. `dengarHari()` di `hari-ini/data.ts` menggambar ulang layar saat tanggal lokal berganti (interval 30 detik, `visibilitychange`, `focus`). `hariLagi` lomba katalog dihitung saat dibaca, sehingga tenggat tidak bergeser.
+- **Slot di atas batas:** `.slot-lebih` menampilkan jumlah Slot dari store dan batas serta nama paket dari `/api/v1/me` (batas perangkat hanya bila API akun gagal). Slot tidak dihapus, diarsipkan, atau diubah.
+- **DATA DEMO:** `.label-demo` di samping tanggal bila ada Slot dari katalog contoh; tidak muncul untuk lomba yang ditulis pengguna; kembali setelah "Reset data demo".
+- **Kontras dock tema gelap:** `lingkungan.css` disalin dari prototipe (dock berona asap, pil aktif lebih pekat). Tema terang tidak berubah.
+
+### Uji
+
+- `tests/unit/prototype/hari-ini-temuan.test.mjs` (9 kasus, jam tiruan).
+- `tests/e2e/hari-ini.spec.ts`: pemberitahuan Slot mengikuti batas server (Gratis 1, Pro 3, Pro dengan batas 1), label demo dan reset, halaman terbuka melewati tengah malam lalu muat ulang (`page.clock`), dan kontras label tab diukur dari piksel screenshot (minimal 4,5:1, terang dan gelap, HP dan desktop). Uji kontras ini gagal pada CSS lama (1,00:1 HP, 1,48:1 desktop).
+- `pnpm visual:parity` target Hari Ini: 0 piksel beda, 0 kegagalan kontras di 390/1280, terang/gelap.
+
+### Keterbatasan
+
+- "Atur Slot aktif di Lomba" membuka `/lomba` (halaman fondasi lama); di prototipe tautan ini langsung membuka layar Slot. Disamakan saat Lomba dimigrasikan.

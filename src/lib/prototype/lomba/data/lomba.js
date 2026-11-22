@@ -1,9 +1,10 @@
 /* Demo profile and ten REAL competitions taken from Instagram competition posters (no fictional competitions).
    hariLagi: days until the deadline, relative to today; null = deadline not stated on the poster (show "cek juknis").
    Real entries only carry what the poster/caption states: unknown fee = biaya null, unknown eligibility = tingkat []. */
-const SEKARANG = new Date();
-const HARI_INI_UTC = Date.UTC(SEKARANG.getFullYear(), SEKARANG.getMonth(), SEKARANG.getDate()); /* tanggal lokal pengguna, bukan UTC */
-const sisaHari = (iso) => (iso ? Math.round((Date.parse(iso + 'T00:00:00Z') - HARI_INI_UTC) / 864e5) : null);
+/* Dihitung saat dibaca, dari tanggal lokal pengguna (bukan UTC): tab yang tetap terbuka melewati tengah malam
+   tidak menggeser tenggat poster ke hari berikutnya. */
+const sisaHari = (iso, kini = new Date()) =>
+  (iso ? Math.round((Date.parse(iso + 'T00:00:00Z') - Date.UTC(kini.getFullYear(), kini.getMonth(), kini.getDate())) / 864e5) : null);
 const DILIHAT = 'Poster @infolomba, dilihat 20 November 2026';
 const dilihat = (akun) => `Poster ${akun}, dilihat 21 November 2026`;
 export const PROFIL = { nama: 'Raka', minat: ['karya-tulis', 'olimpiade', 'poster'], tingkat: 'SMA', jamPerMinggu: 4 };
@@ -45,4 +46,8 @@ export const LOMBA_NYATA = [
 ];
 
 /* katalog yang dipakai aplikasi: hanya lomba nyata dari poster. Tidak ada lomba fiktif. */
+for (const l of LOMBA_NYATA) {
+  if (l.tenggatIso) Object.defineProperty(l, 'hariLagi', { enumerable: true, get: () => sisaHari(l.tenggatIso) });
+}
+
 export const LOMBA = LOMBA_NYATA;

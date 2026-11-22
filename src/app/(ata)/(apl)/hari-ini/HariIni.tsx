@@ -7,7 +7,7 @@ import { Ikon } from "../../_layar/Ikon";
 import { Sheet } from "../../_layar/Lapisan";
 import { bacaAkun } from "../../_layar/akun";
 import { TAB, useDemo } from "../Cangkang";
-import { ATURAN_XP, XP, aturStatus, bacaHariIni, dengar, prioritas, resetDemo, type DataHariIni, type StatusTugas, type Tugas } from "./data";
+import { ATURAN_XP, XP, aturStatus, bacaHariIni, dengar, dengarHari, prioritas, resetDemo, type DataHariIni, type Paket, type StatusTugas, type Tugas } from "./data";
 // prototype modules, copied verbatim (mascot, folder tilt)
 import { buatMaskot, reaksiSemua } from "@/lib/prototype/shared/maskot.js";
 import { pasangCondong } from "@/lib/prototype/shared/gerak.js";
@@ -39,7 +39,7 @@ export function HariIni() {
   const router = useRouter();
   const demo = useDemo();
   const [muatan, setMuatan] = useState<Muatan>({ status: "memuat" });
-  const [akun, setAkun] = useState<{ batas?: number; nama?: string }>({});
+  const [akun, setAkun] = useState<{ batas?: number; nama?: string; paket?: Paket }>({});
   const [toast, setToast] = useState<string | null>(null);
   const [panel, setPanel] = useState(false);
   const [tema, setTema] = useState<Tema>("sistem");
@@ -47,17 +47,19 @@ export function HariIni() {
   const akar = useRef<HTMLDivElement>(null);
 
   const batas = akun.batas;
+  const paket = akun.paket;
   const muat = useCallback(() => {
     try {
-      setMuatan({ status: "siap", data: bacaHariIni(batas) });
+      setMuatan({ status: "siap", data: bacaHariIni(batas, paket) });
     } catch {
       setMuatan({ status: "galat" });
     }
-  }, [batas]);
+  }, [batas, paket]);
 
   useEffect(() => {
     muat();
-    return dengar(muat);
+    const lepas = [dengar(muat), dengarHari(muat)];
+    return () => lepas.forEach((f) => f());
   }, [muat]);
 
   // Plan and name come from the server only; a failed call keeps the device's own limit.
@@ -70,6 +72,7 @@ export function HariIni() {
       setAkun({
         batas: plan.features.activeSlots?.limit ?? slot_limits[plan.plan === "pro" ? "pro" : "free"],
         nama: user?.display_name?.trim().split(/\s+/)[0] || undefined,
+        paket: plan.plan === "pro" ? "pro" : "gratis",
       });
     });
   }, []);
@@ -144,7 +147,7 @@ export function HariIni() {
       </div>
       <div className="judul-layar">
         <h1>Hari Ini</h1>
-        <p className="hari">{hariIndo()}</p>
+        <p className="hari">{hariIndo()}{data.contoh ? <> <span className="label-demo">DATA DEMO</span></> : null}</p>
       </div>
 
       <div className="hari-grid">
@@ -172,6 +175,12 @@ export function HariIni() {
               <h2 id="judulSlot">Slot lomba</h2>
               <button type="button" className="linkbtn" onClick={() => keTab("lomba")}>Kelola</button>
             </div>
+            {data.lebih ? (
+              <p className="slot-lebih">
+                <Ikon nama="alert" />
+                <span><strong>{data.lebih.ringkas}</strong> {data.lebih.rinci} <Link href={hrefTab("lomba")}>{data.lebih.arahan}</Link>.</span>
+              </p>
+            ) : null}
             <div className="daftar-slot">
               {slot.length ? null : <p className="small muted">Belum ada Slot aktif. Pilih lomba di tab Lomba.</p>}
               {slot.map((s) => (

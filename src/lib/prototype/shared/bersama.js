@@ -4,13 +4,19 @@
 import { LOMBA } from '../lomba/data/lomba.js';
 import { usulkanLangkah, tambahHari } from '../lomba/logic/peta.js';
 import {
-  KUNCI_BERSAMA, awalBersama, rapikanBersama, lengkapiPeta, ringkasSlot, daftarTugas, batasSlot, aturStatusTugas, aturIzinAI,
+  KUNCI_BERSAMA, tanggalLokal, pesanSlotLebih, slotContoh, awalBersama, rapikanBersama, lengkapiPeta, ringkasSlot, daftarTugas, batasSlot, aturStatusTugas, aturIzinAI,
 } from './logic/bersama.js';
 
-/* tanggal LOKAL pengguna (bukan UTC): pagi hari di WIB, UTC masih tanggal kemarin */
-const _k = new Date();
-export const HARI_INI = `${_k.getFullYear()}-${String(_k.getMonth() + 1).padStart(2, '0')}-${String(_k.getDate()).padStart(2, '0')}`;
-const waktu = { hariIni: HARI_INI, tambahHari };
+/* Tanggal lokal pengguna. Binding hidup: tab yang tetap terbuka melewati tengah malam ikut berganti hari,
+   karena segarkanHari() dipanggil pada setiap baca dan tulis store. Pengimpor selalu membaca nilai terbaru. */
+export let HARI_INI = tanggalLokal();
+export function segarkanHari(kini = new Date()) {
+  const t = tanggalLokal(kini);
+  if (t === HARI_INI) return false;
+  HARI_INI = t;
+  return true;
+}
+const waktu = { get hariIni() { return HARI_INI; }, tambahHari };
 let cache = null;
 let cadangan = null; /* bila localStorage diblokir: tetap jalan di memori (tanpa sinkron antar tab) */
 
@@ -34,6 +40,7 @@ function tulis(b) {
 
 /* Store saat ini (sudah dirapikan, Peta Jalan tiap Slot sudah ada). Jangan diubah langsung: pakai ubahBersama(). */
 export function bacaBersama() {
+  segarkanHari();
   if (cache) return cache;
   const s = mentah();
   const rapi = rapikanBersama(s === undefined ? awalBersama() : s, dikenal);
@@ -88,6 +95,11 @@ export const cariLomba = (id) => katalog(bacaBersama())(id);
 export const slotRingkas = () => { const b = bacaBersama(); return ringkasSlot(b, katalog(b), waktu); };
 export const tugasBersama = () => { const b = bacaBersama(); return daftarTugas(b, katalog(b)); };
 export const batasKini = () => batasSlot(bacaBersama().paket);
+const NAMA_PAKET = { gratis: 'Gratis', pro: 'Pro' };
+/* batas boleh diisi dari server (app); tanpa itu memakai paket di store */
+export const slotLebih = (batas = batasKini(), paket = bacaBersama().paket) =>
+  pesanSlotLebih(bacaBersama().slot.length, batas, NAMA_PAKET[paket] || NAMA_PAKET.gratis);
+export const adaDataContoh = () => slotContoh(bacaBersama(), dikenal).length > 0;
 
 /* status tugas dari Hari Ini (belum/dikerjakan/selesai), tersimpan di store bersama dengan tanggal selesai */
 export function ubahStatusTugas(id, status) {
