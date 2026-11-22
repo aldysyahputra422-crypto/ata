@@ -2,6 +2,15 @@
 
 Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 3 (Tanya Ata) selesai dibangun.
 
+## M1 Hari Ini (22 November 2026)
+
+- `/hari-ini` dipindahkan dari prototipe `app/ui/hari-ini.js` beserta kerangka lima tab (`app.html`: rail desktop, tab bar HP). Halaman placeholder lama dihapus.
+- FR-PRG-03 (ubah status/selesaikan tugas di Hari Ini) dan FR-RDM-03 (tugas baru muncul setelah peta disetujui) tersedia di UI dengan data perangkat (`ata-bersama`); penyimpanan per akun, rollback gagal-simpan, dan sinkronisasi tertunda sampai tabel Slot ada.
+- K-23: batas Slot dari server (Gratis 1, Pro 3); seed demo 1 Slot; Slot di atas batas tetap disimpan.
+- Paritas dengan `app.html`: 0 piksel beda dan 0 kegagalan kontras di 390/1280, terang/gelap; axe tanpa pengecualian.
+- Tertunda: Lomba, Tanya Ata, Progres, Profil (masih halaman fondasi lama).
+- Rincian: [docs/MIGRASI-UI.md](MIGRASI-UI.md).
+
 ## M1 Masuk/Paket (22 November 2026)
 
 - `/` adalah layar Masuk dan `/paket` layar Paket, dipindahkan dari prototipe `masuk/ui/masuk.js` dan `masuk/ui/paket.js` dengan markup, class, dan CSS yang sama. Data dari `/api/v1/me`; kode Sobat Ambis lewat `POST /api/v1/redeem`. Halaman placeholder lama di `/` dihapus.
@@ -10,7 +19,7 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 - K-23: batas Slot diambil dari server (`slot_limits` di `/api/v1/me`, dibaca dari `plan_features`): Gratis 1, Pro 3. Kartu Pro menulis "3 Slot lomba aktif (Gratis: 1)". Slot per akun belum ada di database, jadi "Slot terpakai" selalu 0.
 - Daftar fitur Paket: fitur yang layarnya belum ada di build ini diberi penanda "Belum tersedia" (Radar/Peta Jalan, Progres, Tanya Ata, Resep, Sidang Juri, konteks/analitik). Catatan di kartu Pro: biaya AI dan pencarian tidak termasuk, memakai API key pengguna atau prompt salin.
 - Paritas piksel dengan prototipe (`masuk.html?embed=1`): 0 piksel beda dan 0 kegagalan kontras di 390/1280, terang/gelap. `pnpm visual:parity` lulus tanpa pengecualian; axe e2e tanpa pengecualian kontras.
-- Tertunda: FR-AUTH-02 (OTP email), onboarding, tab bar/rail (datang bersama Hari Ini), pembayaran (di luar lingkup).
+- Tertunda: FR-AUTH-02 (OTP email), onboarding, pembayaran (di luar lingkup).
 - Rincian: [docs/MIGRASI-UI.md](MIGRASI-UI.md).
 
 ## R0.2-0 Fondasi migrasi UI (22 November 2026)

@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PasangUji } from "./PasangUji";
+// same order as _r005-referensi.html
+import "@/styles/prototype/shared/states.css";
+import "@/styles/prototype/shared/fx.css";
+import "@/styles/prototype/shared/folder.css";
 import "./referensi.css";
 
 /**

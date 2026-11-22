@@ -1,4 +1,7 @@
+// same order as masuk.html
 import "@/styles/prototype/shared/lingkungan.css";
+import "@/styles/prototype/shared/fx.css";
+import "@/styles/prototype/shared/states.css";
 import "@/styles/prototype/masuk/masuk.css";
 import "@/styles/prototype/shared/embed.css";
 import { isDemoMode } from "@/lib/env";

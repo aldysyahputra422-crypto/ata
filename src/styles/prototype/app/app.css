@@ -190,6 +190,8 @@ body.badan-aplikasi { margin: 0; background: var(--bg); }
 @container langkah (max-width: 440px) {
   .langkah__butir { grid-template-columns: 36px minmax(0, 1fr); }
   .langkah__aksi { grid-column: 2; justify-self: start; }
+  /* the buttons take their own row under the text, aligned with it (same as the phone layout) */
+  .langkah__tombol { grid-column: 1 / -1; flex-direction: row; padding-left: 48px; }
 }
 @container app (min-width: 900px) {
   .layar__isi { padding: 28px 40px 40px; max-width: 1240px; }

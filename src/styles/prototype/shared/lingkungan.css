@@ -161,7 +161,7 @@ html.bisa-lensa :is(.m-lensa, .tabbar, .rail__seg) { backdrop-filter: url(#kaca-
 /* kepala layar di atas foto (eyebrow, lede) dan nama Slot di sapaan: teks-di-foto, bukan aksen/redup */
 :root .view > :is(header, div) > :is(.eyebrow, .lede), :root .sapaan strong { color: var(--teks-di-foto); }
 /* eyebrow kepala Paket (4.34:1) dan pemisah "atau" di Masuk (2.96:1) juga langsung di atas foto */
-:root .kepala .eyebrow, :root .pemisah { color: var(--teks-di-foto); }
+:root .kepala .eyebrow, :root .pemisah, :root .sapaan p { color: var(--teks-di-foto); }
 /* banner demo gelap: kuning di atas kuning tembus = 4.09:1 → alas gelap pekat */
 :root[data-theme="dark"] .demo-banner { background: rgba(26, 15, 12, .86); color: #FCD34D; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .demo-banner { background: rgba(26, 15, 12, .86); color: #FCD34D; } }

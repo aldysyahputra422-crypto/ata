@@ -20,6 +20,9 @@ const TARGETS = [
     tutupi: [".paket .lede"],
     // Availability is per build. The prototype page is given production's feature list so the same markers are compared.
     ganti: { "**/masuk/data/paket.js": "src/lib/prototype/masuk/data/paket.js" } },
+  { nama: "hari-ini-", proto: (t) => `/app.html?tema=${TEMA_LAYAR[t]}`, app: (t) => `/hari-ini?tema=${TEMA_LAYAR[t]}`, siap: ".hari-grid",
+    // The mascot looks at the pointer; park it at the same spot on both sides.
+    tunjuk: (v) => [v.width - 4, Math.round(v.height / 2)] },
 ].filter((t) => !process.env.TARGET || t.nama === `${process.env.TARGET}-` || (process.env.TARGET === "styleguide" && !t.nama));
 const OUT = process.env.OUT_DIR ?? "docs/screenshots/parity";
 const PROTO_DIR = resolve(process.env.PROTO_DIR ?? "../ata-prototype");
@@ -39,7 +42,7 @@ const h = await auditKontras(document, { label: "uji" });
 return h.filter((x) => x.lulus === false).map((x) => x.rasio + "/" + x.butuh + " " + JSON.stringify(x.teks));
 })()`;
 
-async function capture(browser, url, viewport, { siap, fullPage = false, tutupi = [], ganti = {} }) {
+async function capture(browser, url, viewport, { siap, fullPage = false, tutupi = [], ganti = {}, tunjuk }) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1, reducedMotion: "reduce" });
   const page = await context.newPage();
   for (const [pola, berkas] of Object.entries(ganti)) {
@@ -57,6 +60,7 @@ async function capture(browser, url, viewport, { siap, fullPage = false, tutupi 
     void body.offsetHeight;
     body.style.display = "";
   });
+  if (tunjuk) await page.mouse.move(...tunjuk(viewport));
   await page.waitForTimeout(300);
   const png = await page.screenshot({ fullPage, mask: tutupi.map((sel) => page.locator(sel)), maskColor: "#808080" });
   const contrastFailures = await page.evaluate(auditScript);

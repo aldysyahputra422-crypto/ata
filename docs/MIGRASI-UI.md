@@ -137,3 +137,30 @@ Keputusan PO: perbaiki di prototipe dulu, lalu salin ke produksi.
 - Sebelum screenshot, skrip memaksa raster ulang halaman. Tanpa itu, halaman yang sama kadang melukis kotak membulat di atas kaca berbeda satu piksel antar-muat. Tidak ada pengulangan.
 - Kontras (audit prototipe): 0 kegagalan di prototipe dan app, terang dan gelap. "atau" dan eyebrow "Keanggotaan" kini memakai `--teks-di-foto` (diperbaiki di prototipe, disalin ke sini). Uji axe berjalan tanpa pengecualian.
 - Keadaan sudah masuk, galat, dan sheet hapus akun diuji lewat Playwright (`tests/e2e/masuk-paket.spec.ts`), tidak lewat paritas piksel.
+
+## M1 Hari Ini (22 November 2026)
+
+| Prototipe | Produksi |
+|---|---|
+| `app.html` + `app/app.js` (rail, tab bar, penanda tab, maskot rail) | `src/app/(ata)/(apl)/layout.tsx` + `Cangkang.tsx` |
+| `app/ui/hari-ini.js` | `src/app/(ata)/(apl)/hari-ini/` (`page.tsx`, `HariIni.tsx`, `data.ts`; rute `/hari-ini`) |
+| `shared/bersama.js`, `shared/logic/bersama.js`, `shared/logic/maskot.js`, `shared/maskot.js`, `shared/folder.js`, `shared/gerak.js` | disalin apa adanya ke `src/lib/prototype/shared/` |
+| `mascots/` | `public/prototype/mascots/` |
+
+- Halaman placeholder lama `src/app/(fondasi)/(app)/hari-ini/page.tsx` dihapus; rute `/hari-ini` sekarang milik `(ata)/(apl)`. Empat tab lain (`/lomba`, `/ata`, `/progres`, `/profil`) masih halaman fondasi lama sampai dimigrasikan.
+- Urutan impor CSS per kelompok rute disamakan dengan urutan `<link>` halaman prototipenya (`masuk.html`, `app.html`, `_r005-referensi.html`). Sebelumnya `lingkungan.css` dimuat setelah `fx.css` sehingga kaskade berbeda dari prototipe.
+- Data: Slot dan tugas dibaca dari `ata-bersama` di perangkat (seed demo 1 Slot, K-23). Batas Slot dari server (`plan.features.activeSlots.limit` atau `slot_limits` di `/api/v1/me`). Bila API akun gagal, data perangkat tetap tampil dengan batas Gratis.
+- Slot di atas batas tidak dihapus; diuji lewat fixture dua Slot (`tests/unit/prototype/fixtures/slot.mjs`, dan e2e), bukan lewat seed default.
+- Diperbaiki di prototipe dulu, lalu disalin: kontras sapaan (`--teks-di-foto`), tombol langkah di kolom sempit, token tema gelap di `ds.css`, penanda tab diukur ulang saat tab bar/rail berubah ukuran, nama aksesibel baris Slot (tanpa `aria-label`, memakai teks yang terlihat) dan tombol status tugas.
+
+### Uji dan paritas
+
+- `pnpm visual:parity` membandingkan `app.html` dengan `/hari-ini`: 0 piksel beda dan 0 kegagalan kontras di 390/1280, terang/gelap. Penunjuk digerakkan ke koordinat yang sama di kedua sisi sebelum screenshot karena sprite maskot rail mengikuti penunjuk.
+- `tests/e2e/hari-ini.spec.ts`: lima tab, tab bar HP vs rail desktop, Gratis 1 Slot, Pro 3 Slot, API akun gagal, fixture di atas batas, selesaikan tugas + XP, tema dan reset demo, luapan horizontal, axe terang dan gelap tanpa pengecualian.
+- Uji kerangka fondasi di `tests/e2e/design-system.spec.ts` pindah dari `/hari-ini` ke `/progres`.
+
+### Keterbatasan
+
+- Slot dan tugas belum tersimpan per akun di database; tabel Slot dibuat saat Lomba dimigrasikan.
+- Tautan Slot dan tab Lomba membuka halaman fondasi lama.
+- Belum diuji di browser dengan sesi Google sungguhan; e2e memakai respons `/api/v1/me` tiruan.
