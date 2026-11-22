@@ -19,12 +19,16 @@ function signedIn() {
   auth.getUser.mockResolvedValue({ data: { user: { id: "account-a", is_anonymous: false } }, error: null });
   rpc.mockResolvedValue({ data: true, error: null });
 }
-const upsert = vi.fn();
+const update = vi.fn();
+const insert = vi.fn();
 const remove = vi.fn();
-function table(result: { data?: unknown; error?: unknown }) {
-  upsert.mockReturnValue({ select: () => ({ single: async () => result }) });
-  remove.mockReturnValue({ eq: async () => result });
-  from.mockReturnValue({ upsert, delete: remove });
+type Result = { data?: unknown; error?: unknown };
+/** `updated` answers the update (data null: no such row yet), `inserted` the insert that follows. */
+function table(updated: Result, inserted: Result = updated) {
+  update.mockReturnValue({ eq: () => ({ select: () => ({ maybeSingle: async () => updated }) }) });
+  insert.mockReturnValue({ select: () => ({ single: async () => inserted }) });
+  remove.mockReturnValue({ eq: async () => updated });
+  from.mockReturnValue({ update, insert, delete: remove });
 }
 
 beforeEach(() => {
@@ -70,24 +74,40 @@ describe("/api/v1/user-competitions", () => {
     expect((await PUT(request("PUT", "lomba-a", { state: "arsip" }), context("lomba-a"))).status).toBe(422);
     expect((await PUT(request("PUT", "lomba-a", { state: "saved", user_id: "account-b" }), context("lomba-a"))).status).toBe(422);
     expect((await PUT(request("PUT", "lomba-a", { state: "saved", card: { t: "x".repeat(100 * 1024) } }), context("lomba-a"))).status).toBe(422);
-    expect(upsert).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 
-  it("upserts without a client-chosen owner and keeps omitted columns", async () => {
+  it("updates an existing row without inserting, so an active Slot stays editable at capacity", async () => {
     signedIn();
     table({ data: row, error: null });
     const response = await PUT(request("PUT", "lomba-a", { state: "slot", roadmap: { langkah: [] } }), context("lomba-a"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(row);
-    expect(upsert).toHaveBeenCalledWith(
-      { competition_key: "lomba-a", state: "slot", source: "catalog", roadmap: { langkah: [] } },
-      { onConflict: "user_id,competition_key" },
-    );
+    // only granted columns, no key and no owner
+    expect(update).toHaveBeenCalledWith({ state: "slot", source: "catalog", roadmap: { langkah: [] } });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("inserts when the account has no such row, without a client-chosen owner", async () => {
+    signedIn();
+    table({ data: null, error: null }, { data: row, error: null });
+    expect((await PUT(request("PUT", "lomba-a", { state: "saved" }), context("lomba-a"))).status).toBe(200);
+    expect(insert).toHaveBeenCalledWith({ competition_key: "lomba-a", state: "saved", source: "catalog" });
+  });
+
+  it("a row created by a concurrent request is updated instead", async () => {
+    signedIn();
+    table({ data: null, error: null }, { data: null, error: { code: "23505", message: "duplicate key" } });
+    update.mockReturnValueOnce({ eq: () => ({ select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) })
+      .mockReturnValueOnce({ eq: () => ({ select: () => ({ maybeSingle: async () => ({ data: row, error: null }) }) }) });
+    expect((await PUT(request("PUT", "lomba-a", { state: "saved" }), context("lomba-a"))).status).toBe(200);
+    expect(update).toHaveBeenCalledTimes(2);
   });
 
   it("answers 409 limit_reached when the database trigger rejects a new Slot", async () => {
     signedIn();
-    table({ data: null, error: { code: "P0001", message: "slot_limit_reached" } });
+    table({ data: null, error: null }, { data: null, error: { code: "P0001", message: "slot_limit_reached" } });
     const response = await PUT(request("PUT", "lomba-b", { state: "slot" }), context("lomba-b"));
     expect(response.status).toBe(409);
     expect((await response.json()).error.code).toBe("limit_reached");

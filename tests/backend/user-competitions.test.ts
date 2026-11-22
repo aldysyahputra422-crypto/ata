@@ -114,6 +114,18 @@ describe("0005 user_competitions (K-03, K-23)", () => {
     if (proLimit - 1 >= freeLimit) await expect(setState("slot-2", "slot")).rejects.toThrow(/slot_limit_reached/);
   });
 
+  it("the API's statements work at capacity; a PostgREST-style upsert would not", async () => {
+    await as(free);
+    for (let i = 0; i < freeLimit; i++) await add(`s-${i}`, "slot");
+    // what PUT sends for an existing row: only granted columns, RETURNING the row
+    const edited = await db.query("update public.user_competitions set state = 'slot', source = 'catalog', roadmap = '{\"langkah\":[]}' where competition_key = 's-0' returning competition_key");
+    expect(edited.rows).toHaveLength(1);
+    const created = await db.query("insert into public.user_competitions (competition_key, state, source) values ('baru', 'saved', 'catalog') returning competition_key");
+    expect(created.rows).toHaveLength(1);
+    await expect(db.query(`insert into public.user_competitions (competition_key, state, source) values ('s-0', 'slot', 'catalog')
+      on conflict (user_id, competition_key) do update set competition_key = excluded.competition_key, state = excluded.state`)).rejects.toThrow();
+  });
+
   it("keeps ownership, key and timestamps out of client control", async () => {
     await as(free);
     await add("lomba-a", "saved");

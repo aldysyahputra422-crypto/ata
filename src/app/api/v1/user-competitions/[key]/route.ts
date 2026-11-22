@@ -25,9 +25,16 @@ export async function PUT(request: Request, context: Context) {
 
   // Omitted card/roadmap keep their stored value; an explicit null clears them.
   const { state, source, card, roadmap } = body.data;
-  const row = { competition_key: ready.key, state, source, ...(card === undefined ? {} : { card }), ...(roadmap === undefined ? {} : { roadmap }) };
-  const { data, error } = await ready.session.client.from("user_competitions")
-    .upsert(row, { onConflict: "user_id,competition_key" }).select(competitionColumns).single();
+  const values = { state, source, ...(card === undefined ? {} : { card }), ...(roadmap === undefined ? {} : { roadmap }) };
+  const table = () => ready.session.client.from("user_competitions");
+  // Not an upsert: ON CONFLICT DO UPDATE would need UPDATE on competition_key (not granted) and would run the
+  // insert trigger first, which refuses an existing Slot at capacity. Update the row, insert only when there is none.
+  const update = () => table().update(values).eq("competition_key", ready.key).select(competitionColumns).maybeSingle();
+  let { data, error } = await update();
+  if (!error && !data) {
+    ({ data, error } = await table().insert({ competition_key: ready.key, ...values }).select(competitionColumns).single());
+    if (error?.code === "23505") ({ data, error } = await update()); // another request created the row meanwhile
+  }
   if (error?.message?.includes("slot_limit_reached")) {
     return accountError(409, "limit_reached", "Slot aktif sudah mencapai batas paketmu. Lepas satu Slot dulu.");
   }
