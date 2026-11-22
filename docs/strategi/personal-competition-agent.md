@@ -1,6 +1,12 @@
 # ATA sebagai Personal Competition Agent: audit dan strategi
 
-Dokumen strategi tambahan. Tidak mengubah kode, skema, dependensi, konfigurasi, environment, akun, atau deployment, dan tidak mengubah keputusan final BYOK, keamanan, dan privasi. Untuk direview Product Owner sebelum ada implementasi lanjutan.
+**Status: Audit Strategi v1.** Disetujui Product Owner pada 22 November 2026 dengan keputusan K1–K8 (bagian 15). Revisi ini menerapkan keputusan tersebut dan menunggu review akhir.
+
+Dokumen strategi tambahan. Tidak mengubah kode, skema, dependensi, konfigurasi, environment, akun, atau deployment, dan tidak mengubah keputusan final BYOK, keamanan, dan privasi. Tidak ada implementasi Personal Agent, Knowledge Graph, orkestrasi AI, Juri v2, atau instrumentasi yang dimulai dari dokumen ini.
+
+**Lingkup.** Ini audit internal produk dan arsitektur: apa yang ada di repositori, apa yang baru tertulis, dan urutan membangunnya. Dokumen ini **belum** mencakup validasi pasar, analisis kompetitor, maupun kesediaan membayar (willingness to pay). Bagian 10 (moat) adalah penalaran dari sisi produk, bukan hasil riset pasar.
+
+**Urutan besar (arahan PO):** fondasi data per akun → progres terukur → orkestrasi yang aman → juri berbasis bukti → personalisasi dan kecerdasan agen yang makin dalam. ATA tumbuh dari rantai kerja kompetisi yang menghasilkan kemajuan pengguna, bukan dari jumlah fitur AI.
 
 ## 0. Dasar audit
 
@@ -10,6 +16,8 @@ Dokumen strategi tambahan. Tidak mengubah kode, skema, dependensi, konfigurasi, 
 | `ata`, PR #11 (M1 Lomba, terbuka, belum di-merge) | `870c78e`, sudah memuat PR #12 (`5a70807`) |
 | `ata`, PR #13 (gerbang M1 Lomba, terbuka) | `ac416ad` |
 | `ata-prototype` | HEAD lokal saat audit, termasuk `docs/blueprint/00`–`16` |
+
+Keadaan setelah audit ditulis: PR #13 sudah digabung ke cabang PR #11 (`70da183`), dan PR #11 masih terbuka. Status di tabel bagian 2 tidak berubah karenanya.
 
 Jalur berkas di bawah mengacu ke `ata` kecuali diawali `ata-prototype/`. Hal yang hanya ada di PR #11/#13 ditandai "(PR #11)".
 
@@ -30,7 +38,9 @@ Tidak ada kemampuan yang OPERASIONAL di produksi: belum ada deployment produksi 
 
 **Visi (SPESIFIKASI, `ata-prototype/docs/blueprint/01-prd.md`):** "pusat kendali perkembangan akademik dan kompetisi untuk siswa dan mahasiswa Indonesia."
 
-**Arah (IDE, arahan PO):** "Your Personal Competition Agent". Agen di sini berarti sistem yang mengenal pengguna, merencanakan, menyiapkan draf, dan memeriksa hasil, dengan izin eksplisit untuk setiap tulisan penting dan setiap pengiriman data keluar. Bukan chatbot umum dan bukan agen otonom tanpa persetujuan.
+**Keputusan K3.** Visi utama PRD di atas tidak diganti. "Your Personal Competition Agent" dipakai sebagai positioning dan arah pengembangan utama. Lingkup akademik non-lomba dipertahankan selama mendukung perkembangan, persiapan kompetisi, pengembangan kemampuan, dan portofolio pengguna.
+
+**Arah (keputusan PO):** "Your Personal Competition Agent". Agen di sini berarti sistem yang mengenal pengguna, merencanakan, menyiapkan draf, dan memeriksa hasil, dengan izin eksplisit untuk setiap tulisan penting dan setiap pengiriman data keluar. Bukan chatbot umum dan bukan agen otonom tanpa persetujuan.
 
 **Positioning:**
 - Untuk siswa dan mahasiswa Indonesia yang mengikuti lomba.
@@ -87,7 +97,7 @@ Intent & Task Classifier, Planner, Capability Router dan Registry, Prompt IR 14 
 
 ### 2.4 Hanya IDE (belum ada di blueprint yang saya baca)
 
-Live Defense Simulation sebagai mode tersendiri (arena, tingkat kesulitan, TTS, laporan performa), pengendali volume notifikasi proaktif, dan penamaan "Personal Competition Agent".
+Live Defense Simulation sebagai mode tersendiri (arena, tingkat kesulitan, TTS, laporan performa) dan pengendali volume notifikasi proaktif. Penamaan "Personal Competition Agent" sudah menjadi keputusan PO (K3) tetapi belum tertulis di blueprint.
 
 ### 2.5 Kesimpulan audit
 
@@ -118,7 +128,29 @@ Blueprint (`02-orkestrasi-ai.md`) menetapkan lima tingkat. Pemetaan ke istilah a
 | Execute | `write_commit`, `external_send` | Konfirmasi di UI untuk setiap tulisan penting; konfirmasi per aksi dan pratinjau konteks untuk setiap pengiriman keluar |
 | Verify | Output Validator + panel verifikasi | Kegagalan ditampilkan, tidak disembunyikan |
 
-Usulan (IDE): "Plan" dan "Verify" dijadikan tingkat eksplisit di spesifikasi agar selaras dengan arahan. Ini penambahan nama, bukan perubahan keputusan.
+**Keputusan K4.** Pemetaan di atas diterima. Plan adalah tahap perencanaan tanpa hak menulis. Verify adalah tahap validasi tanpa hak menulis. Execute tetap membutuhkan konfirmasi pengguna sesuai jenis tindakannya. Penulisan kedua nama itu ke `02-orkestrasi-ai.md` adalah tindak lanjut dokumentasi di `ata-prototype`, belum dilakukan.
+
+### Izin data: dua lapis (keputusan K1)
+
+Dua izin yang berbeda dan tidak boleh disatukan:
+
+| Lapis | Pertanyaan yang dijawab | Contoh | Ke mana data pergi |
+|---|---|---|---|
+| A. Pemrosesan internal ATA | Bolehkah ATA memakai data ini untuk fungsi tanpa AI miliknya sendiri? | Menghitung XP dan streak, skor kecocokan lomba, saran deterministik, batas skor Sidang | Tidak keluar dari ATA |
+| B. Penggunaan atau pengiriman ke penyedia AI | Bolehkah kategori ini masuk paket konteks yang dikirim ke penyedia AI pengguna (Mode A) atau disalin ke Handoff Pack (Mode B)? | Tanya Ata, juri L2, pertanyaan adaptif | Keluar ke penyedia yang dipilih pengguna |
+
+Aturan lapis B:
+- Delapan kategori dari database: `profil`, `akademik`, `lomba`, `tugas`, `progres`, `evaluasi`, `ingatan`, `dokumen`.
+- Semua mati sejak awal. Pengguna menyalakan satu per satu; tidak ada "nyalakan semua" yang dipilihkan sistem.
+- Sebelum data dikirim, layar menampilkan tiga hal: kategori data yang ikut, tujuan pengirimannya, dan penyedia yang menerima.
+- Kategori yang mati tidak pernah muncul di paket konteks, di Mode A maupun Mode B.
+- Menyalakan lapis A tidak menyalakan lapis B, dan sebaliknya.
+
+Keadaan saat ini dan yang belum ditentukan:
+- Tabel `ai_permissions` (`0002_account_foundation.sql`) menyimpan satu nilai benar/salah per kategori dan sudah sesuai nilai awal mati. Tabel itu belum membedakan lapis A dan B, dan belum mencatat penyedia atau tujuan.
+- Prototipe masih memakai enam kategori yang menyala sejak awal (`shared/logic/bersama.js`). Penyelarasannya ke keputusan K1 dikerjakan di `ata-prototype` lebih dulu, saat layar izin dibangun.
+- Dasar pemrosesan lapis A (persetujuan saat mendaftar, pengaturan tersendiri, atau melekat pada pemakaian fitur) belum diputuskan; ini masuk gerbang di bagian 12.
+- Tidak ada perubahan skema dalam dokumen ini.
 
 ### Jejak audit
 
@@ -157,6 +189,8 @@ Permintaan → Intent & Task Classifier → Context Retriever → Planner → Ro
 1. Deterministik: tugas ditandai selesai dengan tanggal lokal, berkas lolos validator, tenggat cocok dengan sumber.
 2. Rubrik: skor naik pada rubrik yang sama antar versi.
 3. Pernyataan pengguna: pengiriman lomba dikonfirmasi, dengan bukti opsional.
+
+**Keputusan K2.** `02-orkestrasi-ai.md` adalah acuan utama rantai orkestrasi. Planner dan Prompt Quality Gate harus tertulis eksplisit di PRD (`01-prd.md`); revisi PRD itu tindak lanjut dokumentasi di `ata-prototype`, belum dilakukan. Seluruh batasan BYOK dan Mode A/Mode B tetap.
 
 **Mode.** Mode A memakai sambungan pengguna. Mode B menghasilkan Handoff Pack dan menunggu hasil ditempel kembali (draf → disalin → menunggu → kembali → divalidasi → direvisi). Rantai di atas harus berjalan penuh di Mode B tanpa satu pun panggilan AI dari platform. Tidak ada fallback kredensial.
 
@@ -219,9 +253,16 @@ Alur: pilih arena/kategori → tingkat kesulitan → panel persona → pitch →
 | Pertanyaan dan desakan dari templat | PROTOTIPE | Layak sekarang; tidak benar-benar adaptif |
 | Pertanyaan adaptif dari isi jawaban | IDE | Butuh Mode A. Di Mode B hanya bisa per putaran lewat salin/tempel, tidak "langsung" |
 | Pemilihan arena dan kesulitan | IDE | Layak; deterministik (jumlah desakan, waktu, ketat batas skor) |
-| STT | PROTOTIPE | Web Speech API tidak tersedia merata di semua browser dan di sebagian browser audio diproses layanan milik vendor browser. Perlu keputusan privasi sebelum dijadikan fitur; ketik tetap jalur utama |
+| STT | PROTOTIPE | Web Speech API tidak tersedia merata di semua browser dan di sebagian browser audio diproses layanan milik vendor browser. Lihat keputusan K6 di bawah |
 | TTS | IDE | `speechSynthesis` browser gratis tetapi mutu suara Indonesia bergantung perangkat; belum diuji. TTS berbayar (mis. ElevenLabs) butuh persetujuan biaya |
 | Laporan performa dan rencana perbaikan | PROTOTIPE sebagian (ringkasan dan riwayat) | Layak; lihat bagian 7 |
+
+**Keputusan K6 (mikrofon dan STT):**
+- STT tidak aktif sejak awal. Ketik adalah metode input utama.
+- Mikrofon hanya dimulai oleh tindakan eksplisit pengguna.
+- Bila STT dikembangkan, pemberitahuan yang jelas tampil sebelum mikrofon dipakai: audio dapat diproses oleh layanan browser atau penyedia terkait.
+- Tidak ada klaim "audio diproses di perangkat" tanpa pengujian yang membuktikannya. Pengujian itu belum dilakukan.
+- Prototipe Sidang saat ini sudah memulai mikrofon dari tombol, tetapi belum punya pemberitahuan tersebut; penambahannya masuk gerbang sebelum STT dibawa ke app.
 
 **Batas keselamatan (tidak bisa ditawar):**
 - Selalu berlabel simulasi, bukan penilaian resmi.
@@ -291,7 +332,7 @@ Yang bukan moat: model AI, efek visual, dan jumlah fitur.
 **P0: fondasi yang membuat "agen" mungkin dan terukur**
 1. Selesaikan M1 Lomba: merge PR #11/#13 setelah review, jalankan `0005` di `ata-dev` setelah disetujui, verifikasi persistensi Slot dan 409 di backend sungguhan.
 2. Data per akun untuk tugas, XP/streak, dan progres (saat ini di perangkat).
-3. Instrumentasi peristiwa minimal untuk North Star, tanpa isi chat, kunci, atau isi dokumen.
+3. Instrumentasi peristiwa first-party minimal untuk North Star (keputusan K8), tanpa isi chat, prompt, dokumen, kunci, audio, atau informasi sensitif. Didahului evaluasi transparansi dan persetujuan (gerbang di bagian 12).
 4. Prompt Compiler deterministik + Handoff Pack Mode B (R1.1) dengan Context Retriever berbasis izin.
 5. Sidang Juri Mode B v2 (R1.3): rubrik internal berlabel, bukti wajib, batas deterministik, riwayat per akun.
 6. Putaran Juri → Peta Jalan → Hari Ini → ulang Sidang.
@@ -344,15 +385,37 @@ graph TD
 |---|---|
 | M1 Lomba | Slot tersimpan dan terbaca ulang per akun di `ata-dev`; Slot kedua akun Gratis ditolak dengan 409 lewat API; turun paket tidak menghapus atau mengarsipkan Slot; akun lain melihat nol baris |
 | Tugas/progres per akun | Tanggal selesai, XP, dan streak sama di dua perangkat; satu mekanisme tanggal lokal; uji lewat tengah malam lulus; RLS diuji |
-| Instrumentasi | Setiap unit North Star punya peristiwa dengan definisi tertulis; tidak ada isi chat, kunci, atau isi dokumen di peristiwa; bisa dimatikan pengguna bila diwajibkan keputusan privasi |
-| Izin dan audit | Kategori yang dimatikan tidak pernah muncul di paket konteks (uji otomatis); setiap pengiriman keluar punya entri audit dan konfirmasi |
+| Instrumentasi | First-party, tanpa analytics pihak ketiga; setiap unit North Star punya peristiwa dengan definisi tertulis dan kunci deduplikasi (bagian 14); uji otomatis menolak peristiwa yang memuat isi chat, prompt, dokumen, kunci API, audio, atau informasi sensitif; pengguna diberi tahu apa yang dicatat |
+| Izin dan audit | Delapan kategori, semua mati sejak awal, dinyalakan satu per satu; izin pemrosesan internal dan izin pengiriman ke penyedia AI tersimpan dan tampil terpisah; kategori yang dimatikan tidak pernah muncul di paket konteks (uji otomatis); sebelum pengiriman tampil kategori, tujuan, dan penyedia; setiap pengiriman keluar punya entri audit dan konfirmasi |
 | Compiler + Handoff | Keluaran identik untuk masukan identik; 14 bagian IR terisi atau ditandai kosong dengan alasan; tidak ada panggilan jaringan ke penyedia AI di Mode B; label status serah-terima sesuai `14` |
 | Sidang v2 | Setiap kelemahan punya lokasi dan bukti; rubrik internal berlabel; label simulasi di setiap layar hasil; skor identik untuk jawaban identik (lapis deterministik) |
 | Putaran Juri → Peta Jalan | Tidak ada langkah yang ditulis tanpa persetujuan; sidang ulang memakai rubrik yang sama; selisih per kriteria tersimpan |
 | Ingatan | Data sensitif ditolak (uji); lihat, ubah, hapus, ekspor berfungsi; hapus benar-benar menghapus |
 | BYOK | Sesuai K-15; kunci tidak pernah di log, analitik, atau respons klien; tidak ada kredensial platform |
-| Live Defense | Tanpa klaim emosi/intonasi; ketik selalu tersedia; di Mode B tidak disebut "langsung" |
+| Live Defense | Tanpa klaim emosi/intonasi; ketik selalu tersedia dan menjadi bawaan; STT mati sejak awal, dimulai tindakan eksplisit, didahului pemberitahuan pemrosesan audio; di Mode B tidak disebut "langsung" |
 | Semua layar | typecheck, lint, unit, e2e, build; paritas 390/1280 terang/gelap; gerak dan transparansi dikurangi; empat keadaan |
+
+### Gerbang keputusan (keputusan K7)
+
+Keputusan terbuka dicatat sebagai dependensi. Fitur di kolom kanan tidak mulai diimplementasikan sebelum keputusannya ada. Keputusan yang belum relevan dengan tahap berjalan tidak perlu diselesaikan sekarang.
+
+| Keputusan yang belum ada | Sumber | Menggerbangi |
+|---|---|---|
+| Persetujuan menjalankan `0005` di `ata-dev`; uji sesi Google sungguhan | Arahan PO | Merge PR #11 ke cabang utama; semua butir yang bergantung pada Slot per akun |
+| Dasar pemrosesan lapis A dan cara menyimpan dua lapis izin | K1 | Layar izin AI, Context Retriever |
+| Transparansi, kebutuhan persetujuan, dan opsi pengaturan privasi untuk peristiwa | K8 | Instrumentasi |
+| ToS penyedia AI | `13-roadmap-risiko-keputusan.md` | BYOK Provider Manager, Tanya Ata Mode A |
+| KMS dan TTL kunci | `13` | BYOK Provider Manager |
+| Verifikasi Capability Registry | `13` | Capability Router |
+| Rubrik resmi PKM | `13` | Ingest rubrik resmi (rubrik internal berlabel tidak tergerbang) |
+| OCR | `13` | Validator berkas untuk dokumen pindaian |
+| Persetujuan wali | `13` | Fitur yang mengirim data pengguna di bawah umur ke penyedia |
+| Anggaran infrastruktur, tier Vercel | `13` | Deployment produksi (R3) |
+| Pemberitahuan pemrosesan audio; uji klaim pemrosesan lokal | K6 | STT di app |
+| Persetujuan biaya TTS berbayar | Aturan repo (layanan berbayar) | TTS selain `speechSynthesis` browser |
+| Pemeriksaan konsistensi blueprint `03`, `07`–`12` | Bagian 16 | Revisi besar PRD |
+
+Pemetaan butir `13` ke fitur di atas adalah penilaian saya dari judul keputusannya; perlu dicek ulang saat blueprint terkait diaudit.
 
 ## 13. Roadmap implementasi
 
@@ -373,7 +436,35 @@ Mengikuti `13-roadmap-risiko-keputusan.md`; dokumen ini tidak mengubah urutannya
 
 ## 14. Metrik keberhasilan
 
-**North Star:** jumlah pekerjaan kompetisi yang maju secara terverifikasi per pengguna aktif per minggu. Satu unit = tugas Peta Jalan selesai, atau revisi yang menaikkan skor pada rubrik yang sama, atau pengiriman lomba yang dikonfirmasi pengguna.
+**North Star** (`01-prd.md` §7): jumlah pekerjaan kompetisi yang maju secara terverifikasi per pengguna aktif per minggu. Satu unit = tugas Peta Jalan selesai, atau revisi yang menaikkan skor pada rubrik yang sama, atau pengiriman lomba yang dikonfirmasi pengguna.
+
+PRD tidak mendefinisikan "pengguna aktif", aturan anti-duplikasi, maupun tingkat bukti. Definisi kerja di bawah adalah usulan v1 untuk review akhir PO; angka jendela waktunya belum divalidasi dengan data.
+
+**Pengguna aktif (mingguan).** Akun yang masuk dan melakukan paling sedikit satu tindakan kerja yang tercatat di server dalam minggu itu: mengubah status tugas, menyimpan revisi, menyelesaikan satu sesi Sidang, mengubah Slot atau Peta Jalan, atau mengonfirmasi pengiriman.
+- Masuk saja, membuka layar, atau menggulir Radar tidak dihitung.
+- Minggu = Senin sampai Minggu menurut tanggal lokal pengguna, memakai mekanisme tanggal lokal yang sama dengan XP dan streak.
+- Pemakaian tanpa akun (data di perangkat) tidak masuk hitungan, karena tidak bisa diverifikasi.
+- Pembilang dan penyebut memakai populasi yang sama; pengguna aktif dengan nol unit tetap di penyebut.
+
+**Pencegahan duplikasi.** Setiap unit punya kunci unik; unit dihitung sekali per kunci, pada minggu saat pertama kali terpenuhi.
+
+| Unit | Kunci | Dihitung | Tidak dihitung |
+|---|---|---|---|
+| Tugas Peta Jalan selesai | akun + Slot + tugas | Saat pertama kali ditandai selesai | Batal centang lalu centang lagi; tugas pada data contoh (DATA DEMO) |
+| Revisi yang menaikkan skor | akun + karya + rubrik (versi sama) + versi karya | Saat skor total versi baru melampaui skor tertinggi sebelumnya pada rubrik dan panel yang sama | Sidang ulang pada versi karya yang sama; kenaikan karena rubrik atau panel berganti; kenaikan di dalam sebaran antar-pengulangan lapis L2 |
+| Pengiriman lomba | akun + Slot | Saat pengguna mengonfirmasi pengiriman | Konfirmasi kedua untuk Slot yang sama |
+
+Bila sebuah unit dibatalkan (tugas dikembalikan ke belum selesai, konfirmasi ditarik), unit itu dicabut dari minggu asalnya, bukan dikurangkan dari minggu berjalan.
+
+**Tingkat bukti.** North Star dilaporkan terpisah per tingkat, selain totalnya, supaya angka tidak bisa naik hanya lewat pernyataan.
+
+| Tingkat | Dasar | Berlaku untuk | Batas |
+|---|---|---|---|
+| B1 Deterministik | Dicatat sistem dengan waktu server, tanpa penilaian | Tugas selesai; berkas lolos validator | Membuktikan tindakan terjadi, bukan mutu hasilnya |
+| B2 Rubrik | Selisih skor pada rubrik dan panel yang sama | Revisi | Lapis deterministik bisa diulang persis; lapis L2 baru sah bila kenaikan melampaui sebaran antar-pengulangan (target PRD: simpangan baku ≤ 5 dari 100, masih hipotesis) |
+| B3 Pernyataan pengguna | Konfirmasi pengguna, dengan atau tanpa bukti terlampir | Pengiriman lomba | Tanpa lampiran, ATA tidak bisa memeriksa kebenarannya; dilaporkan sebagai "dinyatakan", terpisah dari "dengan bukti" |
+
+Kata "terverifikasi" pada North Star hanya dipakai tanpa keterangan untuk B1 dan B2. Unit B3 tanpa bukti selalu disebut "dinyatakan pengguna".
 
 Tidak ada target angka di dokumen ini. Belum ada instrumentasi, jadi belum ada baseline. Target di blueprint adalah hipotesis sampai baseline terukur.
 
@@ -396,9 +487,24 @@ Tidak ada target angka di dokumen ini. Belum ada instrumentasi, jadi belum ada b
 | Biaya infrastruktur | Tagihan penyedia per pengguna aktif | Sebagian (masih tier gratis) |
 | Mode A vs Mode B | Proporsi alur per mode; tanpa mencatat isi | Tidak |
 
-## 15. Kontradiksi dan keputusan yang perlu PO
+**Aturan instrumentasi (keputusan K8).** Pelacakan peristiwa first-party dan minimal lebih dulu; tidak ada analytics pihak ketiga pada tahap awal. Peristiwa tidak menyimpan isi chat, prompt, dokumen, kunci API, audio, atau informasi sensitif; yang dicatat hanya jenis peristiwa, kunci unit, waktu, dan mode. Sebelum implementasi: pengguna diberi transparansi tentang apa yang dicatat, dan kebutuhan persetujuan serta opsi pengaturan privasi dievaluasi. Evaluasi itu belum dilakukan.
 
-Tidak saya selesaikan sendiri.
+## 15. Keputusan Product Owner
+
+Diputuskan PO pada 22 November 2026. Tabel pertama mencatat keputusan dan tempat penerapannya di dokumen ini; tabel kedua menyimpan temuan asal sebagai rekam jejak.
+
+| # | Keputusan | Diterapkan di | Tindak lanjut di luar dokumen ini (belum dilakukan) |
+|---|---|---|---|
+| K1 | Delapan kategori database; semua mati sejak awal; dinyalakan satu per satu; izin pemrosesan internal dibedakan dari izin pengiriman ke penyedia AI; sebelum pengiriman tampil kategori, tujuan, dan penyedia | Bagian 3 "Izin data: dua lapis", bagian 12 | Selaraskan prototipe (enam kategori, menyala) saat layar izin dibangun; rancang penyimpanan dua lapis |
+| K2 | `02-orkestrasi-ai.md` acuan utama; Planner dan Prompt Quality Gate eksplisit di PRD; batasan BYOK dan Mode A/B tetap | Bagian 4 | Revisi `01-prd.md` |
+| K3 | Visi PRD tidak diganti; "Your Personal Competition Agent" sebagai positioning dan arah utama; lingkup akademik non-lomba tetap selama mendukung perkembangan, persiapan kompetisi, kemampuan, dan portofolio | Bagian 1 | — |
+| K4 | Pemetaan izin diterima; Plan dan Verify tanpa hak menulis; Execute dengan konfirmasi sesuai jenis tindakan | Bagian 3 "Izin agen" | Tulis Plan dan Verify ke `02-orkestrasi-ai.md` |
+| K5 | Judul dan status `docs/STATUS.md` diperbarui pada perubahan dokumentasi berikutnya | — | Belum dikerjakan; PR ini dibatasi pada dokumen strategi |
+| K6 | STT mati sejak awal; ketik metode utama; pemberitahuan pemrosesan audio; mikrofon lewat tindakan eksplisit; tanpa klaim pemrosesan lokal yang belum teruji | Bagian 6.3, bagian 12 | Pemberitahuan di prototipe Sidang sebelum STT dibawa ke app |
+| K7 | Keputusan terbuka dicatat sebagai dependensi dan gerbang; yang belum relevan tidak perlu diselesaikan sekarang | Bagian 12 "Gerbang keputusan" | Per butir, saat tahapnya tiba |
+| K8 | Pelacakan first-party minimal; tanpa analytics pihak ketiga di tahap awal; tanpa isi chat, prompt, dokumen, kunci, audio, atau data sensitif; transparansi dan evaluasi persetujuan sebelum implementasi | Bagian 11, 12, 14 | Evaluasi persetujuan dan pengaturan privasi |
+
+### Temuan asal
 
 | # | Temuan | Sumber | Yang perlu diputuskan |
 |---|---|---|---|
@@ -413,7 +519,9 @@ Tidak saya selesaikan sendiri.
 
 ## 16. Batas audit ini
 
-- Blueprint `03`, `07`–`12` tidak dibaca rinci; bagian yang bergantung padanya mungkin kurang lengkap.
+- **Blueprint `03` dan `07`–`12` belum diaudit rinci** (`03-provider-universal`, `07-langganan-biaya`, `08-keamanan`, `09-vercel-teknologi`, `10-adr`, `11-data-model`, `12-api-contract`). Bagian dokumen ini yang paling bergantung padanya adalah BYOK dan penyimpanan kunci, model data dan Knowledge Graph, kontrak API, dan biaya. Tindak lanjut wajib: pemeriksaan konsistensi ketujuh berkas itu terhadap `01`, `02`, `14`–`16` dan terhadap skema yang sudah ada, sebelum revisi besar PRD. Belum dikerjakan.
+- Dokumen ini audit internal produk dan arsitektur. Validasi pasar, analisis kompetitor, dan kesediaan membayar tidak tercakup.
+- Definisi pengguna aktif, kunci deduplikasi, dan tingkat bukti di bagian 14 adalah usulan; belum diuji terhadap data karena belum ada instrumentasi.
 - Status prototipe dinilai dari membaca kode dan komentar berkas, bukan dari menjalankan ulang setiap fitur dalam audit ini.
 - "Belum ada" untuk instrumentasi berdasarkan pencarian teks di `src/`, bukan audit menyeluruh.
 - Perilaku STT/TTS antar browser tidak diuji; pernyataan kelayakan suara adalah penilaian, bukan hasil ukur.
