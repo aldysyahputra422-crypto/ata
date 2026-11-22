@@ -128,7 +128,12 @@ try {
     assert.deepEqual(await activeSlots(), [won]);
     assert.equal((await slot(won, "released")).status, 200);
   }
-  assert.deepEqual(await activeSlots(), []);
+  // The same Slot sent twice at once (double click, retry) is one Slot and no false "limit reached".
+const twice = await Promise.all([slot("race-same"), slot("race-same")]);
+assert.deepEqual(twice.map((result) => result.status), [200, 200], "same Slot twice");
+assert.deepEqual(await activeSlots(), ["race-same"]);
+assert.equal((await slot("race-same", "released")).status, 200);
+assert.deepEqual(await activeSlots(), []);
 
   const expired = await createAccount();
   assert.match(expired.sessionId, /^[0-9a-f-]{36}$/);

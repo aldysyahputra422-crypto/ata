@@ -60,8 +60,8 @@ export async function slotTerpakai(): Promise<number | "gagal"> {
 /** Active Slots kept on this device (signed out only). Read-only: never seeds the demo store. */
 export function slotPerangkat(): number {
   try {
-    const b = JSON.parse(localStorage.getItem(KUNCI_BERSAMA) ?? "null") as { slotAktif?: unknown } | null;
-    return Array.isArray(b?.slotAktif) ? b.slotAktif.length : 0;
+    const b = JSON.parse(localStorage.getItem(KUNCI_BERSAMA) ?? "null") as { slot?: unknown } | null;
+    return Array.isArray(b?.slot) ? b.slot.length : 0;
   } catch {
     return 0;
   }

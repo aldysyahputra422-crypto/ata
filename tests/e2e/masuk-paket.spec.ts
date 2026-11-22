@@ -207,7 +207,7 @@ test.describe("paket", () => {
   ] as const) {
     test(`used Slots come from the server: ${nama}`, async ({ page }) => {
       // the device says otherwise; signed in, it must not be what is shown
-      await page.addInitScript(() => localStorage.setItem("ata-bersama", JSON.stringify({ slotAktif: ["a", "b"] })));
+      await page.addInitScript(() => localStorage.setItem("ata-bersama", JSON.stringify({ slot: ["a", "b"] })));
       await me(page, akun);
       await lomba(page, () => baris(...states));
       await page.goto("/paket");
@@ -274,7 +274,7 @@ test.describe("paket", () => {
 
   test("signed out: the count is this device's Slots and the account API is not called", async ({ page }) => {
     let dipanggil = 0;
-    await page.addInitScript(() => localStorage.setItem("ata-bersama", JSON.stringify({ slotAktif: ["interval-2027"] })));
+    await page.addInitScript(() => localStorage.setItem("ata-bersama", JSON.stringify({ slot: ["interval-2027"] })));
     await me(page, signedOut);
     await page.route("**/api/v1/user-competitions", (route) => { dipanggil++; return route.fulfill({ status: 401, json: {} }); });
     await page.goto("/paket");

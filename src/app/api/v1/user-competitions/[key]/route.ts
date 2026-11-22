@@ -33,7 +33,12 @@ export async function PUT(request: Request, context: Context) {
   let { data, error } = await update();
   if (!error && !data) {
     ({ data, error } = await table().insert({ competition_key: ready.key, ...values }).select(competitionColumns).single());
-    if (error?.code === "23505") ({ data, error } = await update()); // another request created the row meanwhile
+    // Another request created the row meanwhile. For a Slot the insert trigger runs before the unique check, so the
+    // duplicate is refused as slot_limit_reached: update the existing row, and keep the refusal when there is none.
+    if (error?.code === "23505" || error?.message?.includes("slot_limit_reached")) {
+      const again = await update();
+      if (again.error || again.data) ({ data, error } = again);
+    }
   }
   if (error?.message?.includes("slot_limit_reached")) {
     return accountError(409, "limit_reached", "Slot aktif sudah mencapai batas paketmu. Lepas satu Slot dulu.");
