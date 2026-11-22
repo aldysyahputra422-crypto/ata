@@ -36,3 +36,31 @@ Catatan:
 - Skrip yang dijalankan: hanya `threejs-model-inspect/scripts/inspect.mjs --help` (Node v22.23.5). Skrip lain belum dijalankan.
 - Tidak ada dependensi runtime (three, @react-three/fiber, @react-three/drei) yang ditambahkan ke `package.json`.
 - Sumber menarget rilis Three.js berbeda (threejs-skills r186; gamedev-skills r187). Versi belum dikunci; menunggu keputusan stack.
+
+## Tambahan 2026-11-22: skill desain, UX, web modern, dan animasi
+
+Dipasang di cabang terpisah dari implementasi fitur. Sumber diklon dangkal, diperiksa, lalu disalin; tidak ada installer, hook, atau `npx`/`npm install` pihak ketiga yang dijalankan. Audit lengkap 13 repositori: `docs/audits/skills-desain.md`.
+
+| Skill | Repository sumber | Commit | Lisensi | Jumlah berkas | Yang disalin | Status verifikasi |
+|---|---|---|---|---|---|---|
+| `impeccable` | `pbakaus/impeccable` (`.devin/skills/impeccable`) | `b49177d` | Apache-2.0 + NOTICE | 51 | `SKILL.md`, `reference/`. `scripts/` TIDAK disalin (launcher mengunduh binary engine dari GitHub Releases) | `skill_invoke` berhasil, tetapi sesi ini memuatnya dari klon sumber yang masih ter-cache, bukan dari `.devin/skills/`. Perlu dicek ulang di sesi baru |
+| `ui-ux-pro-max` | `nextlevelbuilder/ui-ux-pro-max-skill` (`.claude/skills/ui-ux-pro-max`) | `f76d165` | MIT | 48 | `SKILL.md`, `data/`, `references/`, `scripts/` tanpa `scripts/tests/` | Dimuat dari `.devin/skills/ui-ux-pro-max/SKILL.md`; `python3 scripts/search.py "…" --domain ux -n 2` mengembalikan 2 hasil (hanya pustaka standar Python, tanpa jaringan) |
+| `modern-web-guidance` | `GoogleChrome/modern-web-guidance` | `64a6d70` | Apache-2.0 | 211 | `SKILL.md`, `guides/` | Dimuat dari `.devin/skills/modern-web-guidance/SKILL.md`. CLI `npx modern-web-guidance@latest` TIDAK dijalankan; panduan dibaca langsung dari `guides/` |
+| `micro-interaction` | `iart-ai/web-animation-skills` | `ed3a045` | MIT | 4 | utuh | Dimuat dari `.devin/skills/micro-interaction/SKILL.md` |
+| `page-transition-animation` | `iart-ai/web-animation-skills` | `ed3a045` | MIT | 3 | utuh | Dimuat dari `.devin/skills/page-transition-animation/SKILL.md` |
+| `glassmorphism` | `iart-ai/web-animation-skills` | `ed3a045` | MIT | 3 | utuh | Dimuat dari `.devin/skills/glassmorphism/SKILL.md` |
+| `accessible-animation` | `iart-ai/web-animation-skills` | `ed3a045` | MIT | 3 | utuh | Dimuat dari `.devin/skills/accessible-animation/SKILL.md` |
+| `60fps-animation` | `iart-ai/web-animation-skills` | `ed3a045` | MIT | 3 | utuh | Dimuat dari `.devin/skills/60fps-animation/SKILL.md` |
+| `design-dna` | `zanwei/design-dna` | `593e39b` | MIT | 7 | `SKILL.md`, `references/`, `scripts/` tanpa `scripts/test/` | Dimuat dari `.devin/skills/design-dna/SKILL.md`. `npm install` (sharp) TIDAK dijalankan, jadi `measure-colors.mjs` belum bisa dipakai |
+
+Aturan pakai:
+- Otoritas: PRD dan blueprint, lalu prototipe `ata-prototype`, lalu `docs/DESIGN-SYSTEM.md`, baru skill. Skill hanya alat kritik dan referensi; sarannya tidak boleh mengubah Ambis Violet, tipografi, material kaca, komponen signature, atau pola interaksi.
+- Contoh di skill animasi memakai Framer Motion/GSAP. Pakai prinsipnya (transform/opacity, reduced motion, View Transitions) dengan CSS prototipe; jangan menambah dependensi runtime.
+- `impeccable`: pakai jalur "Launcher unavailable" di SKILL.md (baca `reference/*.md` langsung). Jangan menyalin atau menjalankan launcher tanpa persetujuan.
+- `modern-web-guidance`: cari di `guides/` dengan grep. Menjalankan `npx` mengunduh paket dari npm dan butuh persetujuan.
+
+Temuan `skill_list`/`skill_search`/`skill_invoke` (diselidiki 2026-11-22):
+- `skill_list` dan `skill_search` dengan `path` selalu menjawab "No skills found", juga untuk repo uji minimal berisi satu SKILL.md sah di `.devin/skills/`, `.agents/skills/`, dan `.claude/skills/`. Jadi ini bukan masalah format skill kita.
+- `skill_invoke` memakai indeks sesi. Skill baru masuk indeks setelah ada perintah shell yang dijalankan di dalam repo; sebelum itu jawabannya "not found".
+- Indeks menyimpan jalur lama: skill dari klon sumber yang sudah dihapus masih bisa dimuat. Selalu periksa baris `Source:` pada keluaran `skill_invoke`.
+- Klon repositori skill di VM ikut terindeks dan bisa menimpa nama yang sama. Hapus klon setelah audit.
