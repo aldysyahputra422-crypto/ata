@@ -31,8 +31,10 @@ test.describe("masuk", () => {
 
   test("shows the OAuth failure message", async ({ page }) => {
     await me(page, signedOut);
-    await page.goto("/?error=bad_oauth_state");
-    await expect(page.locator(".error")).toContainText("Gagal masuk dengan Google. Coba lagi.");
+    for (const query of ["?galat=oauth", "?error=bad_oauth_state"]) {
+      await page.goto("/" + query);
+      await expect(page.locator(".error")).toContainText("Gagal masuk dengan Google. Coba lagi.");
+    }
   });
 
   test("loading, then error with retry", async ({ page }) => {
