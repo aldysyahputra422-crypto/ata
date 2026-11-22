@@ -178,7 +178,7 @@ export function HariIni() {
             {data.lebih ? (
               <p className="slot-lebih">
                 <Ikon nama="alert" />
-                <span><strong>{data.lebih.ringkas}</strong> {data.lebih.rinci} <Link href={hrefTab("lomba")}>{data.lebih.arahan}</Link>.</span>
+                <span><strong>{data.lebih.ringkas}</strong> {data.lebih.rinci} <Link href="/lomba#slot">{data.lebih.arahan}</Link>.</span>
               </p>
             ) : null}
             <div className="daftar-slot">
@@ -187,7 +187,7 @@ export function HariIni() {
                 <Link
                   key={s.id}
                   className="slot-baris folder-ata"
-                  href={hrefTab("lomba")}
+                  href="/lomba#slot"
                 >
                   <span className="folder-ata__belakang" style={s.gambar ? { backgroundImage: `url('/prototype/${s.gambar}')` } : undefined} />
                   <span className="folder-ata__kertas" aria-hidden="true">

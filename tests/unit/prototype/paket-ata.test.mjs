@@ -59,5 +59,5 @@ test('Pro states its Slot benefit explicitly; features not usable yet are flagge
   assert.equal(PAKET.pro.fitur[0].label, '3 Slot lomba aktif (Gratis: 1)');
   const tersedia = [...PAKET.gratis.fitur, ...PAKET.pro.fitur].filter((f) => f.tersedia).map((f) => f.id);
   // The Slot line states a server-enforced limit, not a screen, so it carries no marker.
-  assert.deepEqual(tersedia, ['slot', 'slot', 'gratis']);
+  assert.deepEqual(tersedia, ['slot', 'radar-peta', 'slot', 'gratis']);
 });

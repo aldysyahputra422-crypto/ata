@@ -59,7 +59,7 @@ describe("R0.1 migrations", () => {
     const { rows: tables } = await db.query<{ relrowsecurity: boolean }>(
       "select relrowsecurity from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r'",
     );
-    expect(tables).toHaveLength(10);
+    expect(tables).toHaveLength(11);
     expect(tables.every((table) => table.relrowsecurity)).toBe(true);
     await db.exec("set role authenticated");
     expect((await db.query("select key, value from public.system_flags order by key")).rows)

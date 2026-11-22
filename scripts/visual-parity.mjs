@@ -23,6 +23,9 @@ const TARGETS = [
   { nama: "hari-ini-", proto: (t) => `/app.html?tema=${TEMA_LAYAR[t]}`, app: (t) => `/hari-ini?tema=${TEMA_LAYAR[t]}`, siap: ".hari-grid",
     // The mascot looks at the pointer; park it at the same spot on both sides.
     tunjuk: (v) => [v.width - 4, Math.round(v.height / 2)] },
+  // Lomba runs in an iframe of the prototype shell and directly in the app shell; the Radar is the screen both open on.
+  { nama: "lomba-", proto: (t) => `/app.html?tema=${TEMA_LAYAR[t]}#/lomba`, app: (t) => `/lomba?tema=${TEMA_LAYAR[t]}`, siap: '#screen[data-layar="radar"]', siapProto: "iframe",
+    tunjuk: (v) => [v.width - 4, Math.round(v.height / 2)] },
 ].filter((t) => !process.env.TARGET || t.nama === `${process.env.TARGET}-` || (process.env.TARGET === "styleguide" && !t.nama));
 const OUT = process.env.OUT_DIR ?? "docs/screenshots/parity";
 const PROTO_DIR = resolve(process.env.PROTO_DIR ?? "../ata-prototype");
@@ -96,7 +99,7 @@ let failed = false;
 for (const target of TARGETS) for (const viewport of VIEWPORTS) {
   for (const tema of THEMES) {
     const name = `${target.nama}${viewport.width}-${tema}`;
-    const proto = await capture(browser, PROTO + target.proto(tema), viewport, target);
+    const proto = await capture(browser, PROTO + target.proto(tema), viewport, { ...target, siap: target.siapProto ?? target.siap });
     const app = await capture(browser, APP + target.app(tema), viewport, target);
     await sharp(proto.png).toFile(join(OUT, `${name}-prototipe.png`));
     await sharp(app.png).toFile(join(OUT, `${name}-app.png`));

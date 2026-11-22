@@ -169,3 +169,20 @@ html.bisa-lensa :is(.m-lensa, .tabbar, .rail__seg) { backdrop-filter: url(#kaca-
 /* banner demo gelap: kuning di atas kuning tembus = 4.09:1 → alas gelap pekat */
 :root[data-theme="dark"] .demo-banner { background: rgba(26, 15, 12, .86); color: #FCD34D; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .demo-banner { background: rgba(26, 15, 12, .86); color: #FCD34D; } }
+
+/* ---------- kontras putaran 4 (Lomba, diukur dari piksel screenshot pada 390/1280, terang/gelap) ----------
+   teks redup yang berdiri langsung di atas foto: "Tidak ada yang dilewati." 3.25:1, eyebrow tenggat Peta Jalan 3.65:1 (terang)
+   dan 4.00:1 (gelap) → token teks-di-foto, seperti kepala layar lain. Fotonya tidak ditutup. */
+:root .lb-daftar > section > p.small.muted, :root .lb-peta__head .eyebrow { color: var(--teks-di-foto); }
+/* "Tambah langkah" (tombol ghost tanpa alas) 4.47:1 di atas foto → alas tipis tembus pandang; fotonya tetap terlihat */
+:root .lb-sub-row > .btn--ghost { background: color-mix(in srgb, var(--bg) 46%, transparent); }
+/* Detail di desktop: lembar tidak beralas (background:none), jadi isinya berdiri di atas foto.
+   "N% cocok" 3.50:1 → aksen teks; "Sumber: …" 2.69:1 dan penghitung karusel 2.32:1 → teks-di-foto. */
+@container app (min-width: 900px) {
+  :root .lb-detail__skor { color: var(--aksen-teks); }
+  /* baris meta di samping pil skor ("Internasional · SMA, …") 3.92:1 di foto gelap → teks-di-foto; pil skor memakai warnanya sendiri */
+  :root .lb-detail__lembar > p.small.muted, :root .lb-detail__meta, :root #karuselHitung { color: var(--teks-di-foto); }
+  /* warna saja belum cukup di titik foto paling terang/gelap (4.26:1 dan 4.42:1): alas pil tembus pandang di belakang teksnya */
+  :root .lb-detail__skor, :root #karuselHitung { padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--bg) 46%, transparent); }
+  :root .lb-detail__skor { margin-left: -8px; }
+}

@@ -63,7 +63,7 @@ test.describe("hari ini", () => {
     // the notice states the live count and the server's limit, and points to Lomba; nothing is removed
     const lebih = page.locator(".slot-lebih");
     await expect(lebih).toHaveText("2 Slot aktif. Paket Gratis mencakup 1 Slot aktif. Atur Slot aktif di Lomba.");
-    await expect(lebih.getByRole("link", { name: "Atur Slot aktif di Lomba" })).toHaveAttribute("href", "/lomba");
+    await expect(lebih.getByRole("link", { name: "Atur Slot aktif di Lomba" })).toHaveAttribute("href", "/lomba#slot");
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("ata-bersama") ?? "{}").slot)).toEqual(["interval-2027", "cipta-karya-2026"]);
   });
 

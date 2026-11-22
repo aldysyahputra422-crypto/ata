@@ -154,9 +154,9 @@ export function centangTugas(b, tugasId, hariIni = '') {
 }
 
 /* Ganti daftar Slot (dari Lomba). `kartu` memberi data lomba buatan sendiri (poster unggahan) agar tab lain bisa menamainya. */
-export function aturSlot(b, ids, kartu = {}) {
+export function aturSlot(b, ids, kartu = {}, batas = batasSlot(b.paket)) {
   /* batas mencegah MENAMBAH; Slot lama yang sudah aktif di atas batas tidak dibuang diam-diam */
-  const slot = [...new Set(ids)].slice(0, Math.max(batasSlot(b.paket), b.slot.length));
+  const slot = [...new Set(ids)].slice(0, Math.max(batas, b.slot.length));
   const k = { ...b.kartu };
   for (const [id, isi] of Object.entries(kartu)) { const r = rapikanKartu(isi); if (r) k[id] = r; }
   for (const id of Object.keys(k)) if (!slot.includes(id) && !b.peta[id]) delete k[id];

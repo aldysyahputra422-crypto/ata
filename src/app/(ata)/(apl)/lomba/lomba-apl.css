@@ -1,0 +1,14 @@
+/* The prototype shows Lomba in an iframe with shared/embed.css (html[data-embed] …). Here the same screen is a child of
+   the shell's .layar__isi, so the embed rules for .views are restated for that position. No visual rule is new. */
+.layar__isi:has(> .views) { padding: 0; max-width: none; margin: 0; overflow: hidden; }
+.layar__isi > .views { height: 100%; padding: 0 18px 24px; overflow-y: auto; }
+.layar__isi > .views .demo-banner { margin: 0 -18px 8px; }
+/* The two html[data-embed] rules that live in lomba/lomba.css rather than embed.css: the Detail's edge inset and the
+   sticky action bar's offset (the shell's dock is outside .views, so the bar sits 12px above the scroller's padding edge). */
+.layar__isi > .views .lb-detail { --tepi: 16px; }
+.layar__isi > .views .lb-aksi-bawah { --aksi-bawah: 12px; }
+@media (max-width: 640px) {
+  .layar__isi > .views { padding: 0 16px calc(112px + env(safe-area-inset-bottom, 0px)); }
+  .layar__isi > .views .demo-banner { margin: 0 -16px 8px; }
+  #app:has(.layar__isi > .views) .sheet { padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
+}

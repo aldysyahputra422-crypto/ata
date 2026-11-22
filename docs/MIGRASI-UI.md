@@ -183,3 +183,48 @@ Diperbaiki di prototipe dulu (ata-prototype PR #7), lalu disalin.
 ### Keterbatasan
 
 - "Atur Slot aktif di Lomba" membuka `/lomba` (halaman fondasi lama); di prototipe tautan ini langsung membuka layar Slot. Disamakan saat Lomba dimigrasikan.
+
+## M1 Lomba (22 November 2026)
+
+Lima layar prototipe (Radar, Tersimpan, Detail, Slot, Peta Jalan) berjalan di `/lomba` dengan hash `#radar`, `#tersimpan`, `#lomba-detail`, `#slot`, `#peta`. Modul vanilla prototipe tetap menggambar markup dan menangani interaksi (sheet, toast, keyboard, tarik-untuk-segarkan, transisi); React hanya memegang siklus hidup rute, banner keadaan, dan sinkron akun.
+
+### Berkas yang diubah atau ditambah
+
+- `supabase/migrations/0005_user_competitions.sql`, `src/lib/account/competitions.ts`, `src/app/api/v1/user-competitions/`: tabel per akun, RLS, trigger batas Slot aktif (dibaca dari `plan_features`), GET/PUT/DELETE.
+- `src/app/(ata)/(apl)/lomba/`: `page.tsx`, `Lomba.tsx` (host), `sinkron.ts` (gabung server + perangkat, selisih, antrean kirim), `lomba-apl.css` (menaruh `.views` di kerangka app).
+- `src/lib/prototype/lomba/` (`state.js`, `data/maze.js`, `ui/`, `pasang.js`), `src/lib/prototype/shared/akun.js`, `tarik.js`, `bersama.js`: salinan prototipe; beda yang ada hanya path aset (`/prototype/assets/…`) dan `pasang.js`, adaptasi `lomba/app.js` yang memakai kerangka app alih-alih chrome prototipe.
+- `hari-ini/HariIni.tsx`: tautan Slot kini ke `/lomba#slot`.
+- `src/lib/prototype/masuk/data/paket.js`: penanda "Belum tersedia" dilepas dari Radar/Peta Jalan.
+- `scripts/visual-parity.mjs`: target `lomba-`.
+
+### Berkas yang dihapus
+
+- `src/app/(fondasi)/(app)/lomba/page.tsx`: placeholder fondasi lama. Audit dependensi: tidak diimpor berkas lain; `EmptyState` masih dipakai halaman fondasi lain sehingga tidak dihapus.
+
+### Sinkron akun
+
+- Tidak ada yang dikirim sebelum `GET /api/v1/user-competitions` berhasil. Belum masuk atau API gagal: data tetap di perangkat, banner menjelaskan.
+- Baca pertama menggabungkan baris akun dengan data perangkat, lalu mengirim yang belum ada di akun. Reset demo atau perubahan dari tab lain memicu baca ulang, bukan penghapusan baris akun.
+- Pelepasan Slot dikirim sebelum Slot baru. 409 `limit_reached`: Slot tetap di perangkat, pengguna diberi tahu, tidak dicoba ulang sampai berubah.
+- Slot akun di atas batas (setelah turun paket) tetap ditampilkan dan bisa diedit; tidak ada yang dihapus atau diarsipkan otomatis.
+- Teks Slot: "Paket {nama} mencakup {batas} Slot aktif." dengan nama dan batas dari server (prototipe: cabang `devin/1795317581-slot-copy`).
+- Pencarian tanpa key: hanya menyusun kata kunci siap pakai; tidak ada hasil penyedia yang ditampilkan.
+
+### Uji
+
+- `tests/backend/user-competitions*.test.ts`: RLS, isolasi, batas Gratis/Pro, turun paket, validasi, ekspor, hapus berantai, HTTP.
+- `tests/unit/lomba-sinkron.test.ts` (10 kasus).
+- `tests/e2e/lomba.spec.ts`: lima hash, belum masuk, teks Gratis/Pro, impor saat masuk pertama, Slot ditolak, Slot di atas batas, akun tak terjangkau, simpan dari Detail, pencarian tanpa key, tautan Hari Ini, axe terang dan gelap, luapan horizontal, 390 dan 1280 px.
+- Hasil: typecheck lulus, lint 0 galat, 310 unit, 94 e2e, build lulus.
+
+### Paritas (`pnpm visual:parity`, target `lomba-`: Radar)
+
+- 0 kegagalan kontras di prototipe dan app, 390/1280, terang/gelap.
+- Piksel beda di atas toleransi: 796 (390 terang), 715 (390 gelap), 211 (1280 terang), 143 (1280 gelap). Semuanya di sudut bingkai: di dalam `app.html`, iframe Lomba prototipe masih menggambar sudut membulat `.device .app` (38 px HP, 18 px desktop) karena aturan `border-radius: 0` di `shared/embed.css` kalah spesifisitas. App tidak punya sudut itu. Menunggu keputusan: perbaiki di prototipe, atau tiru di app. **Diputuskan dan diperbaiki di prototipe (ata-prototype PR #10); paritas lima layar dan pemeriksaan gerbang lain ada di docs/gerbang-m1-lomba.md.**
+- Hanya Radar yang dibandingkan piksel; empat layar lain diperiksa lewat e2e dan screenshot manual.
+
+### Keterbatasan
+
+- Migrasi 0005 diuji di PGlite dan di Supabase lokal (docs/gerbang-m1-lomba.md, bagian F); belum dijalankan di `ata-dev`. Pemetaan 409 dan upsert belum diuji terhadap PostgREST sungguhan.
+- Belum diuji di browser dengan sesi Google sungguhan.
+- Target paritas Masuk gagal di mesin tanpa konfigurasi Google (tombol Google nonaktif); tidak terkait perubahan ini.

@@ -9,7 +9,7 @@ import { PAKET, labelSlot } from "@/lib/prototype/masuk/data/paket.js";
 import { icon } from "@/lib/prototype/shared/ds.js";
 import { Ikon } from "../../_layar/Ikon";
 import { Toast } from "../../_layar/Lapisan";
-import { bacaAkun, tanggal, tukarKode, type Akun, type Hasil } from "../../_layar/akun";
+import { bacaAkun, slotPerangkat, slotTerpakai, tanggal, tukarKode, type Akun, type Hasil } from "../../_layar/akun";
 
 type Fitur = { id: string; label: string; ada: boolean; tersedia: boolean };
 const SUMBER: Record<string, string> = { redeem: "kode Sobat Ambis", payment: "langganan berbayar", partner: "akses khusus", grant: "akses khusus" };
@@ -43,7 +43,19 @@ export function Paket({ harga: h }: { harga: ReturnType<typeof price> }) {
   const [sibuk, setSibuk] = useState(false);
   const [infoBayar, setInfoBayar] = useState<string | null>(null);
 
-  const muat = useCallback(async () => setAkun(await bacaAkun()), []);
+  // number of active Slots; null while it is being read, "gagal" when the server could not say
+  const [terpakai, setTerpakai] = useState<number | "gagal" | null>(null);
+
+  const muatSlot = useCallback(async (masuk: boolean) => {
+    setTerpakai(null);
+    // signed in: the account's rows on the server; signed out: this device only, there is no account to ask
+    setTerpakai(masuk ? await slotTerpakai() : slotPerangkat());
+  }, []);
+  const muat = useCallback(async () => {
+    const hasil = await bacaAkun();
+    setAkun(hasil);
+    if (hasil.ok) await muatSlot(hasil.data.signed_in && !!hasil.data.user);
+  }, [muatSlot]);
   useEffect(() => void muat(), [muat]);
   const tutupToast = useCallback(() => setToast(null), []);
 
@@ -70,10 +82,9 @@ export function Paket({ harga: h }: { harga: ReturnType<typeof price> }) {
   const masuk = d.signed_in && !!d.user;
   const pk = d.plan;
   const pro = pk.plan === "pro";
-  // K-23: the active-Slot limit is the server's entitlement. Per-account Slots do not exist in the database yet, so none are used.
+  // K-23: the active-Slot limit is the server's entitlement.
   const batasPaket = { gratis: d.slot_limits.free, pro: d.slot_limits.pro };
   const batas = pk.features.activeSlots?.limit ?? batasPaket[pro ? "pro" : "gratis"];
-  const terpakai = 0;
   const fitur = (paket: "gratis" | "pro"): Fitur[] =>
     PAKET[paket].fitur.map((f: Fitur) => (f.id === "slot" ? { ...f, label: labelSlot(paket, batasPaket) } : f));
 
@@ -101,8 +112,20 @@ export function Paket({ harga: h }: { harga: ReturnType<typeof price> }) {
           <h1>Paket</h1>
           <p className="lede">
             {masuk ? <>Akun {d.user?.email} · paket <strong>{pro ? "Pro" : "Gratis"}</strong></> : "Belum masuk: kamu memakai paket Gratis di perangkat ini"}
-            . Slot terpakai {terpakai} dari {batas}.
+            .{" "}
+            <span id="slotTerpakai" role="status">
+              {terpakai === null ? (
+                "Menghitung Slot terpakai…"
+              ) : terpakai === "gagal" ? (
+                <>Jumlah Slot terpakai tidak bisa dimuat dari server. Batas paketmu {batas} Slot.</>
+              ) : (
+                <>Slot terpakai {terpakai} dari {batas}.{terpakai > batas ? " Jumlahnya di atas batas paketmu: Slot lama tetap tersimpan, Slot baru bisa diaktifkan setelah kamu melepas sampai di bawah batas." : null}</>
+              )}
+            </span>
           </p>
+          {terpakai === "gagal" ? (
+            <button type="button" className="btn" id="ulangSlot" onClick={() => void muatSlot(masuk)}>Muat ulang jumlah Slot</button>
+          ) : null}
         </div>
       </header>
       {pro ? (
