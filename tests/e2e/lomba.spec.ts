@@ -95,6 +95,34 @@ test.describe("lomba", () => {
     await expect(page.locator(".lede")).toHaveText("1 dari 2 Slot terpakai. Paket Gratis mencakup 2 Slot aktif.");
   });
 
+  test("a Slot allowed by a server limit above the built-in one is kept in the shared store", async ({ page }) => {
+    await stub(page, { ...free, plan: { ...free.plan, features: features(2) } }, { items: [SEED].map((k: string) => ({ competition_key: k, source: "catalog", state: "slot", card: null, roadmap: null })) });
+    await open(page, "radar");
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await page.locator('[data-aksi="slot"]').click();
+    await expect.poll(() => page.evaluate(() => (JSON.parse(localStorage.getItem("ata-bersama") ?? "{}").slot ?? []).length)).toBe(2);
+    await page.goto("/lomba#slot");
+    await expect(page.locator(".lede")).toContainText("2 dari 2 Slot terpakai");
+  });
+
+  test("a newer account roadmap replaces the device copy when the device has no edits of its own", async ({ page }) => {
+    const sent = await stub(page, free);
+    await open(page, "peta");
+    await expect.poll(() => sent.some((s) => s.key === SEED && s.body?.state === "slot")).toBe(true);
+    const body = sent.filter((s) => s.key === SEED).at(-1)!.body as { roadmap: { langkah: { id: string; nama: string; tanggal: string }[] } };
+    const { id, nama, tanggal } = body.roadmap.langkah[0];
+    // what another device stored: jsonb key order and a step without the fields the device adds on load
+    const roadmap = { langkah: [...body.roadmap.langkah.map((l) => ({ tanggal: l.tanggal, nama: l.nama, id: l.id })), { tanggal, id: id + "x", nama: nama + " dari perangkat lain" }] };
+    await page.reload();
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    const sent2 = await stub(page, free, { items: [{ competition_key: SEED, source: "catalog", state: "slot", card: null, roadmap }] });
+    await page.reload();
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await expect(page.locator(".lb-steps")).toContainText("dari perangkat lain");
+    await page.waitForTimeout(800);
+    expect(sent2.filter((s) => s.key === SEED && !JSON.stringify(s.body).includes("dari perangkat lain"))).toEqual([]);
+  });
+
   test("another account on the same device does not see or receive the previous account's Lomba data", async ({ page }) => {
     await stub(page, { ...free, user: { ...user, id: "u0" } }, { items: [SEED, "essay-unesa-2026"].map((k: string) => ({ competition_key: k, source: "catalog", state: "slot", card: null, roadmap: null })) });
     await open(page, "slot");

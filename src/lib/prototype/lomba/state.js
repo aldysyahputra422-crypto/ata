@@ -51,7 +51,7 @@ sinkronDariBersama();
 export function simpan() {
   const { peta, ...lokal } = state;
   try { localStorage.setItem(KEY, JSON.stringify(lokal)); } catch (e) { /* ignore */ }
-  const { b } = ubahBersama((kini) => ({ ...aturSlot(kini, state.deck.slot, kartuUnggahan(state.deck.slot)), peta: { ...kini.peta, ...state.peta } }));
+  const { b } = ubahBersama((kini) => ({ ...aturSlot(kini, state.deck.slot, kartuUnggahan(state.deck.slot), batasKini()), peta: { ...kini.peta, ...state.peta } }));
   /* store bisa menambah Peta Jalan untuk Slot baru: ambil kembali supaya layar langsung memakainya */
   state.peta = JSON.parse(JSON.stringify(b.peta));
 }
