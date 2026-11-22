@@ -1,6 +1,6 @@
 # ATA sebagai Personal Competition Agent: audit dan strategi
 
-**Status: Audit Strategi v1.** Disetujui Product Owner pada 22 November 2026 dengan keputusan K1–K8 (bagian 15). Revisi ini menerapkan keputusan tersebut dan menunggu review akhir.
+**Status: Audit Strategi v1.** Disetujui Product Owner pada 22 November 2026 dengan keputusan K1–K8 (bagian 15). Revisi ini menambah tiga penyempurnaan dari review PO atas PR #15 (definisi North Star, dua lapis izin data, urutan P0) dan menunggu review akhir.
 
 Dokumen strategi tambahan. Tidak mengubah kode, skema, dependensi, konfigurasi, environment, akun, atau deployment, dan tidak mengubah keputusan final BYOK, keamanan, dan privasi. Tidak ada implementasi Personal Agent, Knowledge Graph, orkestrasi AI, Juri v2, atau instrumentasi yang dimulai dari dokumen ini.
 
@@ -136,20 +136,31 @@ Dua izin yang berbeda dan tidak boleh disatukan:
 
 | Lapis | Pertanyaan yang dijawab | Contoh | Ke mana data pergi |
 |---|---|---|---|
-| A. Pemrosesan internal ATA | Bolehkah ATA memakai data ini untuk fungsi tanpa AI miliknya sendiri? | Menghitung XP dan streak, skor kecocokan lomba, saran deterministik, batas skor Sidang | Tidak keluar dari ATA |
-| B. Penggunaan atau pengiriman ke penyedia AI | Bolehkah kategori ini masuk paket konteks yang dikirim ke penyedia AI pengguna (Mode A) atau disalin ke Handoff Pack (Mode B)? | Tanya Ata, juri L2, pertanyaan adaptif | Keluar ke penyedia yang dipilih pengguna |
+| A. Pemrosesan internal ATA | Bolehkah ATA memakai data ini untuk fungsi tanpa AI miliknya sendiri? | Menghitung XP dan streak, skor kecocokan lomba, saran deterministik, batas skor Sidang | Tidak dimasukkan ke permintaan AI atau Search API, dan tidak diekspor ke aplikasi eksternal, sebagai bagian dari pemrosesan ini |
+| B. Penggunaan di luar ATA | Bolehkah kategori ini masuk paket konteks untuk penyedia AI (Mode A) atau masuk Handoff Pack (Mode B)? | Tanya Ata, juri L2, pertanyaan adaptif | Mode A: dikirim ATA ke penyedia lewat integrasi BYOK. Mode B: masuk Handoff Pack yang diperiksa dan disalin sendiri oleh pengguna |
+
+**Batas klaim lapis A.** "Internal" tidak berarti data tidak diproses oleh penyedia infrastruktur. Data akun tetap disimpan dan diproses di infrastruktur yang dipakai ATA (database dan hosting). Yang dijamin lapis A hanya ini: pemrosesan internal tidak memasukkan data ke permintaan AI/Search API dan tidak mengekspornya ke aplikasi eksternal.
+
+Dua jalur lapis B:
+
+| | Mode A | Mode B |
+|---|---|---|
+| Siapa yang memindahkan data | ATA, lewat sambungan BYOK milik pengguna | Pengguna sendiri: memeriksa Handoff Pack lalu menyalinnya |
+| Penerima | Penyedia yang tersambung; ATA mengetahuinya | Aplikasi eksternal pilihan pengguna; ATA hanya mengetahuinya bila pengguna sudah memilih atau menyebutkannya |
+| Yang ditampilkan sebelumnya | Kategori data, tujuan, dan penyedia penerima | Kategori data dan tujuan; nama aplikasi hanya bila pengguna sudah menentukannya. Bila belum, layar menyatakan bahwa tujuan ditentukan pengguna dan tidak diketahui ATA |
+| Klaim yang tidak boleh dibuat | Kredensial atau kuota platform | Bahwa ATA tersambung ke, mengirim ke, atau mengetahui aplikasi tujuan |
 
 Aturan lapis B:
 - Delapan kategori dari database: `profil`, `akademik`, `lomba`, `tugas`, `progres`, `evaluasi`, `ingatan`, `dokumen`.
 - Semua mati sejak awal. Pengguna menyalakan satu per satu; tidak ada "nyalakan semua" yang dipilihkan sistem.
-- Sebelum data dikirim, layar menampilkan tiga hal: kategori data yang ikut, tujuan pengirimannya, dan penyedia yang menerima.
-- Kategori yang mati tidak pernah muncul di paket konteks, di Mode A maupun Mode B.
+- Kategori yang mati tidak pernah muncul di paket konteks Mode A maupun di Handoff Pack Mode B.
 - Menyalakan lapis A tidak menyalakan lapis B, dan sebaliknya.
 
 Keadaan saat ini dan yang belum ditentukan:
 - Tabel `ai_permissions` (`0002_account_foundation.sql`) menyimpan satu nilai benar/salah per kategori dan sudah sesuai nilai awal mati. Tabel itu belum membedakan lapis A dan B, dan belum mencatat penyedia atau tujuan.
 - Prototipe masih memakai enam kategori yang menyala sejak awal (`shared/logic/bersama.js`). Penyelarasannya ke keputusan K1 dikerjakan di `ata-prototype` lebih dulu, saat layar izin dibangun.
-- Dasar pemrosesan lapis A (persetujuan saat mendaftar, pengaturan tersendiri, atau melekat pada pemakaian fitur) belum diputuskan; ini masuk gerbang di bagian 12.
+- Dasar pemrosesan lapis A adalah gerbang privasi tersendiri (bagian 12). Dokumen ini tidak menetapkan dasar hukum maupun bentuk persetujuannya; itu diputuskan PO, bila perlu dengan masukan hukum.
+- Apakah izin lapis B juga berlaku untuk kueri Search API pengguna, atau perlu izin terpisah, belum ditentukan dan ikut gerbang yang sama.
 - Tidak ada perubahan skema dalam dokumen ini.
 
 ### Jejak audit
@@ -330,13 +341,15 @@ Yang bukan moat: model AI, efek visual, dan jumlah fitur.
 ## 11. Prioritas
 
 **P0: fondasi yang membuat "agen" mungkin dan terukur**
-1. Selesaikan M1 Lomba: merge PR #11/#13 setelah review, jalankan `0005` di `ata-dev` setelah disetujui, verifikasi persistensi Slot dan 409 di backend sungguhan.
+1. Selesaikan M1 Lomba: merge PR #11 setelah review, jalankan `0005` di `ata-dev` setelah disetujui, verifikasi persistensi Slot dan 409 di backend sungguhan.
 2. Data per akun untuk tugas, XP/streak, dan progres (saat ini di perangkat).
 3. Instrumentasi peristiwa first-party minimal untuk North Star (keputusan K8), tanpa isi chat, prompt, dokumen, kunci, audio, atau informasi sensitif. Didahului evaluasi transparansi dan persetujuan (gerbang di bagian 12).
-4. Prompt Compiler deterministik + Handoff Pack Mode B (R1.1) dengan Context Retriever berbasis izin.
-5. Sidang Juri Mode B v2 (R1.3): rubrik internal berlabel, bukti wajib, batas deterministik, riwayat per akun.
-6. Putaran Juri → Peta Jalan → Hari Ini → ulang Sidang.
-7. Layar izin AI yang memakai `ai_permissions` dan jejak audit aksi agen.
+4. Model izin dua lapis, layar izin AI yang memakai `ai_permissions`, dan jejak audit aksi agen. Didahului gerbang privasi lapis A (bagian 12).
+5. Context Retriever berbasis izin, lalu Prompt Compiler deterministik + Handoff Pack Mode B (R1.1). Ketiganya baru boleh membaca data akun setelah butir 4 selesai.
+6. Sidang Juri Mode B v2 (R1.3): rubrik internal berlabel, bukti wajib, batas deterministik, riwayat per akun.
+7. Putaran Juri → Peta Jalan → Hari Ini → ulang Sidang.
+
+Urutan ini mengikuti dependency graph bagian 12. Butir 3 dan 4 tidak saling bergantung; butir 3 ditulis lebih dulu karena berada di R0.2, sedangkan butir 4 dan 5 di R1.1.
 
 **P1: memperdalam**
 - Ingatan per akun (usul, setujui, lihat, hapus, ekspor).
@@ -361,10 +374,12 @@ graph TD
   A[Akun + entitlement: OPERASIONAL dev] --> B[M1 Lomba + Slot per akun]
   B --> C[Tugas dan progres per akun]
   C --> D[Instrumentasi North Star]
-  A --> E[Layar izin AI + audit aksi agen]
+  A --> Z[Model izin dua lapis: gerbang privasi lapis A]
+  Z --> E[Layar izin AI + audit aksi agen]
   C --> F[Context Retriever berbasis izin]
   E --> F
   F --> G[Prompt Compiler + Handoff Pack Mode B]
+  E --> G
   G --> H[Sidang Juri Mode B v2]
   C --> H
   H --> I[Putaran Juri ke Peta Jalan]
@@ -386,7 +401,7 @@ graph TD
 | M1 Lomba | Slot tersimpan dan terbaca ulang per akun di `ata-dev`; Slot kedua akun Gratis ditolak dengan 409 lewat API; turun paket tidak menghapus atau mengarsipkan Slot; akun lain melihat nol baris |
 | Tugas/progres per akun | Tanggal selesai, XP, dan streak sama di dua perangkat; satu mekanisme tanggal lokal; uji lewat tengah malam lulus; RLS diuji |
 | Instrumentasi | First-party, tanpa analytics pihak ketiga; setiap unit North Star punya peristiwa dengan definisi tertulis dan kunci deduplikasi (bagian 14); uji otomatis menolak peristiwa yang memuat isi chat, prompt, dokumen, kunci API, audio, atau informasi sensitif; pengguna diberi tahu apa yang dicatat |
-| Izin dan audit | Delapan kategori, semua mati sejak awal, dinyalakan satu per satu; izin pemrosesan internal dan izin pengiriman ke penyedia AI tersimpan dan tampil terpisah; kategori yang dimatikan tidak pernah muncul di paket konteks (uji otomatis); sebelum pengiriman tampil kategori, tujuan, dan penyedia; setiap pengiriman keluar punya entri audit dan konfirmasi |
+| Izin dan audit | Delapan kategori, semua mati sejak awal, dinyalakan satu per satu; izin pemrosesan internal dan izin pengiriman ke penyedia AI tersimpan dan tampil terpisah; kategori yang dimatikan tidak pernah muncul di paket konteks (uji otomatis); di Mode A, sebelum pengiriman tampil kategori, tujuan, dan penyedia; di Mode B, Handoff Pack menampilkan kategori dan tujuan, dan tidak menyebut aplikasi tujuan yang belum dipilih pengguna; setiap pengiriman Mode A dan setiap Handoff Pack yang disalin punya entri audit; Retriever, Compiler, dan Handoff Pack tidak membaca data akun sebelum butir ini lulus |
 | Compiler + Handoff | Keluaran identik untuk masukan identik; 14 bagian IR terisi atau ditandai kosong dengan alasan; tidak ada panggilan jaringan ke penyedia AI di Mode B; label status serah-terima sesuai `14` |
 | Sidang v2 | Setiap kelemahan punya lokasi dan bukti; rubrik internal berlabel; label simulasi di setiap layar hasil; skor identik untuk jawaban identik (lapis deterministik) |
 | Putaran Juri → Peta Jalan | Tidak ada langkah yang ditulis tanpa persetujuan; sidang ulang memakai rubrik yang sama; selisih per kriteria tersimpan |
@@ -402,7 +417,7 @@ Keputusan terbuka dicatat sebagai dependensi. Fitur di kolom kanan tidak mulai d
 | Keputusan yang belum ada | Sumber | Menggerbangi |
 |---|---|---|
 | Persetujuan menjalankan `0005` di `ata-dev`; uji sesi Google sungguhan | Arahan PO | Merge PR #11 ke cabang utama; semua butir yang bergantung pada Slot per akun |
-| Dasar pemrosesan lapis A dan cara menyimpan dua lapis izin | K1 | Layar izin AI, Context Retriever |
+| Dasar pemrosesan lapis A (gerbang privasi tersendiri, belum diputuskan), cara menyimpan dua lapis izin, dan cakupan izin untuk Search API | K1 | Layar izin AI, Context Retriever, Prompt Compiler dan Handoff Pack yang memakai data akun |
 | Transparansi, kebutuhan persetujuan, dan opsi pengaturan privasi untuk peristiwa | K8 | Instrumentasi |
 | ToS penyedia AI | `13-roadmap-risiko-keputusan.md` | BYOK Provider Manager, Tanya Ata Mode A |
 | KMS dan TTL kunci | `13` | BYOK Provider Manager |
@@ -424,7 +439,7 @@ Mengikuti `13-roadmap-risiko-keputusan.md`; dokumen ini tidak mengubah urutannya
 | Tahap | Isi | Butir agen |
 |---|---|---|
 | R0.2 (berjalan) | Data dan layar M1 | M1 Lomba, tugas/progres per akun, instrumentasi, sisa layar (Progres, Profil) |
-| R1.1 | Prompt Compiler deterministik | Retriever berbasis izin, Handoff Pack, layar izin, audit |
+| R1.1 | Prompt Compiler deterministik | Model izin, layar izin, audit; lalu Retriever berbasis izin dan Handoff Pack |
 | R1.2 | Capability Registry | Router |
 | R1.3 | Juri Mode B v2 | Sidang v2, putaran ke Peta Jalan, Live Defense deterministik |
 | R1.4 | Lomba tanpa Search API | Katalog terverifikasi, provenance |
@@ -436,35 +451,66 @@ Mengikuti `13-roadmap-risiko-keputusan.md`; dokumen ini tidak mengubah urutannya
 
 ## 14. Metrik keberhasilan
 
-**North Star** (`01-prd.md` §7): jumlah pekerjaan kompetisi yang maju secara terverifikasi per pengguna aktif per minggu. Satu unit = tugas Peta Jalan selesai, atau revisi yang menaikkan skor pada rubrik yang sama, atau pengiriman lomba yang dikonfirmasi pengguna.
+**North Star** (`01-prd.md` §7): jumlah pekerjaan kompetisi yang maju secara terverifikasi per pengguna aktif per minggu. PRD menyebut tiga jenis unit: tugas Peta Jalan selesai, revisi yang menaikkan skor pada rubrik yang sama, dan pengiriman lomba yang dikonfirmasi pengguna.
 
-PRD tidak mendefinisikan "pengguna aktif", aturan anti-duplikasi, maupun tingkat bukti. Definisi kerja di bawah adalah usulan v1 untuk review akhir PO; angka jendela waktunya belum divalidasi dengan data.
+PRD tidak mendefinisikan "pengguna aktif", aturan anti-duplikasi, maupun tingkat bukti. Definisi kerja di bawah adalah usulan v1 untuk review akhir PO. Tidak ada target angka baru; setiap ambang statistik yang disebut masih hipotesis.
 
-**Pengguna aktif (mingguan).** Akun yang masuk dan melakukan paling sedikit satu tindakan kerja yang tercatat di server dalam minggu itu: mengubah status tugas, menyimpan revisi, menyelesaikan satu sesi Sidang, mengubah Slot atau Peta Jalan, atau mengonfirmasi pengiriman.
+**Dua angka yang dilaporkan terpisah.**
+
+| Angka | Isi | Tingkat bukti |
+|---|---|---|
+| North Star terverifikasi | Tugas Peta Jalan selesai + revisi yang menaikkan skor | B1 + B2 |
+| User-Declared Competition Progress | Pengiriman lomba yang dinyatakan pengguna | B3 |
+
+B3 tidak pernah dijumlahkan ke angka yang disebut "terverifikasi". Ini memisahkan unit ketiga PRD §7 dari North Star; penyesuaian kalimat PRD adalah tindak lanjut dokumentasi di `ata-prototype`, belum dilakukan.
+
+**Pengguna aktif (mingguan).** Akun yang menghasilkan paling sedikit satu aktivitas kerja yang memenuhi kriteria dan tercatat di server dalam minggu itu: mengubah status tugas, menyimpan revisi, menyelesaikan satu sesi Sidang, mengubah Slot atau Peta Jalan, atau mengonfirmasi pengiriman.
+- Tidak mensyaratkan masuk ulang pada minggu yang sama; sesi yang masih berlaku cukup.
 - Masuk saja, membuka layar, atau menggulir Radar tidak dihitung.
 - Minggu = Senin sampai Minggu menurut tanggal lokal pengguna, memakai mekanisme tanggal lokal yang sama dengan XP dan streak.
-- Pemakaian tanpa akun (data di perangkat) tidak masuk hitungan, karena tidak bisa diverifikasi.
+- Pemakaian tanpa akun (data di perangkat) tidak masuk hitungan, karena tidak tercatat di server.
 - Pembilang dan penyebut memakai populasi yang sama; pengguna aktif dengan nol unit tetap di penyebut.
 
-**Pencegahan duplikasi.** Setiap unit punya kunci unik; unit dihitung sekali per kunci, pada minggu saat pertama kali terpenuhi.
+**Pencegahan duplikasi.** Setiap unit punya kunci unik; nilai terkoreksi per kunci paling banyak satu.
 
 | Unit | Kunci | Dihitung | Tidak dihitung |
 |---|---|---|---|
-| Tugas Peta Jalan selesai | akun + Slot + tugas | Saat pertama kali ditandai selesai | Batal centang lalu centang lagi; tugas pada data contoh (DATA DEMO) |
-| Revisi yang menaikkan skor | akun + karya + rubrik (versi sama) + versi karya | Saat skor total versi baru melampaui skor tertinggi sebelumnya pada rubrik dan panel yang sama | Sidang ulang pada versi karya yang sama; kenaikan karena rubrik atau panel berganti; kenaikan di dalam sebaran antar-pengulangan lapis L2 |
-| Pengiriman lomba | akun + Slot | Saat pengguna mengonfirmasi pengiriman | Konfirmasi kedua untuk Slot yang sama |
+| Tugas Peta Jalan selesai | akun + Slot + tugas | Saat ditandai selesai | Centang ulang setelah dibatalkan tidak menambah unit kedua; tugas pada data contoh (DATA DEMO) |
+| Revisi yang menaikkan skor | Identitas evaluasi B2 (di bawah) | Saat skor versi baru melampaui skor tertinggi sebelumnya pada identitas evaluasi yang sebanding | Sidang ulang pada versi karya yang sama; kenaikan karena rubrik, panel, atau evaluator berganti; kenaikan yang tidak melampaui variasi L2 |
+| Pengiriman lomba (B3) | akun + Slot | Saat pengguna mengonfirmasi pengiriman | Konfirmasi kedua untuk Slot yang sama |
 
-Bila sebuah unit dibatalkan (tugas dikembalikan ke belum selesai, konfirmasi ditarik), unit itu dicabut dari minggu asalnya, bukan dikurangkan dari minggu berjalan.
+**Pembatalan tanpa menghapus histori.** Unit dicatat sebagai peristiwa yang hanya bertambah:
+- *Completion event* saat unit terpenuhi; *reversal event* saat dibatalkan (tugas dikembalikan ke belum selesai, konfirmasi ditarik). Keduanya memuat kunci unit dan waktu server.
+- Tidak ada peristiwa yang dihapus atau diubah, supaya rekam jejak tetap bisa diaudit.
+- Dashboard boleh menampilkan nilai terkoreksi (completion dikurangi reversal, pada minggu asal unit). Nilai mentah tetap bisa ditelusuri dari peristiwanya.
 
-**Tingkat bukti.** North Star dilaporkan terpisah per tingkat, selain totalnya, supaya angka tidak bisa naik hanya lewat pernyataan.
+**Identitas evaluasi B2.** Dua skor hanya boleh dibandingkan bila seluruh unsur berikut sama, kecuali versi karya:
+- akun, karya, dan versi karya;
+- rubrik dan versi rubrik;
+- panel juri;
+- konfigurasi atau versi evaluator: versi aturan lapis deterministik; untuk lapis L2 juga penyedia, model, versi prompt juri, dan parameter yang memengaruhi keluaran.
+
+Bila evaluator berubah di antara dua versi karya, selisihnya tidak dihitung sebagai unit sampai versi lama dievaluasi ulang dengan konfigurasi yang sama. Untuk lapis L2, kenaikan baru dinyatakan nyata bila melampaui variasi antar-pengulangan pada konfigurasi itu; cara mengukur variasi dan ambangnya belum ditetapkan (target PRD simpangan baku ≤ 5 dari 100 masih hipotesis).
+
+**Tingkat bukti.**
 
 | Tingkat | Dasar | Berlaku untuk | Batas |
 |---|---|---|---|
-| B1 Deterministik | Dicatat sistem dengan waktu server, tanpa penilaian | Tugas selesai; berkas lolos validator | Membuktikan tindakan terjadi, bukan mutu hasilnya |
-| B2 Rubrik | Selisih skor pada rubrik dan panel yang sama | Revisi | Lapis deterministik bisa diulang persis; lapis L2 baru sah bila kenaikan melampaui sebaran antar-pengulangan (target PRD: simpangan baku ≤ 5 dari 100, masih hipotesis) |
-| B3 Pernyataan pengguna | Konfirmasi pengguna, dengan atau tanpa bukti terlampir | Pengiriman lomba | Tanpa lampiran, ATA tidak bisa memeriksa kebenarannya; dilaporkan sebagai "dinyatakan", terpisah dari "dengan bukti" |
+| B1 Deterministik | Dicatat sistem dengan waktu server, tanpa penilaian | Tugas selesai | Membuktikan tindakan terjadi, bukan mutu hasilnya |
+| B2 Rubrik | Selisih skor pada identitas evaluasi yang sebanding | Revisi | Lapis deterministik bisa diulang persis; lapis L2 harus memperhitungkan variasi penilaian |
+| B3 Pernyataan pengguna | Konfirmasi pengguna | Pengiriman lomba | ATA tidak memeriksa kebenarannya |
 
-Kata "terverifikasi" pada North Star hanya dipakai tanpa keterangan untuk B1 dan B2. Unit B3 tanpa bukti selalu disebut "dinyatakan pengguna".
+B3 dilaporkan dalam tiga keadaan yang tidak digabung:
+
+| Keadaan | Arti | Masuk North Star terverifikasi? |
+|---|---|---|
+| Dinyatakan, tanpa lampiran | Hanya pernyataan pengguna | Tidak |
+| Dinyatakan, dengan lampiran bukti | Ada berkas, tetapi belum diperiksa siapa pun | Tidak |
+| Diverifikasi sistem atau pemeriksa | Bukti sudah diperiksa | Belum ada mekanismenya; statusnya menunggu keputusan PO |
+
+Berkas yang lolos validator adalah bukti pendukung (misalnya untuk lampiran B3 atau kelengkapan karya), bukan unit North Star tambahan, kecuali ada keputusan PO baru.
+
+Kata "terverifikasi" hanya dipakai untuk B1 dan B2.
 
 Tidak ada target angka di dokumen ini. Belum ada instrumentasi, jadi belum ada baseline. Target di blueprint adalah hipotesis sampai baseline terukur.
 
@@ -479,7 +525,7 @@ Tidak ada target angka di dokumen ini. Belum ada instrumentasi, jadi belum ada b
 | Konsistensi juri | Selisih skor pada masukan identik; untuk L2, sebaran antar pengulangan | Lapis deterministik bisa diuji di prototipe |
 | Cakupan bukti | Temuan dengan lokasi dan bukti / total temuan | Tidak |
 | Perbaikan setelah revisi | Selisih skor per kriteria, rubrik sama | Tidak |
-| Pengiriman lomba | Konfirmasi pengguna per Slot | Tidak |
+| Pengiriman lomba (User-Declared) | Konfirmasi pengguna per Slot, dipisah menurut tiga keadaan B3 | Tidak |
 | Retensi | Pengguna aktif minggu N yang aktif lagi di N+1, N+4 | Tidak |
 | Kegunaan ingatan | Lihat bagian 5 | Tidak |
 | Penerimaan rekomendasi | Saran yang diikuti / ditampilkan | Tidak |
@@ -495,7 +541,7 @@ Diputuskan PO pada 22 November 2026. Tabel pertama mencatat keputusan dan tempat
 
 | # | Keputusan | Diterapkan di | Tindak lanjut di luar dokumen ini (belum dilakukan) |
 |---|---|---|---|
-| K1 | Delapan kategori database; semua mati sejak awal; dinyalakan satu per satu; izin pemrosesan internal dibedakan dari izin pengiriman ke penyedia AI; sebelum pengiriman tampil kategori, tujuan, dan penyedia | Bagian 3 "Izin data: dua lapis", bagian 12 | Selaraskan prototipe (enam kategori, menyala) saat layar izin dibangun; rancang penyimpanan dua lapis |
+| K1 | Delapan kategori database; semua mati sejak awal; dinyalakan satu per satu; izin pemrosesan internal dibedakan dari izin pengiriman ke penyedia AI; sebelum pengiriman Mode A tampil kategori, tujuan, dan penyedia; Handoff Pack Mode B menampilkan kategori dan tujuan tanpa mengklaim aplikasi tujuan yang belum dipilih pengguna | Bagian 3 "Izin data: dua lapis", bagian 12 | Selaraskan prototipe (enam kategori, menyala) saat layar izin dibangun; rancang penyimpanan dua lapis |
 | K2 | `02-orkestrasi-ai.md` acuan utama; Planner dan Prompt Quality Gate eksplisit di PRD; batasan BYOK dan Mode A/B tetap | Bagian 4 | Revisi `01-prd.md` |
 | K3 | Visi PRD tidak diganti; "Your Personal Competition Agent" sebagai positioning dan arah utama; lingkup akademik non-lomba tetap selama mendukung perkembangan, persiapan kompetisi, kemampuan, dan portofolio | Bagian 1 | — |
 | K4 | Pemetaan izin diterima; Plan dan Verify tanpa hak menulis; Execute dengan konfirmasi sesuai jenis tindakan | Bagian 3 "Izin agen" | Tulis Plan dan Verify ke `02-orkestrasi-ai.md` |
@@ -521,7 +567,7 @@ Diputuskan PO pada 22 November 2026. Tabel pertama mencatat keputusan dan tempat
 
 - **Blueprint `03` dan `07`–`12` belum diaudit rinci** (`03-provider-universal`, `07-langganan-biaya`, `08-keamanan`, `09-vercel-teknologi`, `10-adr`, `11-data-model`, `12-api-contract`). Bagian dokumen ini yang paling bergantung padanya adalah BYOK dan penyimpanan kunci, model data dan Knowledge Graph, kontrak API, dan biaya. Tindak lanjut wajib: pemeriksaan konsistensi ketujuh berkas itu terhadap `01`, `02`, `14`–`16` dan terhadap skema yang sudah ada, sebelum revisi besar PRD. Belum dikerjakan.
 - Dokumen ini audit internal produk dan arsitektur. Validasi pasar, analisis kompetitor, dan kesediaan membayar tidak tercakup.
-- Definisi pengguna aktif, kunci deduplikasi, dan tingkat bukti di bagian 14 adalah usulan; belum diuji terhadap data karena belum ada instrumentasi.
+- Definisi pengguna aktif, kunci deduplikasi, peristiwa completion/reversal, identitas evaluasi B2, dan tingkat bukti di bagian 14 adalah usulan; belum diuji terhadap data karena belum ada instrumentasi.
 - Status prototipe dinilai dari membaca kode dan komentar berkas, bukan dari menjalankan ulang setiap fitur dalam audit ini.
 - "Belum ada" untuk instrumentasi berdasarkan pencarian teks di `src/`, bukan audit menyeluruh.
 - Perilaku STT/TTS antar browser tidak diuji; pernyataan kelayakan suara adalah penilaian, bukan hasil ukur.
