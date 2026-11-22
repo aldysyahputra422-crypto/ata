@@ -72,9 +72,9 @@ Tema gelap: `:root[data-theme="dark"]` (dan `prefers-color-scheme` bila `data-th
 - `pnpm screenshots`: screenshot /styleguide 390 dan 1280 px, terang dan gelap.
 - `pnpm test:e2e`: bagian referensi tampil, tema `?tema=`, tanpa scroll horizontal di 390 px, kontras axe di dua tema.
 - `pnpm visual:parity` (lokal saja, prototipe tidak ada di CI):
-  1. `python3 -m http.server 4321` di folder `ata-prototype`.
+  1. Di folder `ata-prototype`: `ATA_DB=/tmp/ata-paritas.db ATA_GOOGLE_CLIENT_ID=x ATA_GOOGLE_CLIENT_SECRET=y python3 serve.py 4321` (layar butuh API akun prototipe; kredensial tiruan membuat tombol Google aktif). Untuk `/styleguide` saja, `python3 -m http.server 4321` cukup.
   2. `pnpm build && DEMO_MODE=true pnpm start` di repo ini.
-  3. `pnpm visual:parity`. Variabel: `PROTO_URL`, `APP_URL`, `OUT_DIR` (default `docs/screenshots/parity`), `PROTO_DIR` (default `../ata-prototype`).
+  3. `pnpm visual:parity`. Layar Masuk/Paket butuh app yang dibangun dan dijalankan dengan env Supabase dev (Google aktif). Variabel: `TARGET` (`styleguide`, `masuk`, `paket`; default semua), `PROTO_ORIGIN`, `APP_ORIGIN`, `OUT_DIR` (default `docs/screenshots/parity`), `PROTO_DIR` (default `../ata-prototype`).
   Skrip membandingkan screenshot halaman penuh 390×844 dan 1280×900, terang dan gelap, menyimpan PNG beda, menjalankan `audit-kontras.js` di kedua halaman, dan gagal bila ada piksel dengan selisih > 8/255 atau kegagalan kontras.
 
 ## 9. Fondasi lama yang tersisa

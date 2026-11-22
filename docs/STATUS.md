@@ -2,6 +2,16 @@
 
 Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 3 (Tanya Ata) selesai dibangun.
 
+## M1 Masuk/Paket (22 November 2026)
+
+- `/` adalah layar Masuk dan `/paket` layar Paket, dipindahkan dari prototipe `masuk/ui/masuk.js` dan `masuk/ui/paket.js` dengan markup, class, dan CSS yang sama. Data dari `/api/v1/me`; kode Sobat Ambis lewat `POST /api/v1/redeem`. Halaman placeholder lama di `/` dihapus.
+- FR-AUTH-01 (tombol Google), FR-AUTH-08 (unduh data, hapus akun dengan konfirmasi) selesai di UI. Galat OAuth (`/?error=…`) menampilkan "Gagal masuk dengan Google. Coba lagi."
+- Keadaan: memuat, galat (dengan "Coba lagi"), belum masuk, sudah masuk Gratis/Pro, Pro berakhir. Keadaan kosong tidak berlaku: kedua layar tidak memuat daftar.
+- K-23: batas Slot diambil dari entitlement server (Gratis 1, Pro 3). Slot per akun belum ada di database, jadi "Slot terpakai" selalu 0.
+- Paritas piksel dengan prototipe (`masuk.html?embed=1`): 0 piksel beda di 390/1280, terang/gelap. **Tertunda:** audit kontras prototipe gagal di tema terang untuk teks "atau" (2,96:1 dan 3,6:1) dan eyebrow "Keanggotaan" di 1280 px (4,34:1); app menirunya persis, jadi `pnpm visual:parity` belum lulus untuk dua layar ini sampai prototipe diperbaiki.
+- Tertunda: FR-AUTH-02 (OTP email), onboarding, tab bar/rail (datang bersama Hari Ini), pembayaran (di luar lingkup).
+- Rincian: [docs/MIGRASI-UI.md](MIGRASI-UI.md).
+
 ## R0.2-0 Fondasi migrasi UI (22 November 2026)
 
 - K-23 diterapkan: Gratis 1 Slot aktif, Pro 3 (final). Batas lain tetap usulan. Migrasi `0004` sudah diterapkan ke `ata-dev` (22 November 2026): hanya baris `free/activeSlots` yang berubah, jumlah record di semua tabel tetap. Rollback: lihat docs/PREFLIGHT.md.
