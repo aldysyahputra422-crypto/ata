@@ -105,3 +105,34 @@ Keputusan PO: perbaiki di prototipe dulu, lalu salin ke produksi.
 - Tema gelap: token bernilai sama dengan `--success`/`--warn` gelap (#34D399, #FBBF24), jadi piksel tidak berubah.
 - Berkas: `src/styles/prototype/shared/ds.css` (salinan dari prototipe), `tests/e2e/design-system.spec.ts` (pengecualian kontras dihapus), `docs/screenshots/styleguide-*.png`.
 - `pnpm visual:parity`: LULUS. 0 piksel beda dan 0 kegagalan kontras (prototipe dan app) di 390/1280, terang/gelap.
+
+## M1 Masuk/Paket (22 November 2026)
+
+| Prototipe | Produksi |
+|---|---|
+| `masuk.html` (kerangka, mode `?embed=1`) | `src/app/(ata)/(layar)/layout.tsx` + `_layar/PasangLayar.tsx` |
+| `masuk/ui/masuk.js` | `src/app/(ata)/(layar)/page.tsx` + `Masuk.tsx` (rute `/`) |
+| `masuk/ui/paket.js` | `src/app/(ata)/(layar)/paket/` (rute `/paket`) |
+| `shared/akun.js` (`/api/akun`) | `_layar/akun.ts` (`/api/v1/me`, `/api/v1/redeem`, logout, ekspor, hapus) |
+| `akun.py harga()` | `src/lib/billing/price.ts` |
+| `toast`, `sheet` di `masuk/app.js` | `_layar/Lapisan.tsx` |
+| `shared/lingkungan.js`, `shared/sheet.js` | disalin apa adanya ke `src/lib/prototype/shared/` |
+
+- Kerangka layar memakai DOM mode embed prototipe (tanpa bar prototipe, bingkai perangkat, rail, dan tab bar). Navigasi aplikasi datang bersama Hari Ini.
+- Tema: `?tema=gelap|terang` seperti prototipe; tanpa parameter mengikuti sistem.
+- Perbedaan yang disengaja dari prototipe:
+  - Pesan galat OAuth memakai satu copy tetap (keputusan PO), bukan peta kode galat prototipe.
+  - Teks "Admin perlu mengisi Client ID… (lihat HANDOFF.md)" tidak ditampilkan ke pengguna.
+  - Ada tombol "Coba lagi" pada keadaan galat (prototipe tidak punya).
+  - "Buka Progres" dan "Pakai tanpa akun dulu" mengarah ke rute lama `/progres` dan `/hari-ini` sampai layar itu dimigrasikan.
+  - Layar Paket: prototipe masih menampilkan Gratis 3 Slot dan 2 Slot demo; produksi menampilkan batas dari server (K-23) dan 0 Slot terpakai.
+
+### Paritas
+
+`pnpm visual:parity` sekarang juga membandingkan `masuk.html?embed=1#masuk` dengan `/` dan `#paket` dengan `/paket`. Prototipe harus dijalankan dengan `serve.py` (API akun) dan kredensial Google tiruan supaya tombol Google aktif di kedua sisi; app dibangun dan dijalankan dengan env Supabase dev. Lihat docs/DESIGN-SYSTEM.md.
+
+- Piksel: 0 beda pada 8 kombinasi (2 layar × 390/1280 × terang/gelap), keadaan belum masuk.
+- Dua baris teks data di layar Paket ditutupi di kedua sisi sebelum dibandingkan (ringkasan Slot dan butir "N Slot lomba aktif"), karena isinya data, bukan desain.
+- Tepi kaca pada kotak sub-piksel kadang menghasilkan beberapa piksel derau; skrip mengulang satu kali sebelum menyatakan gagal.
+- Kontras (audit prototipe), tema terang: "atau" 2,96:1 (390) dan 3,6:1 (1280); "Keanggotaan" 4,34:1 (1280). Cacat ada di prototipe dan app sama persis. Belum diperbaiki: menunggu keputusan PO (aturan: perbaiki di prototipe dulu).
+- Keadaan sudah masuk, galat, dan sheet hapus akun diuji lewat Playwright (`tests/e2e/masuk-paket.spec.ts`), tidak lewat paritas piksel.

@@ -53,3 +53,6 @@ Semua 14 butir memakai kolom "Asumsi default". Yang paling memengaruhi tahap awa
 | S16 | Skill desain eksternal tidak dipasang ke repo | Lihat docs/EXTERNAL-SKILLS.md |
 | S17 | TRIBE v2 tidak dipakai | Lisensi non-komersial dan keluarannya peta aktivasi otak, bukan ukuran perasaan pengguna (docs/EXTERNAL-SKILLS.md) |
 | S18 | Palet **Senja** (koral, peach, merah muda, netral hangat) menggantikan palet ungu-biru; permata `lavender` diganti `coral` dan `--gem-lavender-*` dipertahankan sebagai alias sementara | Keputusan Product Owner 12 Nov 2026: ungu terasa generik. Alias dihapus setelah semua komponen memakai `coral` |
+| S19 | Harga Pro tetap ditampilkan di `/paket` (Rp69.000/bulan, tahunan diskon 10%, dihitung di `src/lib/billing/price.ts`) dan tombol bayar hanya menampilkan "Pembayaran belum diaktifkan di server ini" | Mengikuti prototipe dan blueprint 16; tanpa payment gateway (Lampiran D) |
+| S20 | "Pakai tanpa akun dulu" hanya menyimpan penanda di perangkat (`localStorage`) lalu membuka `/hari-ini` | Onboarding dan penyimpanan lokal prototipe belum dimigrasikan |
+| S21 | "Slot terpakai" di `/paket` selalu 0 | Tabel Slot per akun baru dibuat saat Lomba dimigrasikan; batasnya sudah dari entitlement server (K-23) |
