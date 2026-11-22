@@ -14,6 +14,12 @@ import { buatLombaManual, KATEGORI_MANUAL, JENJANG_MANUAL } from '../logic/manua
 
 export const note = 'Radar: tumpukan kartu lomba yang cocok hari ini. Geser kanan untuk simpan, kiri lewati, atas jadikan Slot (atau pakai tombol dan panah keyboard). Keputusan terakhir bisa diurungkan 5 detik. Coba jadikan Slot dua kali untuk melihat penolakan Slot ke-4, dan "Tambah lomba" untuk memasukkan lomba sendiri (isian manual; OCR poster belum tersedia).';
 let filter = 'semua', siap = false, onKey = null;
+/* kueri "Temukan lomba baru": null = belum disentuh (pakai usulan dari profil). Begitu pengguna mengetik, nilainya
+   disimpan di sini, sehingga gambar ulang layar (kartu siap, Slot berubah di tab lain, tarik-untuk-segarkan)
+   memakai ketikan pengguna, bukan usulan awal. fokusKueri mengingat kursor agar ketikan tidak terputus. */
+let kueri = null, fokusKueri = null;
+const kueriAwal = () => (PROFIL.minat.length ? `lomba ${NAMA_KATEGORI[PROFIL.minat[0]]} ${PROFIL.tingkat}` : '');
+export const nilaiKueri = () => kueri ?? kueriAwal();
 export function pergi() { if (onKey) document.removeEventListener('keydown', onKey); onKey = null; }
 
 const AKSI = { simpan: { label: 'Simpan', ikon: 'star', pesan: 'Disimpan' }, lewati: { label: 'Lewati', ikon: 'close', pesan: 'Dilewati' }, slot: { label: 'Jadikan Slot', ikon: 'flag', pesan: 'Jadi Slot' } };
@@ -23,6 +29,8 @@ export function view(ctx) {
   const kategoriAda = [...new Set(d.antrean.map((id) => cari(id).kategori))];
   const antrean = d.antrean.filter((id) => filter === 'semua' || cari(id).kategori === filter);
   const jeda = penuh && !state.cariTambahan;
+  const lama = typeof document === 'undefined' ? null : document.activeElement;
+  fokusKueri = lama && lama.id === 'qTemukan' ? [lama.selectionStart, lama.selectionEnd] : null;
   const sapa = d.antrean.length ? `Ata nemu ${d.antrean.length} lomba buat kamu hari ini.` : 'Hari ini belum ada yang cocok. Aku tetap pantau besok.';
   return { html: `<section class="view lb-radar">
     <header class="lb-head"><div><p class="eyebrow">Radar Lomba · ${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p><h1>${esc(sapa)}</h1></div>
@@ -46,13 +54,16 @@ export function view(ctx) {
       <p class="small" id="statusCari" aria-live="polite">Memeriksa key pencarian…</p>
       <form class="lb-temukan__form" id="formTemukan">
         <label class="sr-only" for="qTemukan">Kata kunci lomba</label>
-        <input class="input" id="qTemukan" placeholder="mis. lomba esai SMA, business plan" value="${esc(PROFIL.minat.map((m) => NAMA_KATEGORI[m]).slice(0, 1).join(' ') ? `lomba ${NAMA_KATEGORI[PROFIL.minat[0]]} ${PROFIL.tingkat}` : '')}" minlength="3" required>
+        <input class="input" id="qTemukan" placeholder="mis. lomba esai SMA, business plan" value="${esc(nilaiKueri())}" minlength="3" required>
         <button type="submit" class="btn" id="tombolTemukan"><span data-icon="search"></span>Cari</button>
       </form>
       <div id="hasilTemukan" aria-live="polite"></div>
     </section>
   </section>`, init(root) {
-    const formT = root.querySelector('#formTemukan');
+    const formT = root.querySelector('#formTemukan'), elKueri = root.querySelector('#qTemukan');
+    elKueri?.addEventListener('input', () => { kueri = elKueri.value; });
+    if (elKueri && fokusKueri) { elKueri.focus({ preventScroll: true }); try { elKueri.setSelectionRange(...fokusKueri); } catch (e) { /* abaikan */ } }
+    fokusKueri = null;
     formT?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const out = root.querySelector('#hasilTemukan'), btn = root.querySelector('#tombolTemukan');
@@ -148,6 +159,8 @@ function card(l, i) {
 function drag(el, putus, buka) {
   if (!el) return;
   el.addEventListener('keydown', (e) => { if (e.key === 'Enter') buka(); });
+  /* seret bawaan browser (gambar/tautan/teks terpilih) memicu pointercancel dan membatalkan geser kartu */
+  el.addEventListener('dragstart', (e) => e.preventDefault());
   let s = null;
   el.addEventListener('pointerdown', (e) => { s = { x: e.clientX, y: e.clientY, moved: false }; el.setPointerCapture(e.pointerId); el.classList.add('is-drag'); });
   el.addEventListener('pointermove', (e) => {
