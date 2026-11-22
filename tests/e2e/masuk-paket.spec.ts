@@ -18,6 +18,11 @@ const unavailable = { error: { code: "unavailable", message: "Layanan akun belum
 const me = (page: Page, body: unknown, status = 200) =>
   page.route("**/api/v1/me", (route) => route.fulfill({ status, json: body }));
 
+// The account's rows as GET /api/v1/user-competitions returns them; only state "slot" counts as an active Slot.
+const baris = (...states: string[]) => states.map((state, i) => ({ competition_key: `lomba-${i}`, source: "catalog", state }));
+const lomba = (page: Page, items: () => unknown[]) =>
+  page.route("**/api/v1/user-competitions", (route) => route.fulfill({ json: { items: items(), plan: "free", slot_limit: 1 } }));
+
 test.describe("masuk", () => {
   test("signed out: Google link, use-without-account, no error", async ({ page }) => {
     await me(page, signedOut);
@@ -159,6 +164,7 @@ test.describe("paket", () => {
   test("redeem: empty, rejected, then Pro with 3 Slots", async ({ page }) => {
     let body: unknown = free;
     await page.route("**/api/v1/me", (route) => route.fulfill({ json: body }));
+    await lomba(page, () => []);
     await page.route("**/api/v1/redeem", (route) => {
       const { code } = route.request().postDataJSON() as { code: string };
       expect(route.request().headers()["idempotency-key"]).toMatch(/^[0-9a-f-]{36}$/);
@@ -187,7 +193,92 @@ test.describe("paket", () => {
 
   test("expired Pro keeps data and says so", async ({ page }) => {
     await me(page, { ...free, plan: { ...free.plan, status: "expired" } });
+    await lomba(page, () => []);
     await page.goto("/paket");
     await expect(page.locator(".banner")).toContainText("Akses Pro-mu sudah berakhir. Data dan Slot-mu tetap tersimpan.");
+  });
+
+  // K-23/K-03: the used-Slot number is the account's rows on the server, never a constant or the device's demo data.
+  for (const [nama, akun, states, teks] of [
+    ["Free 0/1", free, ["saved", "released", "skipped"], "Slot terpakai 0 dari 1."],
+    ["Free 1/1", free, ["slot", "saved"], "Slot terpakai 1 dari 1."],
+    ["Pro 1/3", pro, ["slot", "saved"], "Slot terpakai 1 dari 3."],
+    ["Pro 3/3", pro, ["slot", "slot", "slot"], "Slot terpakai 3 dari 3."],
+  ] as const) {
+    test(`used Slots come from the server: ${nama}`, async ({ page }) => {
+      // the device says otherwise; signed in, it must not be what is shown
+      await page.addInitScript(() => localStorage.setItem("ata-bersama", JSON.stringify({ slotAktif: ["a", "b"] })));
+      await me(page, akun);
+      await lomba(page, () => baris(...states));
+      await page.goto("/paket");
+      await expect(page.locator("#slotTerpakai")).toHaveText(teks);
+      await expect(page.locator("#slotTerpakai")).not.toContainText("di atas batas");
+      await page.reload();
+      await expect(page.locator("#slotTerpakai")).toHaveText(teks);
+    });
+  }
+
+  test("a released Slot frees capacity after a refresh", async ({ page }) => {
+    let states = ["slot", "saved"];
+    await me(page, free);
+    await lomba(page, () => baris(...states));
+    await page.goto("/paket");
+    await expect(page.locator("#slotTerpakai")).toHaveText("Slot terpakai 1 dari 1.");
+    states = ["released", "saved"];
+    await page.reload();
+    await expect(page.locator("#slotTerpakai")).toHaveText("Slot terpakai 0 dari 1.");
+  });
+
+  test("after a downgrade the Slots above the limit are counted and explained", async ({ page }) => {
+    await me(page, { ...free, plan: { ...free.plan, status: "expired" } });
+    await lomba(page, () => baris("slot", "slot", "slot"));
+    await page.goto("/paket");
+    await expect(page.locator("#slotTerpakai")).toContainText("Slot terpakai 3 dari 1. Jumlahnya di atas batas paketmu: Slot lama tetap tersimpan");
+  });
+
+  test("while the Slot count loads no number is shown", async ({ page }) => {
+    await me(page, free);
+    await page.route("**/api/v1/user-competitions", async (route) => {
+      await new Promise((r) => setTimeout(r, 600));
+      await route.fulfill({ json: { items: baris("slot"), plan: "free", slot_limit: 1 } });
+    });
+    await page.goto("/paket");
+    await expect(page.locator("#slotTerpakai")).toHaveText("Menghitung Slot terpakai…");
+    await expect(page.locator(".lede")).not.toContainText(/Slot terpakai \d/);
+    await expect(page.locator("#slotTerpakai")).toHaveText("Slot terpakai 1 dari 1.");
+  });
+
+  test("when the Slot count cannot be read it says so instead of 0, and retries", async ({ page }) => {
+    let fail = true;
+    await me(page, free);
+    await page.route("**/api/v1/user-competitions", (route) =>
+      fail ? route.fulfill({ status: 503, json: unavailable }) : route.fulfill({ json: { items: baris("slot"), plan: "free", slot_limit: 1 } }));
+    await page.goto("/paket");
+    await expect(page.locator("#slotTerpakai")).toHaveText("Jumlah Slot terpakai tidak bisa dimuat dari server. Batas paketmu 1 Slot.");
+    await expect(page.locator(".lede")).not.toContainText(/Slot terpakai \d/);
+    // the rest of the page still works
+    await expect(page.locator(".paket__kartu--aktif h2")).toHaveText("Gratis");
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    fail = false;
+    await page.getByRole("button", { name: "Muat ulang jumlah Slot" }).click();
+    await expect(page.locator("#slotTerpakai")).toHaveText("Slot terpakai 1 dari 1.");
+    await expect(page.locator("#ulangSlot")).toHaveCount(0);
+  });
+
+  test("a malformed Slot response is treated as a failure, not as 0", async ({ page }) => {
+    await me(page, free);
+    await page.route("**/api/v1/user-competitions", (route) => route.fulfill({ json: {} }));
+    await page.goto("/paket");
+    await expect(page.locator("#slotTerpakai")).toContainText("tidak bisa dimuat");
+  });
+
+  test("signed out: the count is this device's Slots and the account API is not called", async ({ page }) => {
+    let dipanggil = 0;
+    await page.addInitScript(() => localStorage.setItem("ata-bersama", JSON.stringify({ slotAktif: ["interval-2027"] })));
+    await me(page, signedOut);
+    await page.route("**/api/v1/user-competitions", (route) => { dipanggil++; return route.fulfill({ status: 401, json: {} }); });
+    await page.goto("/paket");
+    await expect(page.locator(".lede")).toContainText("Belum masuk: kamu memakai paket Gratis di perangkat ini. Slot terpakai 1 dari 1.");
+    expect(dipanggil).toBe(0);
   });
 });

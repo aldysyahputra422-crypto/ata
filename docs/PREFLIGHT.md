@@ -15,7 +15,7 @@
 
 1. Jalankan `pnpm exec supabase start` dan `pnpm exec supabase migration up`.
 2. Isi variabel URL dasar API, anon key, dan service-role key di lingkungan proses Next.js dengan nilai stack lokal. Untuk smoke test, gunakan `APP_ORIGIN=http://127.0.0.1:3000` dan jalankan `pnpm dev --hostname 127.0.0.1`.
-3. Jalankan `pnpm test` untuk uji kontrak akun dan migrasi PGlite. Jalankan `node scripts/test-account-local.mjs` untuk uji HTTP terhadap stack Docker. Skrip membuat akun sementara dan kode redeem khusus uji.
+3. Jalankan `pnpm test` untuk uji kontrak akun dan migrasi PGlite. Jalankan `node scripts/test-account-local.mjs` untuk uji HTTP terhadap stack Docker. Skrip membuat akun sementara dan kode redeem khusus uji. Skrip juga menguji dua permintaan Slot bersamaan pada akun Gratis (tepat satu diterima, satu 409); butuh migrasi `0004`–`0005` di stack lokal (`pnpm exec supabase migration up`) dan `APP_ORIGIN=http://127.0.0.1:3000` pada server produksi lokal.
 
 ### Migrasi ke `ata-dev`
 

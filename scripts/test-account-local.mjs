@@ -114,6 +114,22 @@ try {
   const audit = assertSuccess(await admin.from("audit_log").select("action").eq("actor_id", winner.user.id));
   assert.deepEqual(audit.map((event) => event.action).sort(), ["logout", "redeem"]);
 
+  // K-23: two different Slots requested at once while one is free. The trigger's per-account lock lets exactly one in.
+  const racer = await createAccount();
+  const slot = (key, state = "slot") => api("/api/v1/user-competitions/" + key, { user: racer, method: "PUT", body: { state } });
+  const activeSlots = async () => assertSuccess(
+    await admin.from("user_competitions").select("competition_key").eq("user_id", racer.user.id).eq("state", "slot"),
+  ).map((row) => row.competition_key);
+  for (let round = 0; round < 5; round++) {
+    const keys = ["race-" + round + "-a", "race-" + round + "-b"];
+    const pair = await Promise.all(keys.map((key) => slot(key)));
+    assert.deepEqual(pair.map((result) => result.status).sort(), [200, 409], "Slot race round " + round);
+    const won = keys[pair.findIndex((result) => result.status === 200)];
+    assert.deepEqual(await activeSlots(), [won]);
+    assert.equal((await slot(won, "released")).status, 200);
+  }
+  assert.deepEqual(await activeSlots(), []);
+
   const expired = await createAccount();
   assert.match(expired.sessionId, /^[0-9a-f-]{36}$/);
   execFileSync("docker", ["exec", "-i", "supabase_db_ata", "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
@@ -122,7 +138,7 @@ try {
   });
   assert.equal((await api("/api/v1/me", { user: expired })).data.signed_in, false);
   assert.equal((await api("/api/v1/account/export", { user: expired })).status, 401);
-  console.log("Uji HTTP R0.1 di Supabase lokal lulus.");
+  console.log("Uji HTTP R0.1 dan balapan Slot (K-23) di Supabase lokal lulus.");
 } finally {
   for (const id of userIds) await admin.auth.admin.deleteUser(id);
   await admin.from("redeem_codes").delete().eq("code_hash", codeHash);

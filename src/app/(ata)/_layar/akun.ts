@@ -1,5 +1,6 @@
 // Client access to the account API (/api/v1). Mirrors the prototype's shared/akun.js: every call resolves, never throws.
 import type { Plan } from "@/lib/entitlements/config";
+import { KUNCI_BERSAMA } from "@/lib/prototype/shared/logic/bersama.js";
 
 export type Akun = {
   signed_in: boolean;
@@ -48,6 +49,23 @@ export const tukarKode = (code: string) =>
     headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify({ code: code.trim() }),
   });
+
+/** Active Slots of the signed-in account, counted from its rows on the server. "gagal" when the server cannot say. */
+export async function slotTerpakai(): Promise<number | "gagal"> {
+  const r = await panggil<{ items?: { state?: string }[] }>("/api/v1/user-competitions");
+  if (!r.ok || !Array.isArray(r.data?.items)) return "gagal";
+  return r.data.items.filter((b) => b.state === "slot").length;
+}
+
+/** Active Slots kept on this device (signed out only). Read-only: never seeds the demo store. */
+export function slotPerangkat(): number {
+  try {
+    const b = JSON.parse(localStorage.getItem(KUNCI_BERSAMA) ?? "null") as { slotAktif?: unknown } | null;
+    return Array.isArray(b?.slotAktif) ? b.slotAktif.length : 0;
+  } catch {
+    return 0;
+  }
+}
 
 export const tanggal = (iso: string) =>
   new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
