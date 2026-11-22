@@ -111,8 +111,14 @@ function sunting(ctx, pj, langkah, tenggat, baru = false) {
       simpan(); close(); ctx.render(); ctx.toast(baru ? 'Langkah ditambahkan' : 'Langkah disimpan');
     });
     sheet.querySelector('#hapus')?.addEventListener('click', () => {
+      /* simpan() replaces state.peta with a fresh copy, so undo looks the roadmap up again instead of using pj */
+      const kunci = Object.keys(state.peta).find((k) => state.peta[k] === pj);
       const i = pj.langkah.indexOf(target); pj.langkah.splice(i, 1); simpan(); close(); ctx.render();
-      ctx.toast('Langkah dihapus', { label: 'Urungkan', run: () => { pj.langkah.splice(i, 0, target); simpan(); ctx.render(); } });
+      ctx.toast('Langkah dihapus', { label: 'Urungkan', run: () => {
+        const kini = (kunci && state.peta[kunci]) || pj;
+        if (!kini.langkah.some((s) => s.id === target.id)) kini.langkah.splice(i, 0, target);
+        simpan(); ctx.render();
+      } });
     });
   });
 }
