@@ -75,8 +75,20 @@ export function Lomba() {
         // The plan always follows the server; Slots above its limit are kept (aturPaket never removes any).
         const paket =
           me.data.signed_in && me.data.plan.plan === "pro" ? "pro" : "gratis";
-        if (bersama.bacaBersama().paket !== paket) {
-          bersama.ubahBersama((b: unknown) => logika.aturPaket(b, paket));
+        // The limit shown and enforced on screen is the server's, not the table built into the prototype.
+        const batasLama = bersama.batasKini();
+        bersama.aturBatasServer(
+          me.data.signed_in
+            ? (me.data.plan.features.activeSlots?.limit ??
+                me.data.slot_limits[paket === "pro" ? "pro" : "free"])
+            : null,
+        );
+        if (
+          bersama.bacaBersama().paket !== paket ||
+          bersama.batasKini() !== batasLama
+        ) {
+          if (bersama.bacaBersama().paket !== paket)
+            bersama.ubahBersama((b: unknown) => logika.aturPaket(b, paket));
           st.sinkronDariBersama();
           terpasang.ctx.render();
         }

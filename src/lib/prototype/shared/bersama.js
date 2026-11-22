@@ -94,7 +94,10 @@ export function dengarBersama(cb) {
 export const cariLomba = (id) => katalog(bacaBersama())(id);
 export const slotRingkas = () => { const b = bacaBersama(); return ringkasSlot(b, katalog(b), waktu); };
 export const tugasBersama = () => { const b = bacaBersama(); return daftarTugas(b, katalog(b)); };
-export const batasKini = () => batasSlot(bacaBersama().paket);
+/* app only: the server's activeSlots limit for this account wins over the built-in table (null: signed out or unknown) */
+let batasServer = null;
+export const aturBatasServer = (n) => { batasServer = Number.isInteger(n) && n >= 0 ? n : null; };
+export const batasKini = () => batasServer ?? batasSlot(bacaBersama().paket);
 const NAMA_PAKET = { gratis: 'Gratis', pro: 'Pro' };
 export const namaPaketKini = () => NAMA_PAKET[bacaBersama().paket] || NAMA_PAKET.gratis;
 /* batas boleh diisi dari server (app); tanpa itu memakai paket di store */
