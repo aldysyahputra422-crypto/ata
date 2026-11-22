@@ -102,8 +102,12 @@ html.bisa-lensa :is(.m-lensa, .tabbar, .rail__seg) { backdrop-filter: url(#kaca-
 /* dock: pil aktif = lensa terang di dalam lensa (referensi: segmen aktif berbeda bahan, bukan sekadar warna) */
 .tab-penanda { background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(255,255,255,.48));
   box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(255,255,255,.4), 0 6px 16px -6px rgba(120,40,30,.35), 0 0 0 1px rgba(255,255,255,.5); }
-:root[data-theme="dark"] .tab-penanda { background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.07)); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 6px 16px -6px rgba(0,0,0,.6); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tab-penanda { background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.07)); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 6px 16px -6px rgba(0,0,0,.6); } }
+/* gelap: label terang butuh dasar gelap apa pun yang ada di balik kaca (poster terang, foto senja).
+   dock diberi rona asap, pil aktif = lensa lebih pekat dengan tepi hangat; diukur dari piksel pada 390 dan 1280 px. */
+:root[data-theme="dark"] .tab-penanda { background: linear-gradient(180deg, rgba(26,13,10,.74), rgba(26,13,10,.64)); box-shadow: inset 0 1px 0 rgba(255,220,200,.28), 0 6px 16px -6px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.10); }
+:root[data-theme="dark"] .tabbar { background: linear-gradient(180deg, rgba(34,19,16,.76), rgba(34,19,16,.68)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tab-penanda { background: linear-gradient(180deg, rgba(26,13,10,.74), rgba(26,13,10,.64)); box-shadow: inset 0 1px 0 rgba(255,220,200,.28), 0 6px 16px -6px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.10); }
+  :root:not([data-theme="light"]) .tabbar { background: linear-gradient(180deg, rgba(34,19,16,.76), rgba(34,19,16,.68)); } }
 .tabbar .tab, .rail__seg .tab { color: var(--text); }
 .tabbar .tab[aria-current="page"], .rail__seg .tab[aria-current="page"] { color: var(--primary); }
 .rail__seg { background: none; border-color: transparent; }

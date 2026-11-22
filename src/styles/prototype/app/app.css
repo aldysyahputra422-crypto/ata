@@ -48,6 +48,14 @@ body.badan-aplikasi { margin: 0; background: var(--bg); }
 .judul-layar { padding: 2px 0 14px; }
 .judul-layar h1 { font-size: 26px; line-height: 31px; }
 .judul-layar .hari { font-size: 12.5px; line-height: 17px; color: var(--text-muted); }
+/* penanda data contoh: dasar padat supaya terbaca di atas foto, kecil supaya tidak menyaingi judul */
+.label-demo { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; vertical-align: 1px;
+  font: 700 10.5px/16px var(--font-body); letter-spacing: .04em; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+/* Slot di atas batas paket: pemberitahuan, bukan galat; Slot tidak diubah */
+.slot-lebih { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 14px;
+  font-size: 13px; line-height: 19px; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.slot-lebih [data-icon] { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--peringatan-teks); }
+.slot-lebih a { color: var(--tautan); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .ikon-apl {
   flex: none; width: 44px; height: 44px; display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: 14px; background: var(--surface);
