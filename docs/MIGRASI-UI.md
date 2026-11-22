@@ -220,11 +220,11 @@ Lima layar prototipe (Radar, Tersimpan, Detail, Slot, Peta Jalan) berjalan di `/
 ### Paritas (`pnpm visual:parity`, target `lomba-`: Radar)
 
 - 0 kegagalan kontras di prototipe dan app, 390/1280, terang/gelap.
-- Piksel beda di atas toleransi: 796 (390 terang), 715 (390 gelap), 211 (1280 terang), 143 (1280 gelap). Semuanya di sudut bingkai: di dalam `app.html`, iframe Lomba prototipe masih menggambar sudut membulat `.device .app` (38 px HP, 18 px desktop) karena aturan `border-radius: 0` di `shared/embed.css` kalah spesifisitas. App tidak punya sudut itu. Menunggu keputusan: perbaiki di prototipe, atau tiru di app.
+- Piksel beda di atas toleransi: 796 (390 terang), 715 (390 gelap), 211 (1280 terang), 143 (1280 gelap). Semuanya di sudut bingkai: di dalam `app.html`, iframe Lomba prototipe masih menggambar sudut membulat `.device .app` (38 px HP, 18 px desktop) karena aturan `border-radius: 0` di `shared/embed.css` kalah spesifisitas. App tidak punya sudut itu. Menunggu keputusan: perbaiki di prototipe, atau tiru di app. **Diputuskan dan diperbaiki di prototipe (ata-prototype PR #10); paritas lima layar dan pemeriksaan gerbang lain ada di docs/gerbang-m1-lomba.md.**
 - Hanya Radar yang dibandingkan piksel; empat layar lain diperiksa lewat e2e dan screenshot manual.
 
 ### Keterbatasan
 
-- Migrasi 0005 hanya diuji di PGlite; belum dijalankan di `ata-dev`. Pemetaan 409 dan upsert belum diuji terhadap PostgREST sungguhan.
+- Migrasi 0005 diuji di PGlite dan di Supabase lokal (docs/gerbang-m1-lomba.md, bagian F); belum dijalankan di `ata-dev`. Pemetaan 409 dan upsert belum diuji terhadap PostgREST sungguhan.
 - Belum diuji di browser dengan sesi Google sungguhan.
 - Target paritas Masuk gagal di mesin tanpa konfigurasi Google (tombol Google nonaktif); tidak terkait perubahan ini.
