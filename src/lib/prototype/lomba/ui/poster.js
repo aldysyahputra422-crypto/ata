@@ -6,8 +6,8 @@ export const sisaLabel = labelSisa;
 /* lomba nyata: poster asli di atas salinannya sendiri yang diburamkan (kaca), cap "INFO NYATA" */
 function posterFoto(l, kelas) {
   return `<div class="poster-art poster-art--foto g-${l.gem} ${kelas}">
-    <img class="poster-art__latar" src="/prototype/${esc(l.gambar)}" alt="" aria-hidden="true" decoding="async">
-    <img class="poster-art__img" src="/prototype/${esc(l.gambar)}" alt="Poster ${esc(l.nama)}" decoding="async">
+    <img class="poster-art__latar" src="/prototype/${esc(l.gambar)}" alt="" aria-hidden="true" decoding="async" draggable="false">
+    <img class="poster-art__img" src="/prototype/${esc(l.gambar)}" alt="Poster ${esc(l.nama)}" decoding="async" draggable="false">
     <span class="badge badge--nyata">INFO NYATA</span>
     <strong class="poster-art__title sr-only">${esc(l.nama)}</strong>
     <span class="stamp">${sisaLabel(l.hariLagi)}</span>

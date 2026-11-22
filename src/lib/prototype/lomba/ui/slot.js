@@ -81,14 +81,8 @@ function panelHtml(l, pj) {
 function bukaFolder(box, id, ctx) {
   const ov = document.getElementById('overlay'), l = cari(id), pj = petaUntuk(id);
   state.dipilih = id; simpan();
-  box.style.viewTransitionName = NAMA_VT; /* keadaan lama: folder ini; keadaan baru: panel dengan nama yang sama */
-  transisiTampilan(() => {
-    box.style.viewTransitionName = '';
-    box.closest('.lb-folder').classList.add('is-terbuka');
-    ov.innerHTML = panelHtml(l, pj);
-    mountIcons(ov);
-    pasang(); /* perilaku dipasang bersamaan dengan panel dibuat: tidak ada jeda tanpa handler */
-  }, 'folder');
+  /* panel, tutup, dan esc_ dideklarasikan SEBELUM transisi: tanpa animasi (gerak dikurangi, atau browser tanpa
+     View Transitions) transisiTampilan menjalankan callback-nya saat itu juga, dan pasang() memakai ketiganya */
   const panel = () => ov.querySelector('.folder-buka');
   const tutup = (lanjut) => {
     const p = panel(); if (!p) return;
@@ -104,6 +98,14 @@ function bukaFolder(box, id, ctx) {
   };
   const esc_ = (e) => { if (e.key === 'Escape') tutup(); };
   document.addEventListener('keydown', esc_);
+  box.style.viewTransitionName = NAMA_VT; /* keadaan lama: folder ini; keadaan baru: panel dengan nama yang sama */
+  transisiTampilan(() => {
+    box.style.viewTransitionName = '';
+    box.closest('.lb-folder').classList.add('is-terbuka');
+    ov.innerHTML = panelHtml(l, pj);
+    mountIcons(ov);
+    pasang(); /* perilaku dipasang bersamaan dengan panel dibuat: tidak ada jeda tanpa handler */
+  }, 'folder');
   function pasang() {
     const p = panel();
     if (!p) return;
