@@ -16,8 +16,10 @@ const TARGETS = [
   { nama: "", proto: (t) => `/_r005-referensi.html?tema=${t}`, app: (t) => `/styleguide?tema=${t}`, siap: 'body[data-siap="1"]', fullPage: true },
   { nama: "masuk-", proto: (t) => `/masuk.html?embed=1&tema=${TEMA_LAYAR[t]}#masuk`, app: (t) => `/?tema=${TEMA_LAYAR[t]}`, siap: ".masuk h1" },
   { nama: "paket-", proto: (t) => `/masuk.html?embed=1&tema=${TEMA_LAYAR[t]}#paket`, app: (t) => `/paket?tema=${TEMA_LAYAR[t]}`, siap: ".paket h1",
-    // Data, not design: the prototype shows its demo Slots and its own Slot limit, the app shows the account's (K-23).
-    tutupi: [".paket .lede", ".paket__kartu:first-child .paket__fitur li:nth-child(2)"] },
+    // Data, not design: the prototype shows its two demo Slots as used, the app shows the account's (none yet).
+    tutupi: [".paket .lede"],
+    // Availability is per build. The prototype page is given production's feature list so the same markers are compared.
+    ganti: { "**/masuk/data/paket.js": "src/lib/prototype/masuk/data/paket.js" } },
 ].filter((t) => !process.env.TARGET || t.nama === `${process.env.TARGET}-` || (process.env.TARGET === "styleguide" && !t.nama));
 const OUT = process.env.OUT_DIR ?? "docs/screenshots/parity";
 const PROTO_DIR = resolve(process.env.PROTO_DIR ?? "../ata-prototype");
@@ -37,13 +39,24 @@ const h = await auditKontras(document, { label: "uji" });
 return h.filter((x) => x.lulus === false).map((x) => x.rasio + "/" + x.butuh + " " + JSON.stringify(x.teks));
 })()`;
 
-async function capture(browser, url, viewport, { siap, fullPage = false, tutupi = [] }) {
+async function capture(browser, url, viewport, { siap, fullPage = false, tutupi = [], ganti = {} }) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1, reducedMotion: "reduce" });
   const page = await context.newPage();
+  for (const [pola, berkas] of Object.entries(ganti)) {
+    const body = await readFile(berkas, "utf8");
+    await page.route(pola, (route) => route.fulfill({ contentType: "text/javascript", body }));
+  }
   await page.goto(url, { waitUntil: "networkidle" });
   await page.waitForSelector(siap, { state: "attached" });
   await page.evaluate(() => document.fonts.ready);
   await page.addStyleTag({ content: "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }" });
+  // Without a forced re-raster the same page paints rounded boxes inside glass one pixel differently on some loads.
+  await page.evaluate(() => {
+    const { body } = document;
+    body.style.display = "none";
+    void body.offsetHeight;
+    body.style.display = "";
+  });
   await page.waitForTimeout(300);
   const png = await page.screenshot({ fullPage, mask: tutupi.map((sel) => page.locator(sel)), maskColor: "#808080" });
   const contrastFailures = await page.evaluate(auditScript);
@@ -79,14 +92,8 @@ let failed = false;
 for (const target of TARGETS) for (const viewport of VIEWPORTS) {
   for (const tema of THEMES) {
     const name = `${target.nama}${viewport.width}-${tema}`;
-    // Glass (backdrop-filter) edges on sub-pixel boxes render with a few noisy pixels on some runs; one retry settles it.
-    let proto, app;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      proto = await capture(browser, PROTO + target.proto(tema), viewport, target);
-      app = await capture(browser, APP + target.app(tema), viewport, target);
-      const r = await compare(proto.png, app.png);
-      if (!r.sizeMismatch && r.overTolerance === 0) break;
-    }
+    const proto = await capture(browser, PROTO + target.proto(tema), viewport, target);
+    const app = await capture(browser, APP + target.app(tema), viewport, target);
     await sharp(proto.png).toFile(join(OUT, `${name}-prototipe.png`));
     await sharp(app.png).toFile(join(OUT, `${name}-app.png`));
     const r = await compare(proto.png, app.png);

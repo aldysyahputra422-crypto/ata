@@ -54,7 +54,7 @@ describe("R0.1 HTTP contract", () => {
     const status = await me();
     expect(status.headers.get("cache-control")).toBe("private, no-store");
     expect(await status.json()).toMatchObject({
-      signed_in: false, plan: { plan: "free" }, config: { google: false, payments: false }, ai: { mode: "B" },
+      signed_in: false, plan: { plan: "free" }, slot_limits: { free: 1, pro: 3 }, config: { google: false, payments: false }, ai: { mode: "B" },
     });
     expect((await exportAccount()).status).toBe(401);
     expect((await redeem(request("POST", "/redeem", { code: "abc" }))).status).toBe(401);
@@ -78,12 +78,16 @@ describe("R0.1 HTTP contract", () => {
       ],
     }));
     const eq = vi.fn(async () => ({ data: [{ feature: "activeSlots", limit: 3, status: "final" }] }));
-    from.mockReturnValueOnce({ select: () => ({ order }) }).mockReturnValueOnce({ select: () => ({ eq }) });
+    const limits = vi.fn(async () => ({ data: [{ plan: "free", limit: 1 }, { plan: "pro", limit: 3 }] }));
+    from.mockImplementation((table: string) => table === "entitlements"
+      ? { select: () => ({ order }) }
+      : { select: (columns: string) => ({ eq: columns === "plan,limit" ? limits : eq }) });
     expect(await (await me()).json()).toMatchObject({
-      signed_in: true, user: { id: user.id, role: "user" },
+      signed_in: true, user: { id: user.id, role: "user" }, slot_limits: { free: 1, pro: 3 },
       plan: { plan: "pro", ends_at: "2070-01-01", sources: ["redeem"], features: { activeSlots: { limit: 3, status: "final" } } },
     });
     expect(eq).toHaveBeenCalledWith("plan", "pro");
+    expect(limits).toHaveBeenCalledWith("feature", "activeSlots");
   });
 
   it("enforces request origin and controls redeem inputs and error codes", async () => {

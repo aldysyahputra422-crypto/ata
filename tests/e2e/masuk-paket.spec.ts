@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 // M1 Masuk/Paket (FR-AUTH-01, FR-AUTH-08, K-23). The account API is stubbed so every state is deterministic.
 const features = (limit: number) => ({ activeSlots: { status: "final", limit } });
-const base = { config: { google: true, payments: false }, ai: { mode: "B", connections: 0, search_connections: 0 } };
+const base = { slot_limits: { free: 1, pro: 3 }, config: { google: true, payments: false }, ai: { mode: "B", connections: 0, search_connections: 0 } };
 const signedOut = { ...base, signed_in: false, plan: { plan: "free", status: "free", sources: [], features: features(1) } };
 const user = { id: "u1", email: "raka@example.com", display_name: "Raka", role: "user" };
 const free = { ...base, signed_in: true, user, plan: { plan: "free", status: "free", sources: [], features: features(1) } };
@@ -26,7 +26,7 @@ test.describe("masuk", () => {
     await expect(page.getByRole("link", { name: "Lanjutkan dengan Google" })).toHaveAttribute("href", "/api/v1/auth/google/start");
     await expect(page.getByRole("button", { name: "Pakai tanpa akun dulu" })).toBeVisible();
     await expect(page.locator(".error")).toHaveCount(0);
-    expect((await new AxeBuilder({ page }).disableRules(["color-contrast"]).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   });
 
   test("shows the OAuth failure message", async ({ page }) => {
@@ -118,18 +118,32 @@ test.describe("masuk", () => {
 });
 
 test.describe("paket", () => {
+  test("Slot numbers follow the server's entitlement config, not a static copy", async ({ page }) => {
+    await me(page, { ...signedOut, slot_limits: { free: 2, pro: 5 }, plan: { ...signedOut.plan, features: features(2) } });
+    await page.goto("/paket");
+    await expect(page.locator(".lede")).toContainText("Slot terpakai 0 dari 2.");
+    await expect(page.locator(".paket__kartu").first()).toContainText("2 Slot lomba aktif");
+    await expect(page.locator(".paket__kartu").nth(1)).toContainText("5 Slot lomba aktif (Gratis: 2)");
+  });
+
   test("signed out: Free active with 1 Slot (K-23), redeem needs sign-in, payments off", async ({ page }) => {
     await me(page, signedOut);
     await page.goto("/paket");
     await expect(page.locator(".lede")).toContainText("Belum masuk: kamu memakai paket Gratis di perangkat ini. Slot terpakai 0 dari 1.");
     await expect(page.locator(".paket__kartu--aktif h2")).toHaveText("Gratis");
     await expect(page.locator(".paket__kartu--aktif")).toContainText("1 Slot lomba aktif");
+    // the Pro card states its own Slot benefit, and screens that are not migrated yet are flagged
+    const kartuPro = page.locator(".paket__kartu").nth(1);
+    await expect(kartuPro.locator(".paket__fitur li").first()).toContainText("3 Slot lomba aktif (Gratis: 1)");
+    await expect(kartuPro).toContainText("Pro tidak termasuk biaya AI atau pencarian.");
+    await expect(page.locator(".paket__fitur li", { hasText: "Tanya Ata dengan API key milikmu (BYOK)" }).locator(".belum")).toHaveText("Belum tersedia");
+    await expect(page.locator(".paket__fitur li", { hasText: "Semua fitur Gratis" }).locator(".belum")).toHaveCount(0);
     await expect(page.locator("#infoBayar")).toHaveText("Pembayaran belum diaktifkan di server ini.");
     await expect(page.locator("#kodeRedeem")).toHaveCount(0);
     await page.getByRole("button", { name: /^Bulanan/ }).click();
     await expect(page.getByText("Masuk dengan Google dulu untuk berlangganan.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Ke halaman Masuk" })).toHaveAttribute("href", "/");
-    expect((await new AxeBuilder({ page }).disableRules(["color-contrast"]).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   });
 
   test("error state with retry", async ({ page }) => {

@@ -125,14 +125,15 @@ Keputusan PO: perbaiki di prototipe dulu, lalu salin ke produksi.
   - Teks "Admin perlu mengisi Client ID… (lihat HANDOFF.md)" tidak ditampilkan ke pengguna.
   - Ada tombol "Coba lagi" pada keadaan galat (prototipe tidak punya).
   - "Buka Progres" dan "Pakai tanpa akun dulu" mengarah ke rute lama `/progres` dan `/hari-ini` sampai layar itu dimigrasikan.
-  - Layar Paket: prototipe masih menampilkan Gratis 3 Slot dan 2 Slot demo; produksi menampilkan batas dari server (K-23) dan 0 Slot terpakai.
+  - Layar Paket: batas Slot sama di kedua sisi (Gratis 1, Pro 3). Prototipe menampilkan 2 Slot demo terpakai; produksi 0 sampai tabel Slot ada.
+  - Penanda "Belum tersedia" mengikuti audit per build: prototipe menandai panel juri dan konteks/analitik; produksi juga menandai Radar/Peta Jalan, Progres, Tanya Ata, Resep, dan Sidang Juri latihan karena layarnya belum dimigrasikan.
 
 ### Paritas
 
 `pnpm visual:parity` sekarang juga membandingkan `masuk.html?embed=1#masuk` dengan `/` dan `#paket` dengan `/paket`. Prototipe harus dijalankan dengan `serve.py` (API akun) dan kredensial Google tiruan supaya tombol Google aktif di kedua sisi; app dibangun dan dijalankan dengan env Supabase dev. Lihat docs/DESIGN-SYSTEM.md.
 
 - Piksel: 0 beda pada 8 kombinasi (2 layar × 390/1280 × terang/gelap), keadaan belum masuk.
-- Dua baris teks data di layar Paket ditutupi di kedua sisi sebelum dibandingkan (ringkasan Slot dan butir "N Slot lomba aktif"), karena isinya data, bukan desain.
-- Tepi kaca pada kotak sub-piksel kadang menghasilkan beberapa piksel derau; skrip mengulang satu kali sebelum menyatakan gagal.
-- Kontras (audit prototipe), tema terang: "atau" 2,96:1 (390) dan 3,6:1 (1280); "Keanggotaan" 4,34:1 (1280). Cacat ada di prototipe dan app sama persis. Belum diperbaiki: menunggu keputusan PO (aturan: perbaiki di prototipe dulu).
+- Ringkasan Slot di layar Paket (`.paket .lede`) ditutupi di kedua sisi karena isinya data. Halaman prototipe diberi daftar fitur produksi (`src/lib/prototype/masuk/data/paket.js`) supaya penanda yang sama dibandingkan.
+- Sebelum screenshot, skrip memaksa raster ulang halaman. Tanpa itu, halaman yang sama kadang melukis kotak membulat di atas kaca berbeda satu piksel antar-muat. Tidak ada pengulangan.
+- Kontras (audit prototipe): 0 kegagalan di prototipe dan app, terang dan gelap. "atau" dan eyebrow "Keanggotaan" kini memakai `--teks-di-foto` (diperbaiki di prototipe, disalin ke sini). Uji axe berjalan tanpa pengecualian.
 - Keadaan sudah masuk, galat, dan sheet hapus akun diuji lewat Playwright (`tests/e2e/masuk-paket.spec.ts`), tidak lewat paritas piksel.

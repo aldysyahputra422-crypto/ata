@@ -4,26 +4,29 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { price } from "@/lib/billing/price";
 import { rupiah } from "@/lib/billing/price";
-// prototype plan copy, moved verbatim in R0.05-1; Slot limits come from the central entitlement config (K-23)
-import { PAKET } from "@/lib/prototype/masuk/data/paket.js";
+// prototype plan copy; the Slot numbers shown come from the server (/api/v1/me), the copy only supplies the wording
+import { PAKET, labelSlot } from "@/lib/prototype/masuk/data/paket.js";
 import { icon } from "@/lib/prototype/shared/ds.js";
 import { Ikon } from "../../_layar/Ikon";
 import { Toast } from "../../_layar/Lapisan";
 import { bacaAkun, tanggal, tukarKode, type Akun, type Hasil } from "../../_layar/akun";
 
-type Fitur = { label: string; ada: boolean };
+type Fitur = { id: string; label: string; ada: boolean; tersedia: boolean };
 const SUMBER: Record<string, string> = { redeem: "kode Sobat Ambis", payment: "langganan berbayar", partner: "akses khusus", grant: "akses khusus" };
 
 const Ada = ({ ada }: { ada: boolean }) =>
   ada ? (
     <span className="cek-ada" role="img" aria-label="termasuk" dangerouslySetInnerHTML={{ __html: icon("check") }} />
   ) : (
-    <span className="cek-tidak" role="img" aria-label="tidak termasuk" dangerouslySetInnerHTML={{ __html: icon("minus") }} />
+    <span className="cek-tidak" role="img" aria-label="belum tersedia" dangerouslySetInnerHTML={{ __html: icon("minus") }} />
   );
 const DaftarFitur = ({ fitur }: { fitur: Fitur[] }) => (
   <ul className="paket__fitur">
     {fitur.map((f) => (
-      <li key={f.label}><Ada ada={f.ada} /><span>{f.label}</span></li>
+      <li key={f.id}>
+        <Ada ada={f.ada && f.tersedia} />
+        <span>{f.tersedia ? f.label : `${f.label} `}{f.tersedia ? null : <span className="belum">Belum tersedia</span>}</span>
+      </li>
     ))}
   </ul>
 );
@@ -68,8 +71,11 @@ export function Paket({ harga: h }: { harga: ReturnType<typeof price> }) {
   const pk = d.plan;
   const pro = pk.plan === "pro";
   // K-23: the active-Slot limit is the server's entitlement. Per-account Slots do not exist in the database yet, so none are used.
-  const batas = pk.features.activeSlots?.limit ?? PAKET[pro ? "pro" : "gratis"].batasSlot;
+  const batasPaket = { gratis: d.slot_limits.free, pro: d.slot_limits.pro };
+  const batas = pk.features.activeSlots?.limit ?? batasPaket[pro ? "pro" : "gratis"];
   const terpakai = 0;
+  const fitur = (paket: "gratis" | "pro"): Fitur[] =>
+    PAKET[paket].fitur.map((f: Fitur) => (f.id === "slot" ? { ...f, label: labelSlot(paket, batasPaket) } : f));
 
   const tukar = async () => {
     if (!kode.trim()) return setGalat("Masukkan kode dulu.");
@@ -113,7 +119,7 @@ export function Paket({ harga: h }: { harga: ReturnType<typeof price> }) {
           <div className="paket__kepala"><h2>Gratis</h2>{pro ? null : <Aktif />}</div>
           <p className="paket__harga num">Rp0</p>
           <p className="small">{PAKET.gratis.ringkas}</p>
-          <DaftarFitur fitur={PAKET.gratis.fitur} />
+          <DaftarFitur fitur={fitur("gratis")} />
         </article>
         <article className={`card paket__kartu ${pro ? "paket__kartu--aktif" : ""}`}>
           <div className="paket__kepala"><h2>Pro</h2>{pro ? <Aktif /> : null}</div>
@@ -121,7 +127,7 @@ export function Paket({ harga: h }: { harga: ReturnType<typeof price> }) {
           <p className="small">
             atau <b className="num">{rupiah(h.yearly.amount)}</b> / tahun (setara {rupiah(h.yearly.perMonth)} / bulan, hemat {rupiah(h.yearly.saved)} atau {h.yearly.discountPercent}% dari {rupiah(h.yearly.normal)})
           </p>
-          <DaftarFitur fitur={PAKET.pro.fitur} />
+          <DaftarFitur fitur={fitur("pro")} />
           {(PAKET.pro.catatan ?? []).map((c: string) => (
             <p className="small" key={c}>{c}</p>
           ))}

@@ -52,3 +52,12 @@ test('entitlement limits come from ONE config (shared/logic/hak.js)', async () =
   assert.equal(HAK.pro.slotAktif, 3, 'K-03: Pro 3 active Slots');
   assert.equal(HAK.gratis.slotAktif, 1, 'K-23: Gratis 1 active Slot');
 });
+
+// Production audit: only Masuk/Paket are migrated, so every feature that needs another screen is flagged.
+test('Pro states its Slot benefit explicitly; features not usable yet are flagged, never shown as available', () => {
+  assert.match(PAKET.gratis.fitur[0].label, /^1 Slot lomba aktif/);
+  assert.equal(PAKET.pro.fitur[0].label, '3 Slot lomba aktif (Gratis: 1)');
+  const tersedia = [...PAKET.gratis.fitur, ...PAKET.pro.fitur].filter((f) => f.tersedia).map((f) => f.id);
+  // The Slot line states a server-enforced limit, not a screen, so it carries no marker.
+  assert.deepEqual(tersedia, ['slot', 'slot', 'gratis']);
+});
