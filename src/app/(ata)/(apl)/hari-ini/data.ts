@@ -7,6 +7,7 @@ import { saranBerikut } from "@/lib/prototype/app/logic/saran.js";
 import { LOMBA_NYATA } from "@/lib/prototype/lomba/data/lomba.js";
 import { isiKertas } from "@/lib/prototype/shared/folder.js";
 import { PROFIL } from "@/lib/prototype/tanya/data/profil.js";
+import { lupakanDasar } from "../lomba/sinkron";
 
 export type StatusTugas = "belum" | "dikerjakan" | "selesai";
 export type Tugas = { id: string; judul: string; tenggat: string; selesai: boolean; selesaiPada?: string; status: StatusTugas; slotNama: string };
@@ -105,5 +106,6 @@ export function dengarHari(cb: () => void): () => void {
 }
 export const resetDemo = () => {
   resetBersama();
+  lupakanDasar(); // the account's rows, not the sample data, win at the next Lomba sync
 };
 export { ATURAN_XP, XP };

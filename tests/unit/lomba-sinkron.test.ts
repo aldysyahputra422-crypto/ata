@@ -106,3 +106,48 @@ describe("buatPenyinkron", () => {
     expect(terkirim).toEqual([]);
   });
 });
+
+describe("unsent edits (three-way merge)", () => {
+  const known = () => true;
+  const lama = { langkah: [{ id: 1, status: "belum" }] };
+  const baru = { langkah: [{ id: 1, status: "selesai" }] };
+
+  it("a roadmap edit that never reached the account survives the next read and is sent", async () => {
+    const data = lokal({ antrean: [], slot: ["a"] }, { peta: { a: baru } });
+    const dasar = { a: JSON.stringify({ state: "slot", source: "catalog", roadmap: lama }) };
+    const { lokal: hasil, dipakai } = gabung(data, [server("a", "slot", { roadmap: lama })], known, dasar);
+    expect(hasil.peta.a).toEqual(baru);
+    expect(dipakai).toEqual([]);
+
+    const terkirim: Langkah[] = [];
+    const p = buatPenyinkron(() => data, () => {}, async (l) => { terkirim.push(l); return "ok"; }, dasar);
+    p.catat(dipakai);
+    await p.sekarang();
+    expect(terkirim.map((l) => l.baris?.roadmap)).toEqual([baru]);
+  });
+
+  it("an unchanged device row takes the newer server row", () => {
+    const data = lokal({ antrean: [], slot: ["a"] }, { peta: { a: lama } });
+    const dasar = { a: JSON.stringify({ state: "slot", source: "catalog", roadmap: lama }) };
+    const { lokal: hasil, dipakai } = gabung(data, [server("a", "slot", { roadmap: baru })], known, dasar);
+    expect(hasil.peta.a).toEqual(baru);
+    expect(dipakai).toEqual(["a"]);
+  });
+
+  it("without a confirmed row (first sign-in, or after a demo reset) the account wins", () => {
+    const data = lokal({ antrean: [], slot: ["a"] }, { peta: { a: lama } });
+    expect(gabung(data, [server("a", "slot", { roadmap: baru })], known).lokal.peta.a).toEqual(baru);
+  });
+
+  it("a row missing on the device is restored from the account, never deleted because of the missing copy", () => {
+    const dasar = { a: JSON.stringify({ state: "slot", source: "catalog" }) };
+    expect(gabung(lokal({ antrean: [] }), [server("a", "slot")], known, dasar).lokal.deck.slot).toEqual(["a"]);
+  });
+
+  it("writes what the server confirmed, so it is known on the next visit", async () => {
+    const tulis: Record<string, string>[] = [];
+    const p = buatPenyinkron(() => lokal({ antrean: [], slot: ["a"] }), () => {}, async () => "ok", {}, (d) => tulis.push(d));
+    await p.sekarang();
+    expect(Object.keys(tulis.at(-1)!)).toEqual(["a"]);
+  });
+});

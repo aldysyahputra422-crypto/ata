@@ -6,7 +6,14 @@ import "@/styles/prototype/lomba/lomba.css";
 import "@/styles/prototype/shared/tarik.css";
 import "./lomba-apl.css";
 import { bacaAkun } from "../../_layar/akun";
-import { bacaServer, buatPenyinkron, gabung, type Lokal } from "./sinkron";
+import {
+  bacaCatatan,
+  bacaServer,
+  buatPenyinkron,
+  gabung,
+  tulisCatatan,
+  type Lokal,
+} from "./sinkron";
 
 type Tahap = "memuat" | "siap" | "galat";
 type Akun = "memeriksa" | "lokal" | "akun" | "terputus";
@@ -44,24 +51,21 @@ export function Lomba() {
         const state = st.state as Lokal;
         const terpasang = pasangLomba();
         setTahap("siap");
-        const penyinkron = buatPenyinkron(
-          () => lokalDari(state),
-          (pesan) => terpasang.ctx.toast(pesan, undefined, 5000),
-        );
+        let penyinkron: ReturnType<typeof buatPenyinkron> | null = null;
         let tersambung = false;
         const ubah = () => {
-          if (tersambung) penyinkron.nanti();
+          if (tersambung) penyinkron?.nanti();
         };
         const kejadian = ["pointerup", "keyup", "change", "submit"] as const;
         kejadian.forEach((k) => document.addEventListener(k, ubah, true));
         const pergi = () => {
-          if (tersambung) void penyinkron.sekarang();
+          if (tersambung) void penyinkron?.sekarang();
         };
         window.addEventListener("pagehide", pergi);
         lepas = () => {
           kejadian.forEach((k) => document.removeEventListener(k, ubah, true));
           window.removeEventListener("pagehide", pergi);
-          penyinkron.henti();
+          penyinkron?.henti();
           terpasang.lepas();
         };
 
@@ -76,8 +80,25 @@ export function Lomba() {
           st.sinkronDariBersama();
           terpasang.ctx.render();
         }
-        if (!me.data.signed_in) return setAkun("lokal");
+        if (!me.data.signed_in || !me.data.user) return setAkun("lokal");
 
+        const akunId = me.data.user.id;
+        // Device data last synced with another account belongs to that account: it must not be shown to this one or
+        // copied into it, so the device starts again from the sample data before this account's rows are laid over it.
+        const catatan = bacaCatatan();
+        if (catatan && catatan.akun !== akunId) {
+          st.reset();
+          terpasang.ctx.render();
+        }
+        const dasarAwal = catatan?.akun === akunId ? catatan.dasar : {};
+        const sinkron = buatPenyinkron(
+          () => lokalDari(state),
+          (pesan) => terpasang.ctx.toast(pesan, undefined, 5000),
+          undefined,
+          dasarAwal,
+          (dasar) => tulisCatatan({ akun: akunId, dasar }),
+        );
+        penyinkron = sinkron;
         const ids = new Set(
           (katalog.LOMBA as { id: string }[]).map((l) => l.id),
         );
@@ -88,8 +109,13 @@ export function Lomba() {
           if (batal) return;
           if (server.status !== "ok")
             return setAkun(server.status === "keluar" ? "lokal" : "terputus");
-          const hasil = gabung(lokalDari(state), server.items, (id) =>
-            ids.has(id),
+          // read again each time: "Reset data demo" clears it so the account's rows win over the sample data
+          const dasar = bacaCatatan();
+          const hasil = gabung(
+            lokalDari(state),
+            server.items,
+            (id) => ids.has(id),
+            dasar?.akun === akunId ? dasar.dasar : {},
           );
           if (hasil.dipakai.length) {
             state.unggahan = hasil.lokal.unggahan;
@@ -108,11 +134,11 @@ export function Lomba() {
             st.simpan();
             terpasang.ctx.render();
           }
-          penyinkron.catat(hasil.dipakai);
+          sinkron.catat(hasil.dipakai);
           tersambung = true;
           setAkun("akun");
           // first sign-in: what the device already holds goes to the account; a Slot over the limit stays on the device
-          void penyinkron.sekarang();
+          void sinkron.sekarang();
         };
         // Another tab rewrote the device store (for example "Reset data demo"): that must never remove account rows,
         // so the account is read again before anything else is sent.

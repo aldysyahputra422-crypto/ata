@@ -53,12 +53,18 @@ export function barisLokal(lokal: Lokal): Map<string, Baris> {
   return hasil;
 }
 
-/** Merges server rows into the device state without dropping anything the device has. Returns the keys it applied. Pure. */
+/**
+ * Merges server rows into the device state without dropping anything the device has. Returns the keys it applied.
+ * `dasar` is what the server last confirmed per key: a device row that differs from it is an edit that was never
+ * sent, so it is kept and sent instead of being replaced by the older server row. Pure.
+ */
 export function gabung(
   lokal: Lokal,
   server: BarisServer[],
   dikenal: (id: string) => boolean,
+  dasar: Record<string, string> = {},
 ): { lokal: Lokal; dipakai: string[] } {
+  const kini = barisLokal(lokal);
   const unggahan = [...lokal.unggahan];
   const deck: Deck = {
     ...lokal.deck,
@@ -74,6 +80,9 @@ export function gabung(
     if (b.source === "manual" && b.card && !unggahan.some((u) => u.id === id))
       unggahan.push({ ...b.card, id });
     if (!dikenal(id) && !unggahan.some((u) => u.id === id)) continue; // a row this build cannot show stays on the server untouched
+    const milikLokal = kini.get(id);
+    if (milikLokal && id in dasar && dasar[id] !== JSON.stringify(milikLokal))
+      continue;
     for (const k of ["antrean", "tersimpan", "dilewati", "slot"] as const)
       deck[k] = deck[k].filter((x) => x !== id);
     if (b.state !== "released") deck[DAFTAR[b.state]].push(id);
@@ -142,8 +151,11 @@ export function buatPenyinkron(
   baca: () => Lokal,
   lapor: (pesan: string) => void,
   kirimBaris: (l: Langkah) => Promise<HasilKirim> = kirim,
+  awal: Record<string, string> = {},
+  tulis: (dasar: Record<string, string>) => void = () => {},
 ) {
-  const dasar = new Map<string, string>();
+  const dasar = new Map<string, string>(Object.entries(awal));
+  const catatDasar = () => tulis(Object.fromEntries(dasar));
   const ditolak = new Map<string, string>(); // key -> row the server refused; not retried until it changes
   let jalan: Promise<void> = Promise.resolve();
   let jeda = 0;
@@ -157,6 +169,7 @@ export function buatPenyinkron(
         ditolak.delete(langkah.key);
         if (langkah.baris) dasar.set(langkah.key, teks);
         else dasar.delete(langkah.key);
+        catatDasar();
       } else if (hasil === "batas") {
         ditolak.set(langkah.key, teks);
         lapor(
@@ -179,6 +192,7 @@ export function buatPenyinkron(
         const b = kini.get(k);
         if (b) dasar.set(k, JSON.stringify(b));
       }
+      catatDasar();
     },
     sekarang: () => (jalan = jalan.then(dorong)),
     nanti() {
@@ -187,4 +201,28 @@ export function buatPenyinkron(
     },
     henti: () => window.clearTimeout(jeda),
   };
+}
+
+const KUNCI_CATATAN = "ata-lomba-sinkron";
+type Catatan = { akun: string; dasar: Record<string, string> };
+/** Which account this device's Lomba data was last synced with, and what the server confirmed then. */
+export function bacaCatatan(): Catatan | null {
+  try {
+    const c = JSON.parse(localStorage.getItem(KUNCI_CATATAN) ?? "null");
+    return c && typeof c.akun === "string" && c.dasar && typeof c.dasar === "object" ? c : null;
+  } catch {
+    return null;
+  }
+}
+export function tulisCatatan(catatan: Catatan) {
+  try {
+    localStorage.setItem(KUNCI_CATATAN, JSON.stringify(catatan));
+  } catch {
+    /* storage blocked: the next visit simply takes the server rows */
+  }
+}
+/** After "Reset data demo" the device holds sample data again: forget what was confirmed, so the account's rows win. */
+export function lupakanDasar() {
+  const c = bacaCatatan();
+  if (c) tulisCatatan({ akun: c.akun, dasar: {} });
 }
