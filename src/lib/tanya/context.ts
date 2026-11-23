@@ -67,32 +67,33 @@ export function accountReader(client: SupabaseClient): CategoryReader {
 
   return async (category) => {
     if (category === "profil") {
-      const row = await profile("display_name,interests,targets,goals_text,weekly_hours");
+      // Field split follows the permission text shown in /profil (KATEGORI_IZIN).
+      const row = await profile("display_name,jenjang,institution,goals_text,weekly_hours");
       if (!row) return null;
       const text = join([
         line("Nama panggilan", clean(row.display_name, 80)),
-        line("Minat", list(row.interests).join(", ")),
-        line("Target", list(row.targets).join(", ")),
+        line("Jenjang", clean(row.jenjang, 40)),
+        line("Sekolah/kampus", clean(row.institution, 120)),
         line("Tujuan", clean(row.goals_text)),
         line("Waktu per minggu", row.weekly_hours == null ? "" : `${clean(row.weekly_hours)} jam`),
       ]);
       return text ? [{ label: "Profil", text }] : [];
     }
     if (category === "akademik") {
-      const row = await profile("jenjang,institution,major,skills");
+      const row = await profile("major,interests,skills,targets");
       if (!row) return null;
       const text = join([
-        line("Jenjang", clean(row.jenjang, 40)),
-        line("Sekolah/kampus", clean(row.institution, 120)),
         line("Jurusan", clean(row.major, 120)),
+        line("Minat lomba", list(row.interests).join(", ")),
         line("Kemampuan", list(row.skills).join(", ")),
+        line("Target", list(row.targets).join(", ")),
       ]);
       return text ? [{ label: "Akademik", text }] : [];
     }
     if (category === "lomba") {
       const rows = await loadCompetitions();
       if (!rows) return null;
-      return rows.filter((row) => row.state === "slot" || row.state === "saved").slice(0, MAX_ITEMS).map((row) => {
+      return rows.filter((row) => row.state === "slot" || row.state === "saved").sort((x, y) => Number(y.state === "slot") - Number(x.state === "slot")).slice(0, MAX_ITEMS).map((row) => {
         const card = (row.card ?? {}) as Row;
         const name = clean(card.nama, 120) || clean(row.competition_key, 80);
         return {
@@ -116,7 +117,13 @@ export function accountReader(client: SupabaseClient): CategoryReader {
       const all = rows.flatMap((row) => steps([row]).map((step) => ({ ...step, task: status.get(`${row.competition_key}/${step.id}`) })));
       if (!all.length) return [];
       if (category === "tugas") {
-        const open = all.filter((s) => s.task?.status !== "done").sort((a, b) => a.due.localeCompare(b.due)).slice(0, MAX_ITEMS);
+        // Upcoming steps first (nearest date), then overdue ones (most recent), then undated ones.
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+        const rank = (due: string) => (!due ? 2 : due >= today ? 0 : 1);
+        const open = all
+          .filter((s) => s.task?.status !== "done")
+          .sort((a, b) => rank(a.due) - rank(b.due) || (rank(a.due) === 1 ? b.due.localeCompare(a.due) : a.due.localeCompare(b.due)))
+          .slice(0, MAX_ITEMS);
         if (!open.length) return [];
         return [{
           label: "Tugas terbuka",
