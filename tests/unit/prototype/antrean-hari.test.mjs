@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { segarkanAntrean, buatDeck, putuskan, lepasSlot } from '../../../src/lib/prototype/lomba/logic/radar.js';
 import { denganSisaHari, tanggalDiZona } from '../../../src/lib/prototype/shared/logic/tenggat.js';
 import { aturZonaHari, HARI_INI } from '../../../src/lib/prototype/shared/hari.js';
+import { buatLombaManual } from '../../../src/lib/prototype/lomba/logic/manual.js';
 import { LOMBA, PROFIL } from '../../../src/lib/prototype/lomba/data/lomba.js';
 
 const KATALOG = [
@@ -124,4 +125,13 @@ test('competitions the user added follow the same day: closed leaves the queue, 
   const simpan = putuskan(d, 'manual-1', 'simpan').state;
   const r = segarkanAntrean(simpan, pada('2026-11-24'), d.antrean, { lain: manual('2026-11-24'), ditutup: ['manual-1'] });
   assert.deepEqual([r.state.tersimpan, r.ditutup], [['manual-1'], []]);
+});
+
+test('adding a competition by hand: a deadline already passed is refused, today is accepted', () => {
+  const isian = { nama: 'Lomba Esai Uji', kategori: 'karya-tulis' };
+  const buat = (tenggatIso) => buatLombaManual({ ...isian, tenggatIso }, { id: 'manual-x', hariIniIso: '2026-11-23' });
+  assert.equal(buat('2026-11-22').ok, false);
+  assert.match(buat('2026-11-22').galat.tenggatIso, /sudah lewat/);
+  assert.equal(buat('2026-11-23').lomba.hariLagi, 0);
+  assert.equal(buat('').lomba.hariLagi, null);
 });

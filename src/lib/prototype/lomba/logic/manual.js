@@ -35,6 +35,8 @@ export function buatLombaManual(isian, { id, hariIniIso }) {
   if (!kategori) galat.kategori = 'Pilih kategori lomba.';
   const tenggatIso = tanggalSah(isian.tenggatIso);
   if (isian.tenggatIso && !tenggatIso) galat.tenggatIso = 'Tanggal tidak dikenali.';
+  /* a deadline already passed cannot be offered on Radar (it would leave the queue at once): say so instead of adding it */
+  else if (tenggatIso && hariLagiDari(tenggatIso, hariIniIso) < 0) galat.tenggatIso = 'Tenggatnya sudah lewat. Cek lagi tanggalnya, atau kosongkan bila belum pasti.';
   const urlMentah = bersih(isian.url, 500);
   const url = urlSah(urlMentah);
   if (urlMentah && !url) galat.url = 'Tautan harus diawali http:// atau https://.';
