@@ -283,3 +283,7 @@ Uji akhir: `node --test` 187/187, harness aplikasi 29/29, Lomba 16/16, Portofoli
 ## Countdown tenggat dari tanggal tersimpan (23 November 2026)
 
 FR-PRG-01, FR-SLT-01. Satu aturan di `shared/logic/tenggat.js` dipakai Lomba, Slot, Hari Ini, Progres, saran, dan prioritas tugas: sisa hari = tanggal tenggat tersimpan − hari ini. Akun: tanggal dan hari dari server (`deadline_on`, `days_left`, `today`, `timezone`). Tanpa migrasi (ASSUMPTIONS S32–S34). Uji: `tenggat.test.mjs`, `account-deadline.test.ts`, `hari-ini.spec.ts`.
+
+## Antrean Radar mengikuti hari akun (23 November 2026)
+
+FR-SCN-07, FR-PRG-01. Antrean Radar disusun dari hari yang sama dengan countdown: zona waktu akun saat masuk, tanggal perangkat saat belum masuk / DATA DEMO (S35). Disusun ulang saat zona akun diketahui dan saat hari berganti tanpa muat ulang. Tutup hari ini tetap di antrean; tenggat lewat keluar. Tertunda: tidak ada.
