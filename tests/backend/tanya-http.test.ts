@@ -1,0 +1,311 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DELETE as disconnect, GET as getConnection, POST as connect } from "@/app/api/v1/connections/route";
+import { POST as listModels } from "@/app/api/v1/connections/models/route";
+import { POST as chat } from "@/app/api/v1/tanya/chat/route";
+import { POST as prompt } from "@/app/api/v1/tanya/prompt/route";
+import { GET as status } from "@/app/api/v1/tanya/status/route";
+
+vi.mock("server-only", () => ({}));
+const { auth, rpc, from, lookup } = vi.hoisted(() => ({ auth: { getUser: vi.fn() }, rpc: vi.fn(), from: vi.fn(), lookup: vi.fn() }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth, rpc, from }) }));
+vi.mock("node:dns/promises", () => ({ lookup }));
+
+const origin = "https://ata.example";
+const KEY = "sk-user-SECRET-abcd1234";
+const NOTE = "RAHASIA-AKUN";
+const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>();
+const logs: string[] = [];
+
+type Db = {
+  credential: Record<string, unknown> | null; taken: number; limitAfter: number; runs: Record<string, unknown>[];
+  birthYear: number | null; categories: Record<string, boolean>; tables: string[]; active: boolean;
+};
+let db: Db;
+
+const request = (path: string, method: string, body?: unknown, cookie = "", source = origin) =>
+  new Request(origin + path, {
+    method,
+    headers: { origin: source, "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+    body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
+  });
+const sse = (lines: unknown[]) => new Response(lines.map((l) => `data: ${JSON.stringify(l)}\n\n`).join("") + "data: [DONE]\n\n");
+const answer = (text: string) => sse([{ choices: [{ delta: { content: text } }] }, { choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 40, completion_tokens: 6 } }]);
+const models = () => Response.json({ data: [{ id: "model-x" }, { id: "model-y" }] });
+async function events(response: Response) {
+  return (await response.text()).split("\n\n").filter(Boolean).map((line) => JSON.parse(line.replace(/^data: /, "")));
+}
+const cookieOf = (response: Response) => (response.headers.get("set-cookie") ?? "").split(";")[0];
+
+function signedIn() {
+  auth.getUser.mockResolvedValue({ data: { user: { id: "user-a", is_anonymous: false } }, error: null });
+  rpc.mockImplementation(async (name: string, args: Record<string, unknown> = {}) => {
+    const ok = (data: unknown) => ({ data, error: null });
+    if (name === "account_session_active") return ok(db.active);
+    if (name === "ai_take_request") return ok(++db.taken > db.limitAfter ? 17 : 0);
+    if (name === "ai_credential_begin") return ok({ user_id: "user-a", session_id: "sess-a", connection_id: "conn-1" });
+    if (name === "ai_credential_put") {
+      db.credential = { user_id: "user-a", session_id: "sess-a", connection_id: args.p_connection_id, provider_id: args.p_provider_id, base_url: args.p_base_url,
+        model: args.p_model, last4: args.p_last4, kek_version: args.p_kek_version, iv: args.p_iv, ciphertext: args.p_ciphertext, tag: args.p_tag, expires_at: "2026-11-23T07:00:00Z" };
+      return ok(db.credential);
+    }
+    if (name === "ai_credential_get") {
+      if (!db.credential) return ok(null);
+      const { connection_id, provider_id, base_url, model, last4, expires_at } = db.credential;
+      return ok(args.p_secret ? db.credential : { connection_id, provider_id, base_url, model, last4, expires_at });
+    }
+    if (name === "ai_credential_delete") { const had = !!db.credential; db.credential = null; return ok(had); }
+    if (name === "tanya_run_start") { db.runs.push({ ...args, status: args.p_mode === "handoff" ? "done" : "started" }); return ok(`run-${db.runs.length}`); }
+    if (name === "tanya_run_finish") { Object.assign(db.runs[Number(String(args.p_run_id).slice(4)) - 1], { status: args.p_status, error: args.p_error_code, out: args.p_output_tokens }); return ok(true); }
+    return { data: null, error: { code: "x" } };
+  });
+  from.mockImplementation((name: string) => {
+    db.tables.push(name);
+    const data = name === "profiles" ? { birth_year: db.birthYear, display_name: `${NOTE}-nama`, interests: [], targets: [], goals_text: null, weekly_hours: null }
+      : name === "ai_permissions" ? { categories: db.categories }
+      : name === "user_competitions" ? [{ competition_key: "k1", state: "slot", card: { nama: `${NOTE}-lomba` }, roadmap: null }] : [];
+    const result = { data, error: null };
+    const chain: Record<string, unknown> = { then: (done: (v: unknown) => unknown) => Promise.resolve(result).then(done) };
+    for (const k of ["select", "eq", "order", "limit"]) chain[k] = () => chain;
+    chain.maybeSingle = async () => result;
+    return chain;
+  });
+}
+const signedOut = () => auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+
+async function connected(provider = "openai") {
+  fetchMock.mockResolvedValueOnce(models());
+  const response = await connect(request("/api/v1/connections", "POST", { provider_id: provider, api_key: KEY, model: "model-x" }));
+  expect(response.status).toBe(201);
+  fetchMock.mockReset();
+  return cookieOf(response);
+}
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://auth.example");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-publishable");
+  vi.stubEnv("APP_ORIGIN", origin);
+  vi.stubEnv("KEY_ENCRYPTION_SECRET", "k".repeat(48));
+  vi.stubGlobal("fetch", fetchMock);
+  logs.length = 0;
+  for (const level of ["log", "info", "warn", "error", "debug"] as const) vi.spyOn(console, level).mockImplementation((...a) => { logs.push(a.map(String).join(" ")); });
+  db = { credential: null, taken: 0, limitAfter: 30, runs: [], birthYear: 2000, categories: {}, tables: [], active: true };
+  lookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+  signedIn();
+});
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+
+describe("BYOK connection routes (FR-BYOK-01..05, 08)", () => {
+  it("requires a session and the app's own origin", async () => {
+    const body = { provider_id: "openai", api_key: KEY, model: "model-x" };
+    expect((await connect(request("/api/v1/connections", "POST", body, "", "https://lain.example"))).status).toBe(403);
+    expect((await disconnect(request("/api/v1/connections", "DELETE", undefined, "", "https://lain.example"))).status).toBe(403);
+    expect((await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }, "", "https://lain.example"))).status).toBe(403);
+    signedOut();
+    const responses = [await getConnection(), await connect(request("/api/v1/connections", "POST", body)), await disconnect(request("/api/v1/connections", "DELETE")),
+      await listModels(request("/api/v1/connections/models", "POST", body)), await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }))];
+    expect(responses.map((r) => r.status)).toEqual([401, 401, 401, 401, 401]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("tests the key with the provider, stores only ciphertext, and never returns the key", async () => {
+    fetchMock.mockResolvedValueOnce(models());
+    const response = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }));
+    expect(response.status).toBe(201);
+    const text = await response.text();
+    expect(JSON.parse(text)).toEqual({ connection: { provider_id: "openai", provider_name: "OpenAI", model: "model-x", last4: "1234", expires_at: "2026-11-23T07:00:00Z" } });
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.openai.com/v1/models");
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ authorization: `Bearer ${KEY}` });
+    const cookie = response.headers.get("set-cookie")!;
+    expect(cookie).toMatch(/^__Host-ata_kred=[A-Za-z0-9_-]{43}; Path=\/; (Expires=[^;]+; )?Max-Age=43200; Secure; HttpOnly; SameSite=strict$/i);
+    expect(JSON.stringify(db.credential) + text + cookie + JSON.stringify(rpc.mock.calls)).not.toContain("SECRET");
+    expect(await (await getConnection()).json()).toMatchObject({ byok_available: true, connection: { last4: "1234" } });
+  });
+
+  it("refuses a rejected key, an unknown model, an unknown provider and bad input without storing anything", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(`bad key ${KEY}`, { status: 401 }));
+    const rejected = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }));
+    expect(rejected.status).toBe(422);
+    const body = await rejected.text();
+    expect(JSON.parse(body).error).toEqual({ code: "key_rejected", message: "Key ditolak provider. Periksa atau ganti key-mu." });
+    expect(body).not.toContain("SECRET");
+    fetchMock.mockResolvedValueOnce(models());
+    expect((await (await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "tidak-ada" }))).json()).error.code).toBe("model_unavailable");
+    expect((await connect(request("/api/v1/connections", "POST", { provider_id: "entah", api_key: KEY, model: "m" }))).status).toBe(400);
+    for (const bad of [{ provider_id: "openai", api_key: "x", model: "m" }, { provider_id: "openai", api_key: "ada spasi di key", model: "m" },
+      { provider_id: "openai", api_key: KEY }, { provider_id: "openai", api_key: KEY, model: "m", extra: 1 }, "{", { provider_id: "openai", api_key: KEY, model: "m", base_url: "https://ai.example" }]) {
+      expect((await connect(request("/api/v1/connections", "POST", bad))).status, JSON.stringify(bad)).toBe(400);
+    }
+    expect(db.credential).toBeNull();
+  });
+
+  it("falls back to a one-word ping when the provider has no model list", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 404 })).mockResolvedValueOnce(answer("pong"));
+    const response = await connect(request("/api/v1/connections", "POST", { provider_id: "custom", api_key: KEY, model: "lokal-1", base_url: "https://ai.example/v1/" }));
+    expect(response.status).toBe(201);
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(["https://ai.example/v1/models", "https://ai.example/v1/chat/completions"]);
+    expect(db.credential).toMatchObject({ provider_id: "custom", base_url: "https://ai.example/v1", model: "lokal-1" });
+  });
+
+  it("blocks private and non-https custom URLs before any request leaves the server (FR-BYOK-04)", async () => {
+    for (const base_url of ["http://169.254.169.254", "https://169.254.169.254", "https://127.0.0.1:8080/v1", "https://localhost/v1", undefined]) {
+      const response = await connect(request("/api/v1/connections", "POST", { provider_id: "custom", api_key: KEY, model: "m", base_url }));
+      expect((await response.json()).error.code, String(base_url)).toBe("blocked_url");
+    }
+    lookup.mockResolvedValue([{ address: "10.1.2.3", family: 4 }]);
+    expect((await listModels(request("/api/v1/connections/models", "POST", { provider_id: "custom", api_key: KEY, base_url: "https://rebind.example/v1" }))).status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("lists models for a key without storing it, and refuses to store when the server has no encryption secret", async () => {
+    fetchMock.mockResolvedValueOnce(models());
+    expect(await (await listModels(request("/api/v1/connections/models", "POST", { provider_id: "groq", api_key: KEY }))).json()).toEqual({ ok: true, models: ["model-x", "model-y"] });
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.groq.com/openai/v1/models");
+    expect(db.credential).toBeNull();
+    vi.stubEnv("KEY_ENCRYPTION_SECRET", "");
+    const response = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }));
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("byok_unavailable");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("deletes the key and clears the cookie", async () => {
+    const cookie = await connected();
+    const response = await disconnect(request("/api/v1/connections", "DELETE", undefined, cookie));
+    expect(await response.json()).toEqual({ connection: null });
+    expect(response.headers.get("set-cookie")).toMatch(/^__Host-ata_kred=; Path=\/; .*Max-Age=0/);
+    expect(db.credential).toBeNull();
+    expect((await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }, cookie))).status).toBe(409);
+  });
+});
+
+describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
+  it("answers through the user's provider with only permitted data, and returns provenance", async () => {
+    db.categories = { lomba: true };
+    const cookie = await connected();
+    fetchMock.mockResolvedValueOnce(answer("Idemu kuat [S1]."));
+    const response = await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku", history: [{ role: "user", content: "hai" }, { role: "assistant", content: "halo" }] }, cookie));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const out = await events(response);
+    expect(out.map((e) => e.type)).toEqual(["meta", "delta", "done"]);
+    expect(out[0]).toMatchObject({ provider: "OpenAI", model: "model-x", provenance: {
+      intent: "review_ide", sources: [{ id: "S1", category: "lomba", label: `Slot: ${NOTE}-lomba` }], blocked: [{ category: "profil", reason: "permission_off" }] } });
+    expect(out[2]).toMatchObject({ validation: { ok: true, cited: ["S1"], warnings: [] }, usage: { inputTokens: 40, outputTokens: 6 } });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/chat/completions");
+    expect(init.headers).toMatchObject({ authorization: `Bearer ${KEY}` });
+    const sent = JSON.parse(init.body as string);
+    expect(sent.messages.map((m: { role: string }) => m.role)).toEqual(["system", "user", "assistant", "user"]);
+    expect(sent.messages[0].content).toContain(`${NOTE}-lomba`);
+    expect(init.body as string).not.toContain(`${NOTE}-nama`);
+    expect(db.runs).toEqual([expect.objectContaining({ p_mode: "direct", p_intent: "review_ide", p_provider_id: "openai", p_categories: ["lomba"],
+      p_sources: [{ id: "S1", category: "lomba" }], status: "done", out: 6 })]);
+    expect(JSON.stringify(db.runs)).not.toMatch(/RAHASIA|review ideku|Idemu/);
+    expect(JSON.stringify(out)).not.toContain("SECRET");
+    expect(logs.join("\n")).not.toMatch(/SECRET|RAHASIA|review ideku|Idemu/);
+  });
+
+  for (const [reason, setup] of [
+    ["guardian_consent_required", () => { db.birthYear = 2010; db.categories = { lomba: true, profil: true }; }],
+    ["guardian_consent_required", () => { db.birthYear = null; db.categories = { lomba: true, profil: true }; }],
+    ["permission_off", () => { db.categories = {}; }],
+  ] as const) {
+    it(`sends no account data when the gate says ${reason}`, async () => {
+      setup();
+      const cookie = await connected();
+      db.tables.length = 0;
+      fetchMock.mockResolvedValueOnce(answer("Oke."));
+      const out = await events(await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie)));
+      expect(out[0].provenance).toMatchObject({ sources: [], blocked: [{ category: "lomba", reason }, { category: "profil", reason }] });
+      expect(fetchMock.mock.calls[0][1].body as string).not.toContain(NOTE);
+      expect(db.tables).not.toContain("user_competitions");
+      expect(out.at(-1).type).toBe("done");
+    });
+  }
+
+  it("does not call a provider without a usable connection", async () => {
+    const none = await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }));
+    expect([none.status, (await none.json()).error.code]).toEqual([409, "no_connection"]);
+    const cookie = await connected();
+    const lost = await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }));
+    expect([lost.status, (await lost.json()).error.code]).toEqual([409, "connection_expired"]);
+    expect(db.credential).toBeNull();
+    await connected();
+    const wrong = await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }, cookie));
+    expect(wrong.status).toBe(409);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("validates input and enforces 30 requests a minute (FR-CCH-06, FR-BYOK-10)", async () => {
+    const cookie = await connected();
+    for (const bad of [{}, { question: "   " }, { question: "hai", history: [{ role: "system", content: "x" }] }, { question: "hai", lain: 1 }, "bukan json"]) {
+      expect((await chat(request("/api/v1/tanya/chat", "POST", bad, cookie))).status).toBe(400);
+    }
+    const long = await chat(request("/api/v1/tanya/chat", "POST", { question: "a".repeat(12001) }, cookie));
+    expect(long.status).toBe(413);
+    expect((await long.json()).error.message).toBe("Teksmu 12.001 karakter, batasnya 12.000. Potong 1 karakter dulu.");
+    db.taken = 30;
+    const limited = await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }, cookie));
+    expect([limited.status, limited.headers.get("retry-after")]).toEqual([429, "17"]);
+    expect((await limited.json()).error).toMatchObject({ code: "rate_limited", retry_after_s: 17 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reports provider failures as an error event with a fix, and records the run as failed (FR-CCH-07)", async () => {
+    const cookie = await connected();
+    const cases: [Response, string, string][] = [
+      [new Response(`invalid ${KEY}`, { status: 401 }), "key_rejected", "reconnect"],
+      [new Response("", { status: 429, headers: { "retry-after": "9" } }), "rate_limited", "wait"],
+      [new Response("", { status: 404 }), "model_unavailable", "change_model"],
+      [new Response('data: {"choices":[{"delta":{"content":"Sete"}}]}\n\n'), "network", "retry"],
+      [sse([{ choices: [{ delta: {}, finish_reason: "stop" }] }]), "empty_output", "retry"],
+    ];
+    for (const [reply, code, action] of cases) {
+      fetchMock.mockResolvedValueOnce(reply);
+      const response = await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }, cookie));
+      const text = await response.text();
+      expect(text).not.toContain("SECRET");
+      const last = JSON.parse(text.trim().split("\n\n").at(-1)!.replace(/^data: /, ""));
+      expect(last, code).toMatchObject({ type: "error", code, action });
+      expect(db.runs.at(-1)).toMatchObject({ status: "error", error: code });
+    }
+  });
+});
+
+describe("POST /api/v1/tanya/prompt (Mode Tanpa Key) and GET status", () => {
+  it("returns a prompt to copy, calls no provider, and includes only permitted data", async () => {
+    db.categories = { lomba: true };
+    const response = await prompt(request("/api/v1/tanya/prompt", "POST", { question: "Tolong review ideku" }));
+    const body = await response.json();
+    expect(body.mode).toBe("handoff");
+    expect(body.prompt).toContain(`${NOTE}-lomba`);
+    expect(body.prompt).not.toContain(`${NOTE}-nama`);
+    expect(body.prompt.endsWith("Pertanyaanku:\nTolong review ideku")).toBe(true);
+    expect(body.provenance.blocked).toEqual([{ category: "profil", reason: "permission_off" }]);
+    expect(body).not.toHaveProperty("answer");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(db.runs).toEqual([expect.objectContaining({ p_mode: "handoff", status: "done" })]);
+  });
+
+  it("works signed out with no account data at all (reason signed_out)", async () => {
+    signedOut();
+    const body = await (await prompt(request("/api/v1/tanya/prompt", "POST", { question: "Tolong review ideku" }))).json();
+    expect(body.provenance).toMatchObject({ sources: [], blocked: [{ category: "lomba", reason: "signed_out" }, { category: "profil", reason: "signed_out" }] });
+    expect(body.prompt).not.toContain(NOTE);
+    expect(from).not.toHaveBeenCalled();
+    expect((await prompt(request("/api/v1/tanya/prompt", "POST", { question: "x" }, "", "https://lain.example"))).status).toBe(403);
+  });
+
+  it("reports sign-in, connection and per-category permission state", async () => {
+    db.categories = { tugas: true };
+    await connected("anthropic").catch(() => {});
+    const body = await (await status()).json();
+    expect(body).toMatchObject({ signed_in: true, byok_available: true, permissions: { tugas: { allowed: true }, profil: { allowed: false, reason: "permission_off" } } });
+    expect(body.providers.map((p: { id: string }) => p.id)).toEqual(["openai", "anthropic", "google", "xai", "deepseek", "openrouter", "groq", "mistral", "custom"]);
+    expect(Object.keys(body.permissions)).toHaveLength(8);
+    signedOut();
+    const out = await (await status()).json();
+    expect(out).toMatchObject({ signed_in: false, connection: null, permissions: { profil: { allowed: false, reason: "signed_out" } } });
+  });
+});

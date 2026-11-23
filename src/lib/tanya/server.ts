@@ -33,7 +33,7 @@ export const tanyaInput = z.strictObject({
 });
 export const TANYA_BODY_BYTES = 400 * 1024;
 
-export function parseTanya(body: unknown) {
+export function parseTanya(body: unknown): { error: Response } | { question: string; history: z.infer<typeof message>[] } {
   const parsed = tanyaInput.safeParse(body);
   if (!parsed.success) return { error: accountError(400, "validation", "Tulis pertanyaanmu dulu.") };
   const { question, history } = parsed.data;
