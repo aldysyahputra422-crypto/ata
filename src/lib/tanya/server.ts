@@ -7,7 +7,7 @@ import { accountReader } from "./context";
 import { cookieName, open, validSalt, type Sealed } from "./credentials";
 import { defaultGate, type CanProcessAi, type GateDecision } from "./gate";
 import { HISTORY_CHARS, QUESTION_LIMIT } from "./prompt";
-import { createAdapter, findProvider, type Credential, type ProviderAdapter } from "./providers";
+import { chatCapable, createAdapter, findProvider, type Credential, type ProviderAdapter } from "./providers";
 import { pinnedHttp } from "./pinned-http";
 import { checkBaseUrl } from "./ssrf";
 
@@ -88,7 +88,7 @@ export async function readConnection(client: SupabaseClient): Promise<{ connecti
 
 export type Loaded =
   | { state: "ready"; credential: Credential; adapter: ProviderAdapter }
-  | { state: "none" | "expired" | "blocked_url" | "unavailable" };
+  | { state: "none" | "expired" | "blocked_url" | "not_chat" | "unavailable" };
 
 /** Decrypts the session's key for this one request. The plaintext lives only in the returned object. */
 export async function loadCredential(client: SupabaseClient, request: Request): Promise<Loaded> {
@@ -101,6 +101,7 @@ export async function loadCredential(client: SupabaseClient, request: Request): 
     ? open({ kekVersion: row.kek_version, expiresAt: row.expires_epoch, iv: row.iv, ciphertext: row.ciphertext, tag: row.tag, wrappedKey: row.wrapped_key } satisfies Sealed, readSalt(request),
         { userId: row.user_id, sessionId: row.session_id, connectionId: row.connection_id, providerId: row.provider_id })
     : null;
+  if (provider && apiKey && !chatCapable(row.model)) return { state: "not_chat" };
   if (!provider || !apiKey) {
     // A row that can no longer be opened (cookie gone, KEK rotated away) is useless: remove it.
     await client.rpc("ai_credential_delete");
@@ -116,6 +117,13 @@ export async function loadCredential(client: SupabaseClient, request: Request): 
   // A custom host is connected to through the pinned transport, so the checked address is the one used.
   const adapter = provider.baseURL === null ? createAdapter(provider, pinnedHttp()) : createAdapter(provider);
   return { state: "ready", adapter, credential: { providerId: provider.id, apiKey, baseUrl, model: row.model } };
+}
+
+/** Uji Koneksi limit: 5 tests per account per 10 minutes. Returns a 429 response when over. */
+export async function takeTest(client: SupabaseClient) {
+  const { data, error } = await client.rpc("ai_take_test");
+  if (error || typeof data !== "number") return accountError(503, "account_unavailable", "Layanan akun belum bisa dihubungi. Coba lagi sebentar lagi.");
+  return data > 0 ? accountError(429, "test_limited", `Uji koneksi dibatasi 5 kali per 10 menit. Coba lagi dalam ${Math.ceil(data / 60)} menit.`, data) : null;
 }
 
 /** FR-BYOK-10. Returns a 429 response when the account is over 30 requests this minute. */

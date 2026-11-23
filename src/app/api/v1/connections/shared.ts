@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { accountError } from "@/lib/account/http";
-import { AI_ERROR_TEXT, AiError, createAdapter, findProvider, mapError, type Credential, type ProviderAdapter, type ProviderEntry } from "@/lib/tanya/providers";
+import { AI_ERROR_TEXT, AiError, chatCapable, createAdapter, findProvider, mapError, type Credential, type ProviderAdapter, type ProviderEntry } from "@/lib/tanya/providers";
 import { pinnedHttp } from "@/lib/tanya/pinned-http";
 import { checkBaseUrl } from "@/lib/tanya/ssrf";
 
@@ -37,15 +37,19 @@ export async function resolveTarget(input: { provider_id: string; base_url?: str
 
 export function providerFailure(error: unknown) {
   const mapped = mapError(error);
-  const status = mapped.code === "key_rejected" ? 422 : mapped.code === "rate_limited" ? 429 : mapped.code === "model_unavailable" || mapped.code === "bad_request" ? 422 : 502;
+  const status = mapped.code === "key_rejected" ? 422 : mapped.code === "rate_limited" ? 429 : mapped.code === "model_unavailable" || mapped.code === "model_not_chat" || mapped.code === "bad_request" ? 422 : 502;
   return accountError(status, mapped.code, AI_ERROR_TEXT[mapped.code].message, mapped.code === "rate_limited" ? mapped.retryAfterS : undefined);
 }
 
+export const TEST_MAX_TOKENS = 16;
+
 /**
- * FR-BYOK-01: proves the key works before it is stored. Lists models; when the provider has no usable model
- * list, sends a one-word ping to the chosen model instead.
+ * Uji Koneksi (FR-BYOK-01). Runs only from the user's button press, never in the background. The model must be a
+ * chat model: its name is checked first, then the provider's model list (no tokens), then one very short message
+ * is sent to it, capped at TEST_MAX_TOKENS output tokens. Only a model that answers a chat request passes.
  */
 export async function verifyConnection(adapter: ProviderAdapter, credential: Credential): Promise<void> {
+  if (!chatCapable(credential.model)) throw new AiError("model_not_chat");
   let models: string[] | null = null;
   try {
     models = (await adapter.listModels(credential)).map((m) => m.id);
@@ -53,9 +57,12 @@ export async function verifyConnection(adapter: ProviderAdapter, credential: Cre
     const mapped = mapError(error);
     if (!["model_unavailable", "bad_request", "bad_response"].includes(mapped.code)) throw mapped;
   }
-  if (models?.length) {
-    if (!models.includes(credential.model)) throw new AiError("model_unavailable");
-    return;
+  if (models?.length && !models.includes(credential.model)) throw new AiError("model_unavailable");
+  try {
+    await adapter.generate({ system: "Balas satu kata.", messages: [{ role: "user", content: "ping" }], maxOutputTokens: TEST_MAX_TOKENS }, credential);
+  } catch (error) {
+    const mapped = mapError(error);
+    // The key and the model id are known to be valid here, so a refused chat request means the model cannot chat.
+    throw models?.length && ["bad_request", "model_unavailable"].includes(mapped.code) ? new AiError("model_not_chat") : mapped;
   }
-  await adapter.generate({ system: "Balas satu kata.", messages: [{ role: "user", content: "ping" }], maxOutputTokens: 16 }, credential);
 }

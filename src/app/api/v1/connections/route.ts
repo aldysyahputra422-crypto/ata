@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { accountError, accountSession, accountUnavailable, checkOrigin, needsSignIn, parseJsonBody, privateHeaders } from "@/lib/account/http";
 import { cookieName, cookieOptions, credentialsAvailable, expiryFrom, newSalt, seal } from "@/lib/tanya/credentials";
-import { publicProviders } from "@/lib/tanya/providers";
-import { publicConnection, readConnection, secureRequest, takeRequest } from "@/lib/tanya/server";
+import { AiError, chatCapable, publicProviders } from "@/lib/tanya/providers";
+import { publicConnection, readConnection, secureRequest, takeRequest, takeTest } from "@/lib/tanya/server";
 import { CONNECTION_BODY_BYTES, connectionInput, providerFailure, resolveTarget, verifyConnection } from "./shared";
 
 export const dynamic = "force-dynamic";
@@ -28,12 +28,14 @@ export async function POST(request: Request) {
   if (!credentialsAvailable()) return noByok();
   const parsed = connectionInput.safeParse(await parseJsonBody(request, CONNECTION_BODY_BYTES));
   if (!parsed.success) return accountError(400, "validation", "Periksa provider, key, dan model-mu.");
-  const limited = await takeRequest(session.client);
+  const { api_key: apiKey, model } = parsed.data;
+  // Refused before any provider call and before the test counter: this costs the user nothing.
+  if (!chatCapable(model)) return providerFailure(new AiError("model_not_chat"));
+  const limited = (await takeRequest(session.client)) ?? (await takeTest(session.client));
   if (limited) return limited;
   const target = await resolveTarget(parsed.data);
   if ("error" in target) return target.error;
 
-  const { api_key: apiKey, model } = parsed.data;
   try {
     await verifyConnection(target.adapter, { providerId: target.provider.id, apiKey, baseUrl: target.baseUrl, model });
   } catch (error) {

@@ -60,7 +60,7 @@ describe("0009 Tanya Ata storage (FR-BYOK-02, FR-BYOK-10)", () => {
       "select * from public.ai_credentials",
       "select ciphertext from public.ai_credentials",
       "delete from public.ai_credentials",
-      "insert into public.ai_request_counters values (auth.uid(), now(), 1)",
+      "insert into public.ai_request_counters values (auth.uid(), 'request', now(), 1)",
       "select * from public.ai_request_counters",
       "insert into public.tanya_runs (user_id, mode, intent) values (auth.uid(), 'direct', 'umum')",
       "update public.tanya_runs set status = 'done'",
@@ -177,6 +177,20 @@ describe("0009 Tanya Ata storage (FR-BYOK-02, FR-BYOK-10)", () => {
     for (const sql of ["select public.ai_credential_begin()", "select public.ai_credential_get(true)", "select public.ai_credential_delete()",
       "select public.ai_take_request()", "select public.tanya_run_start('direct', 'umum', null, null, '{}', '[]', '[]')"])
       await expect(db.exec(sql), sql).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("allows 5 connection tests per 10 minutes per account, counted apart from ordinary requests", async () => {
+    await as(a);
+    for (let i = 0; i < 5; i++) expect(await one("select public.ai_take_test() as r")).toBe(0);
+    const wait = (await one("select public.ai_take_test() as r")) as number;
+    expect(wait).toBeGreaterThan(0);
+    expect(wait).toBeLessThanOrEqual(600);
+    expect(await one("select public.ai_take_request() as r")).toBe(0);
+    await as(b);
+    expect(await one("select public.ai_take_test() as r")).toBe(0);
+    await admin();
+    expect((await db.query("select kind, count from public.ai_request_counters where user_id = $1 order by kind", [a])).rows)
+      .toEqual([{ kind: "request", count: 1 }, { kind: "test", count: 6 }]);
   });
 
   it("allows 30 requests a minute per account, then asks to wait", async () => {

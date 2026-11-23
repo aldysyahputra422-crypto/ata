@@ -153,17 +153,21 @@ function SheetSambung({ data, onTutup, onBerubah }: { data: Status; onTutup: () 
             <input className="input" id="aiModel" autoComplete="off" spellCheck={false} placeholder="ID model dari penyediamu" value={model} onChange={(e) => setModel(e.target.value)} />
           )}
           <span className="hint">
-            {daftar === null ? "Tekan \"Cek key\" untuk memuat daftar model dari penyediamu, atau ketik ID model." : daftar.length ? `${daftar.length} model tersedia untuk key ini.` : "Penyedia ini tidak memberi daftar model. Ketik ID modelnya."}
+            {daftar === null ? "Tekan \"Cek key\" untuk memuat daftar model dari penyediamu, atau ketik ID model." : daftar.length ? `${daftar.length} model chat tersedia untuk key ini.` : "Penyedia ini tidak memberi daftar model. Ketik ID modelnya."}
           </span>
         </div>
         <div className="banner banner--warn">
           <Ikon nama="alert" />
           <span>Pemakaian API ditagih ke akun penyediamu sendiri. Pertanyaanmu dan data akun yang kamu izinkan dikirim ke penyedia itu.</span>
         </div>
+        <p className="small muted" id="infoUji">
+          Uji koneksi hanya berjalan saat kamu menekan tombolnya. Ata mengirim satu pesan sangat pendek (jawaban dibatasi 16 token) ke model yang kamu pilih, jadi bisa memakai sedikit kuotamu.
+          Maksimal 5 uji per 10 menit. &quot;Cek key&quot; hanya memuat daftar model chat dan tidak memakai token.
+        </p>
         <div aria-live="polite">{galat && <p className="error" role="alert">{galat}</p>}</div>
         <div className="btn-row">
           <button type="button" className="btn" disabled={sibuk || kunci.trim().length < 8} onClick={cek}>Cek key</button>
-          <button type="button" className="btn btn--primary" disabled={sibuk || kunci.trim().length < 8 || !model.trim()} onClick={simpan}>{sibuk ? "Menguji…" : "Simpan & uji koneksi"}</button>
+          <button type="button" className="btn btn--primary" disabled={sibuk || kunci.trim().length < 8 || !model.trim()} aria-describedby="infoUji" onClick={simpan}>{sibuk ? "Menguji…" : "Uji koneksi & simpan"}</button>
         </div>
         {ada && <button type="button" className="btn btn--ghost" disabled={sibuk} onClick={hapus}>Putuskan & hapus key</button>}
       </div>

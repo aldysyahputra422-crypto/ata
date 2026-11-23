@@ -37,7 +37,7 @@ export type StreamEvent = { type: "delta"; text: string } | { type: "finish"; re
 export type ModelInfo = { id: string };
 
 export type AiErrorCode =
-  | "key_rejected" | "rate_limited" | "quota" | "model_unavailable" | "bad_request" | "provider_down"
+  | "key_rejected" | "rate_limited" | "quota" | "model_unavailable" | "model_not_chat" | "bad_request" | "provider_down"
   | "network" | "timeout" | "bad_response" | "stopped";
 
 /** A provider failure in Ata's own words. It never carries the provider's response body, which can echo the key. */
@@ -57,6 +57,12 @@ export interface ProviderAdapter {
   generate(req: GenerateRequest, cred: Credential): Promise<{ text: string; reason: FinishReason; usage: Usage }>;
   mapError(error: unknown): AiError;
 }
+
+// Model families that cannot hold a conversation. Providers list them next to chat models, and a model id is free
+// text, so the name is the only signal available without spending the user's quota.
+const NOT_CHAT = /(^|[-_/:.])(embed|embedding|embeddings|rerank|reranker|moderation|whisper|tts|transcribe|transcription|speech|dall-e|imagen|image|veo|sora|stable-diffusion|sdxl|flux|clip|aqa|ocr)([-_/:.\d]|$)|text-embedding|-embed-|^babbage|^davinci-002/i;
+/** False for ids that name an embedding, image, audio, moderation or rerank model. */
+export const chatCapable = (model: string) => model.trim().length > 0 && !NOT_CHAT.test(model);
 
 export type Http = (input: string, init: RequestInit) => Promise<Response>;
 export const PROVIDER_TIMEOUT_MS = 60_000; // FR-BYOK-04
@@ -284,10 +290,12 @@ export function createAdapter(provider: ProviderEntry, http: Http = (input, init
       throw new AiError("bad_response");
     }
     if (!body || typeof body !== "object") throw new AiError("bad_response");
-    return [...new Set(wire.models(body as Json))].filter((id) => id.length <= 200).sort().slice(0, MODEL_LIST_LIMIT).map((id) => ({ id }));
+    return [...new Set(wire.models(body as Json))].filter((id) => id.length <= 200 && chatCapable(id)).sort().slice(0, MODEL_LIST_LIMIT).map((id) => ({ id }));
   }
 
   async function* stream(req: GenerateRequest, cred: Credential): AsyncGenerator<StreamEvent> {
+    // Checked before anything is sent: a non-chat model never receives a conversation.
+    if (!chatCapable(cred.model)) throw new AiError("model_not_chat");
     const { path, body } = wire.chat(req, cred, provider);
     const response = await call(cred, path, { method: "POST", body: JSON.stringify(body) }, req.signal);
     const usage: Usage = {};
@@ -336,6 +344,7 @@ export const AI_ERROR_TEXT: Record<AiErrorCode, { message: string; action: "reco
   rate_limited: { message: "Provider sedang membatasi permintaanmu. Tunggu sebentar lalu coba lagi.", action: "wait" },
   quota: { message: "Kuota atau saldo di provider-mu habis. Cek akun provider-mu.", action: "reconnect" },
   model_unavailable: { message: "Model ini tidak tersedia di provider-mu. Ganti model.", action: "change_model" },
+  model_not_chat: { message: "Model ini bukan model percakapan (misalnya embedding, gambar, atau suara). Pilih model chat.", action: "change_model" },
   bad_request: { message: "Provider menolak permintaan ini. Coba ganti model atau persingkat pesanmu.", action: "change_model" },
   provider_down: { message: "Provider sedang bermasalah. Coba lagi sebentar lagi.", action: "retry" },
   network: { message: "Koneksi ke provider terputus. Coba lagi.", action: "retry" },

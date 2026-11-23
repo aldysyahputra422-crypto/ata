@@ -10,6 +10,7 @@ const NO_CONNECTION = {
   none: "Belum ada AI yang tersambung. Sambungkan AI-mu atau pakai Mode Tanpa Key.",
   expired: "Sambungan AI-mu sudah berakhir. Sambungkan lagi untuk lanjut.",
   blocked_url: "Alamat provider kustommu tidak lagi bisa dipakai. Sambungkan lagi dengan alamat https publik.",
+  not_chat: "Model yang tersimpan bukan model percakapan. Sambungkan lagi dengan model chat.",
 } as const;
 
 type RevokedEvent = { type: "error"; code: "permission_revoked"; message: string; action: "none"; partial: false; categories: string[] };
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
   if (limited) return limited;
   const loaded = await loadCredential(session.client, request);
   if (loaded.state === "unavailable") return accountUnavailable();
-  if (loaded.state !== "ready") return accountError(409, loaded.state === "none" ? "no_connection" : "connection_expired", NO_CONNECTION[loaded.state]);
+  if (loaded.state !== "ready") return accountError(409, loaded.state === "none" ? "no_connection" : loaded.state === "not_chat" ? "model_not_chat" : "connection_expired", NO_CONNECTION[loaded.state]);
 
   const { client, user } = session;
   // Permissions are read fresh for this request (the gate holds one read and is never reused across requests).

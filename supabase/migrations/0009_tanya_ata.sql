@@ -32,9 +32,11 @@ grant select, delete on public.ai_credentials to service_role;
 
 create table public.ai_request_counters (
   user_id uuid not null references auth.users (id) on delete cascade,
+  -- 'request': any AI call, per minute. 'test': connection tests, per 10 minutes.
+  kind text not null default 'request' check (kind in ('request', 'test')),
   window_start timestamptz not null,
   count integer not null check (count > 0),
-  primary key (user_id, window_start)
+  primary key (user_id, kind, window_start)
 );
 alter table public.ai_request_counters enable row level security;
 revoke all on public.ai_request_counters from public, anon, authenticated, service_role;
@@ -226,9 +228,9 @@ declare
 begin
   perform public.ai_credential_session();
   perform public.ai_credentials_purge();
-  delete from public.ai_request_counters where user_id = account_id and window_start < minute;
-  insert into public.ai_request_counters (user_id, window_start, count) values (account_id, minute, 1)
-    on conflict (user_id, window_start) do update set count = public.ai_request_counters.count + 1
+  delete from public.ai_request_counters where user_id = account_id and kind = 'request' and window_start < minute;
+  insert into public.ai_request_counters (user_id, kind, window_start, count) values (account_id, 'request', minute, 1)
+    on conflict (user_id, kind, window_start) do update set count = public.ai_request_counters.count + 1
     returning count into used;
   if used > 30 then
     return greatest(1, ceil(extract(epoch from (minute + interval '1 minute' - now())))::integer);
@@ -238,6 +240,32 @@ end;
 $$;
 revoke all on function public.ai_take_request() from public, anon, authenticated, service_role;
 grant execute on function public.ai_take_request() to authenticated;
+
+-- Uji Koneksi sends a short message to the user's provider and can use their quota: 5 tests per account per
+-- 10 minutes. Returns seconds to wait, or 0 when the test may go on.
+create function public.ai_take_test()
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  account_id uuid := auth.uid();
+  slot timestamptz := to_timestamp(floor(extract(epoch from now()) / 600) * 600);
+  used integer;
+begin
+  perform public.ai_credential_session();
+  delete from public.ai_request_counters where user_id = account_id and kind = 'test' and window_start < slot;
+  insert into public.ai_request_counters (user_id, kind, window_start, count) values (account_id, 'test', slot, 1)
+    on conflict (user_id, kind, window_start) do update set count = public.ai_request_counters.count + 1
+    returning count into used;
+  if used > 5 then
+    return greatest(1, ceil(extract(epoch from (slot + interval '10 minutes' - now())))::integer);
+  end if;
+  return 0;
+end;
+$$;
+revoke all on function public.ai_take_test() from public, anon, authenticated, service_role;
+grant execute on function public.ai_take_test() to authenticated;
 
 create function public.tanya_run_start(
   p_mode text, p_intent text, p_provider_id text, p_model text, p_categories text[], p_sources jsonb, p_blocked jsonb

@@ -19,7 +19,7 @@ const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>()
 const logs: string[] = [];
 
 type Db = {
-  credential: Record<string, unknown> | null; taken: number; limitAfter: number; runs: Record<string, unknown>[];
+  credential: Record<string, unknown> | null; taken: number; tests: number; limitAfter: number; runs: Record<string, unknown>[];
   birthYear: number | null; categories: Record<string, boolean>; tables: string[]; active: boolean;
 };
 let db: Db;
@@ -44,6 +44,7 @@ function signedIn() {
     const ok = (data: unknown) => ({ data, error: null });
     if (name === "account_session_active") return ok(db.active);
     if (name === "ai_take_request") return ok(++db.taken > db.limitAfter ? 17 : 0);
+    if (name === "ai_take_test") return ok(++db.tests > 5 ? 420 : 0);
     if (name === "ai_credential_begin") return ok({ user_id: "user-a", session_id: "sess-a", connection_id: "conn-1" });
     if (name === "ai_credential_put") {
       db.credential = { user_id: "user-a", session_id: "sess-a", connection_id: args.p_connection_id, provider_id: args.p_provider_id, base_url: args.p_base_url,
@@ -75,7 +76,7 @@ function signedIn() {
 const signedOut = () => auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
 
 async function connected(provider = "openai") {
-  fetchMock.mockResolvedValueOnce(models());
+  fetchMock.mockResolvedValueOnce(models()).mockResolvedValueOnce(answer("pong"));
   const response = await connect(request("/api/v1/connections", "POST", { provider_id: provider, api_key: KEY, model: "model-x" }));
   expect(response.status).toBe(201);
   fetchMock.mockReset();
@@ -91,7 +92,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   logs.length = 0;
   for (const level of ["log", "info", "warn", "error", "debug"] as const) vi.spyOn(console, level).mockImplementation((...a) => { logs.push(a.map(String).join(" ")); });
-  db = { credential: null, taken: 0, limitAfter: 30, runs: [], birthYear: 2000, categories: {}, tables: [], active: true };
+  db = { credential: null, taken: 0, tests: 0, limitAfter: 30, runs: [], birthYear: 2000, categories: {}, tables: [], active: true };
   lookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
   signedIn();
 });
@@ -111,13 +112,19 @@ describe("BYOK connection routes (FR-BYOK-01..05, 08)", () => {
   });
 
   it("tests the key with the provider, stores only ciphertext, and never returns the key", async () => {
-    fetchMock.mockResolvedValueOnce(models());
+    fetchMock.mockResolvedValueOnce(models()).mockResolvedValueOnce(answer("pong"));
     const response = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }));
     expect(response.status).toBe(201);
     const text = await response.text();
     expect(JSON.parse(text)).toEqual({ connection: { provider_id: "openai", provider_name: "OpenAI", model: "model-x", last4: "1234", expires_at: "2026-11-23T07:00:00Z" } });
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.openai.com/v1/models");
     expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ authorization: `Bearer ${KEY}` });
+    // Uji Koneksi: one short chat request to the chosen model, output capped at 16 tokens.
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(["https://api.openai.com/v1/models", "https://api.openai.com/v1/chat/completions"]);
+    const ping = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+    expect(ping).toMatchObject({ model: "model-x", messages: [{ role: "system" }, { role: "user", content: "ping" }] });
+    expect(ping.max_tokens ?? ping.max_completion_tokens).toBe(16);
+    expect(rpc.mock.calls.filter((c) => c[0] === "ai_take_test")).toHaveLength(1);
     const cookie = response.headers.get("set-cookie")!;
     expect(cookie).toMatch(/^__Host-ata_kred=[A-Za-z0-9_-]{43}; Path=\/; (Expires=[^;]+; )?Max-Age=43200; Secure; HttpOnly; SameSite=strict$/i);
     expect(JSON.stringify(db.credential) + text + cookie + JSON.stringify(rpc.mock.calls)).not.toContain("SECRET");
@@ -139,6 +146,47 @@ describe("BYOK connection routes (FR-BYOK-01..05, 08)", () => {
       expect((await connect(request("/api/v1/connections", "POST", bad))).status, JSON.stringify(bad)).toBe(400);
     }
     expect(db.credential).toBeNull();
+  });
+
+  it("never stores a model that cannot chat: refused by name before any provider call, or when the provider refuses the chat test", async () => {
+    for (const model of ["text-embedding-3-small", "whisper-1", "dall-e-3", "tts-1", "omni-moderation-latest", "mistral-embed", "jina-embeddings-v3", "rerank-v3"]) {
+      const response = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model }));
+      expect(response.status, model).toBe(422);
+      expect((await response.json()).error.code, model).toBe("model_not_chat");
+    }
+    // Refused by name costs nothing: no provider call and no test counted.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(rpc.mock.calls.filter((c) => c[0] === "ai_take_test")).toHaveLength(0);
+
+    // A listed model with an innocent name that the provider will not chat with.
+    fetchMock.mockResolvedValueOnce(models()).mockResolvedValueOnce(new Response('{"error":{"message":"This is not a chat model"}}', { status: 404 }));
+    const refused = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-y" }));
+    expect((await refused.json()).error).toMatchObject({ code: "model_not_chat" });
+    expect(db.credential).toBeNull();
+
+    // The model list only offers chat models.
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ id: "gpt-x" }, { id: "text-embedding-3-large" }, { id: "whisper-1" }, { id: "gpt-image-1" }] }), { status: 200 }));
+    expect(await (await listModels(request("/api/v1/connections/models", "POST", { provider_id: "openai", api_key: KEY }))).json()).toEqual({ ok: true, models: ["gpt-x"] });
+  });
+
+  it("limits Uji Koneksi to 5 per 10 minutes and makes no provider call once over", async () => {
+    for (let i = 0; i < 5; i++) {
+      fetchMock.mockResolvedValueOnce(models()).mockResolvedValueOnce(answer("pong"));
+      expect((await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }))).status).toBe(201);
+    }
+    fetchMock.mockReset();
+    const sixth = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }));
+    expect(sixth.status).toBe(429);
+    expect((await sixth.json()).error).toMatchObject({ code: "test_limited", retry_after_s: 420 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("makes no provider call on its own: status, connection read and delete never reach the provider", async () => {
+    const cookie = await connected();
+    await status();
+    await getConnection();
+    await disconnect(request("/api/v1/connections", "DELETE", undefined, cookie));
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("falls back to a one-word ping when the provider has no model list", async () => {
