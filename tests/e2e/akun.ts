@@ -25,8 +25,13 @@ export async function progresAkun(page: Page, opts: { slot?: string[]; limit?: n
     const xp = done.length * 10 + tuntas * 20;
     return { xp, level: Math.floor(xp / 100) + 1, xpLevel: xp % 100, keLevelBerikut: 100 - (xp % 100), streak: done.some((s) => s.pada === today()) ? 1 : 0, selesai: done.length, tepat: done.length, tuntas, pencapaian: [] };
   };
+  const activity = () => {
+    const out: Record<string, number> = {};
+    for (const s of status.values()) if (s.status === "done") out[s.pada] = (out[s.pada] ?? 0) + 1;
+    return out;
+  };
   const body = () => ({
-    today: today(), timezone: "Asia/Jakarta", plan: opts.plan ?? "free", slot_limit: opts.limit ?? 1, summary: summary(),
+    today: today(), timezone: "Asia/Jakarta", plan: opts.plan ?? "free", slot_limit: opts.limit ?? 1, summary: summary(), activity: activity(),
     competitions: slot.map((k) => ({
       competition_key: k, source: "catalog", state: "slot", card: null,
       roadmap: { ...rencana[k], langkah: rencana[k].langkah.map((l) => {

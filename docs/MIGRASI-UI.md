@@ -253,8 +253,35 @@ Tidak ada.
 
 - Perilaku yang sengaja berubah: akun yang masuk tidak lagi melihat atau menerima Slot contoh dari perangkat.
 - `pnpm visual:parity` tidak dijalankan ulang: tidak ada CSS atau markup yang berubah.
-- Layar Progres dan Profil belum dimigrasikan, jadi XP akun baru tampil di Hari Ini.
+- Layar Profil belum dimigrasikan. (Progres: lihat "M1 Layar Progres".)
 - Penutup (23 November 2026): tanggal di kepala Hari Ini memakai `today` dari `/api/v1/progress` (zona waktu akun) saat masuk; belum masuk tetap jam perangkat. Markup dan CSS tidak berubah. Uji: `tests/e2e/hari-ini.spec.ts` (jam perangkat 21 November 23.58, hari akun 22 November).
+
+## M1 Layar Progres (23 November 2026)
+
+Port `masuk/ui/progres.js` ke `/progres` di shell `(ata)/(apl)`, dengan markup, class, dan CSS prototipe (`masuk/masuk.css`, `shared/states.css`).
+
+### Berkas yang diubah atau ditambah
+- `src/app/(ata)/(apl)/progres/{page.tsx,Progres.tsx,progres-apl.css}`: layar. `progres-apl.css` hanya menyatakan ulang posisi toast shell (di prototipe layar ini hidup dalam iframe) dan ukuran judul cincin.
+- `src/app/(ata)/(apl)/hari-ini/pakaiData.ts`: hook `useDataHari` (lingkup akun/perangkat, muat, buang jawaban lama) dipindah dari `HariIni.tsx` agar Hari Ini dan Progres memakai satu sumber. Perilaku Hari Ini tidak berubah.
+- `src/app/(ata)/(apl)/hari-ini/data.ts`: `aktivitas` (akun: `activity` dari server; perangkat: `aktivitasHarian` dari store).
+- `src/lib/account/progress.ts`, `src/app/api/v1/progress/route.ts`: bidang aditif `activity`.
+- `tests/e2e/progres.spec.ts`, `tests/e2e/akun.ts`, `tests/unit/account-progress.test.ts`.
+
+### Berkas yang dihapus
+- `src/app/(fondasi)/(app)/progres/page.tsx` (placeholder). Audit: tidak diimpor berkas lain; satu-satunya pemakai adalah uji kerangka fondasi di `tests/e2e/design-system.spec.ts`, yang pindah ke `/ata`.
+
+### Beda dari prototipe
+- Ditambah: baris XP/level/streak dan kartu Pencapaian (class `xp-baris`, `pencapaian` dari Hari Ini), karena Product Owner meminta keduanya di Progres.
+- Timer fokus, Kesiapan submit, Check-in mingguan: kartu bertanda "Belum tersedia" tanpa kontrol dan tanpa angka; "menit fokus tercatat" dihapus dari kalimat pembuka. Kartu "Data progres" tidak dipindahkan.
+- Judul Slot di cincin memakai `h2` (prototipe `h3`) agar urutan heading lolos axe.
+- Kotak centang baru berubah setelah server menjawab (bukan optimistis), dan nonaktif selama permintaan berjalan.
+
+### Uji
+- `tests/e2e/progres.spec.ts`: akun, belum masuk, memuat, kosong, galat + coba lagi, simpan gagal, klik ganda, pindah lingkup perangkat ke akun, axe dan luapan horizontal pada 390 px dan 1280 px, terang dan gelap.
+
+### Keterbatasan
+- `masuk.css` memuat `.toast { bottom:152px }`; setelah Progres dibuka, `progres-apl.css` menahan toast shell di 96 px untuk semua tab.
+- Belum diuji terhadap Supabase sungguhan; e2e memakai API tiruan.
 
 ## Atribut dokumen dari server: hydration `<body>` (23 November 2026)
 

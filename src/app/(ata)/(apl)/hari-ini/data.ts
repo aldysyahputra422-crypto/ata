@@ -2,7 +2,7 @@
 // Signed out, Slot, Peta Jalan and task data are the device's. Signed in, they are the account's, read from
 // /api/v1/progress; the device store is not consulted and XP, level and streak are the server's (FR-PRG-03).
 import { cincin, tugasTelat } from "@/lib/prototype/masuk/logic/progres.js";
-import { hitungXP, prioritasTugas, ATURAN_XP, XP } from "@/lib/prototype/shared/logic/xp.js";
+import { aktivitasHarian, hitungXP, prioritasTugas, ATURAN_XP, XP } from "@/lib/prototype/shared/logic/xp.js";
 import { bacaBersama, batasKini, dengarBersama, resetBersama, slotRingkas, tugasBersama, ubahStatusTugas, slotLebih, adaDataContoh, segarkanHari, HARI_INI } from "@/lib/prototype/shared/bersama.js";
 import { saranBerikut } from "@/lib/prototype/app/logic/saran.js";
 import { LOMBA_NYATA } from "@/lib/prototype/lomba/data/lomba.js";
@@ -15,7 +15,7 @@ import { lupakanDasar } from "../lomba/sinkron";
 
 export type StatusTugas = "belum" | "dikerjakan" | "selesai";
 export type Tugas = { id: string; judul: string; tenggat: string; selesai: boolean; selesaiPada?: string; status: StatusTugas; slotNama: string };
-export type Cincin = { label: string; persen: number; selesai: number; wajib: number; sisaHari: number | null };
+export type Cincin = { label: string; persen: number; selesai: number; wajib: number; sisaHari: number | null; lewat: boolean };
 export type Slot = { id: string; nama: string; disetujui: boolean; gambar?: string; c: Cincin; kertas: Kertas };
 export type Kertas = { judul: string; isi: string; meta: string; telat: boolean };
 export type Saran = {
@@ -40,6 +40,8 @@ export type DataHariIni = {
   telat: number;
   saran: Saran[];
   progres: Progres;
+  /** finished steps per day (YYYY-MM-DD) */
+  aktivitas: Record<string, number>;
   batasLokal: number;
   lebih: SlotLebih | null;
   contoh: boolean;
@@ -72,6 +74,7 @@ export function bacaHariIni(batas?: number, paket?: Paket): DataHariIni {
     telat: tugasTelat(tugas, hariIni).length,
     saran: saranBerikut({ slot, tugas, lombaNyata: LOMBA_NYATA, batas: batas ?? batasLokal, hariIni }) as Saran[],
     progres: hitungXP(peta, hariIni) as Progres,
+    aktivitas: aktivitasHarian(peta) as Record<string, number>,
     batasLokal,
     // server limit and plan when known, the device's own otherwise; Slots are never changed here (K-23)
     lebih: (batas === undefined ? slotLebih() : slotLebih(batas, paket)) as SlotLebih | null,
@@ -91,7 +94,7 @@ export function aturStatus(id: string, status: StatusTugas): HasilStatus {
 }
 
 type BarisAkun = { competition_key: string; source: string; state: string; card: Record<string, unknown> | null; roadmap: { langkah?: unknown[]; disetujui?: boolean } | null };
-type ProgresAkun = { today: string; plan: string; slot_limit: number; competitions: BarisAkun[]; summary: Progres };
+type ProgresAkun = { today: string; plan: string; slot_limit: number; competitions: BarisAkun[]; summary: Progres; activity: Record<string, number> };
 const STATUS_SERVER = { belum: "todo", dikerjakan: "doing", selesai: "done" } as const;
 
 /** The same screen data as bacaHariIni, built from the account's rows only. Pure. */
@@ -119,6 +122,7 @@ export function dataAkun(r: ProgresAkun): DataHariIni {
     telat: tugasTelat(tugas, hariIni).length,
     saran: saranBerikut({ slot, tugas, lombaNyata: LOMBA_NYATA, batas: r.slot_limit, hariIni }) as Saran[],
     progres: r.summary,
+    aktivitas: r.activity,
     batasLokal: r.slot_limit,
     lebih: pesanSlotLebih(slot.length, r.slot_limit, r.plan === "pro" ? "Pro" : "Gratis") as SlotLebih | null,
     contoh: false,

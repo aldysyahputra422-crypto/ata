@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Ikon } from "../../_layar/Ikon";
 import { Sheet } from "../../_layar/Lapisan";
-import { bacaAkun } from "../../_layar/akun";
-import { lingkupKini, pakaiLingkup } from "../../_layar/lingkup";
 import { TAB, useDemo } from "../Cangkang";
-import { ATURAN_XP, XP, aturStatus, aturStatusAkun, bacaHariIni, bacaHariIniAkun, dengar, dengarHari, prioritas, resetDemo, type DataHariIni, type Paket, type StatusTugas, type Tugas } from "./data";
+import { ATURAN_XP, XP, aturStatus, aturStatusAkun, prioritas, resetDemo, type StatusTugas, type Tugas } from "./data";
+import { useDataHari } from "./pakaiData";
 // prototype modules, copied verbatim (mascot, folder tilt)
 import { buatMaskot, reaksiSemua } from "@/lib/prototype/shared/maskot.js";
 import { pasangCondong } from "@/lib/prototype/shared/gerak.js";
@@ -35,9 +34,7 @@ const tanggalPendek = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateS
 const hitungMundur = (n: number) => (n < 0 ? `telat ${-n} hari` : n === 0 ? "hari ini" : n === 1 ? "besok" : `${n} hari lagi`);
 const hrefTab = (id: string) => TAB.find((t) => t.id === id)?.href ?? "/hari-ini";
 
-type Muatan = { status: "memuat" } | { status: "galat" } | { status: "siap"; data: DataHariIni };
 
-type Sumber = "memeriksa" | "lokal" | "akun" | "terputus";
 
 /**
  * Port of the prototype's app/ui/hari-ini.js: same markup and classes. Signed in, Slots, tasks, XP and streak are the
@@ -46,10 +43,7 @@ type Sumber = "memeriksa" | "lokal" | "akun" | "terputus";
 export function HariIni() {
   const router = useRouter();
   const demo = useDemo();
-  const [muatan, setMuatan] = useState<Muatan>({ status: "memuat" });
-  const [akun, setAkun] = useState<{ batas?: number; nama?: string; paket?: Paket }>({});
-  const [sumber, setSumber] = useState<Sumber>("memeriksa");
-  const urutan = useRef(0);
+  const { muatan, sumber, akun, muat } = useDataHari();
   const [toast, setToast] = useState<string | null>(null);
   const [panel, setPanel] = useState(false);
   const [tema, setTema] = useState<Tema>("sistem");
@@ -57,48 +51,9 @@ export function HariIni() {
   const akar = useRef<HTMLDivElement>(null);
 
   const batas = akun.batas;
-  const paket = akun.paket;
-  const muat = useCallback(() => {
-    if (sumber === "memeriksa") return;
-    if (sumber === "terputus") return setMuatan({ status: "galat" });
-    if (sumber === "akun") {
-      const giliran = ++urutan.current;
-      void bacaHariIniAkun().then((data) => {
-        if (giliran === urutan.current) setMuatan(data ? { status: "siap", data } : { status: "galat" });
-      });
-      return;
-    }
-    try {
-      setMuatan({ status: "siap", data: bacaHariIni(batas, paket) });
-    } catch {
-      setMuatan({ status: "galat" });
-    }
-  }, [sumber, batas, paket]);
-
-  useEffect(() => {
-    muat();
-    const lepas = [dengar(muat), dengarHari(muat)];
-    return () => lepas.forEach((f) => f());
-  }, [muat]);
-
-  // Whose data this is comes from the server only. A failed call shows device data only when the stores hold device
-  // data; an account's copy on the device is never shown as the account's truth.
   useEffect(() => {
     const t = document.documentElement.dataset.theme;
     setTema(t === "dark" ? "gelap" : t === "light" ? "terang" : "sistem");
-    void bacaAkun().then((r) => {
-      if (!r.ok) return setSumber(lingkupKini() === "lokal" ? "lokal" : "terputus");
-      const { plan, slot_limits, user } = r.data;
-      const masuk = r.data.signed_in && !!user;
-      // device data is set aside before an account's data is shown, and brought back after signing out
-      if (pakaiLingkup(masuk && user ? user.id : null) === "ganti") return window.location.reload();
-      setSumber(masuk ? "akun" : "lokal");
-      setAkun({
-        batas: plan.features.activeSlots?.limit ?? slot_limits[plan.plan === "pro" ? "pro" : "free"],
-        nama: user?.display_name?.trim().split(/\s+/)[0] || undefined,
-        paket: plan.plan === "pro" ? "pro" : "gratis",
-      });
-    });
   }, []);
 
   const siap = muatan.status === "siap";
