@@ -60,6 +60,17 @@ export function accountReader(client: SupabaseClient): CategoryReader {
     const { data, error } = await client.from("task_progress").select("competition_key,step_id,status,due_on,completed_on");
     return error ? null : (data as Row[]);
   })());
+  // The account's calendar day, from the same function Hari Ini uses (profiles.timezone, Asia/Jakarta when unset).
+  const loadToday = async (): Promise<string> => {
+    try {
+      const { data, error } = await client.rpc("progress_today");
+      const today = error ? "" : clean((data as Row | null)?.today, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(today)) return today;
+    } catch {
+      // fall through to the default zone
+    }
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  };
   const profile = async (columns: string) => {
     const { data, error } = await client.from("profiles").select(columns).maybeSingle();
     return error ? null : (data as Row | null);
@@ -118,7 +129,7 @@ export function accountReader(client: SupabaseClient): CategoryReader {
       if (!all.length) return [];
       if (category === "tugas") {
         // Upcoming steps first (nearest date), then overdue ones (most recent), then undated ones.
-        const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+        const today = await loadToday();
         const rank = (due: string) => (!due ? 2 : due >= today ? 0 : 1);
         const open = all
           .filter((s) => s.task?.status !== "done")
