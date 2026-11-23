@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { hitungXP } from "@/lib/prototype/shared/logic/xp.js";
+import { aktivitasHarian, hitungXP } from "@/lib/prototype/shared/logic/xp.js";
 
 // Task status per account (migration 0006). XP, level and streak are derived here from task_progress rows only:
 // progress fields a client put into a roadmap document are dropped on write and replaced on read.
@@ -53,8 +53,9 @@ export type Summary = {
   xp: number; level: number; xpLevel: number; keLevelBerikut: number; streak: number; selesai: number; tepat: number; tuntas: number;
   pencapaian: { id: string; nama: string; syarat: string; dapat: boolean }[];
 };
-/** XP, level and streak with the rules of shared/logic/xp.js. A finished step is judged against the due date it had when it was finished. */
-export function summarize(competitions: { competition_key: string; roadmap: Roadmap }[], tasks: TaskRow[], today: string): Summary {
+type Rows = { competition_key: string; roadmap: Roadmap }[];
+/** Every roadmap's steps with the account's completion state: the one input of XP, streak and the activity calendar. */
+function finished(competitions: Rows, tasks: TaskRow[]): Record<string, { langkah: Step[] }> {
   const peta: Record<string, { langkah: Step[] }> = {};
   for (const c of competitions) {
     const list = steps(c.roadmap);
@@ -68,7 +69,17 @@ export function summarize(competitions: { competition_key: string; roadmap: Road
       }),
     };
   }
-  return hitungXP(peta, today) as Summary;
+  return peta;
+}
+
+/** XP, level and streak with the rules of shared/logic/xp.js. A finished step is judged against the due date it had when it was finished. */
+export function summarize(competitions: Rows, tasks: TaskRow[], today: string): Summary {
+  return hitungXP(finished(competitions, tasks), today) as Summary;
+}
+
+/** Steps finished per account day (YYYY-MM-DD), from the same rows the streak is counted from. */
+export function activity(competitions: Rows, tasks: TaskRow[]): Record<string, number> {
+  return aktivitasHarian(finished(competitions, tasks)) as Record<string, number>;
 }
 
 export async function readProgress(client: SupabaseClient) {

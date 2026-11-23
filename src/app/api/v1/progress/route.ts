@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { accountSession, accountUnavailable, needsSignIn, privateHeaders } from "@/lib/account/http";
 import { currentPlan } from "@/lib/account/plan";
-import { readProgress, summarize, withProgress } from "@/lib/account/progress";
+import { activity, readProgress, summarize, withProgress } from "@/lib/account/progress";
 
 export const dynamic = "force-dynamic";
 
-/** What Hari Ini shows for an account: its competitions with a roadmap, each step's status, and XP/level/streak (FR-PRG-03). */
+/** What Hari Ini and Progres show for an account: its competitions with a roadmap, each step's status, XP/level/streak and finished steps per day (FR-PRG-03). */
 export async function GET() {
   const session = await accountSession();
   if (session.state === "unavailable") return accountUnavailable();
@@ -27,5 +27,6 @@ export async function GET() {
     slot_limit: limit,
     competitions: competitions.map((row) => ({ ...row, roadmap: withProgress(row.competition_key, row.roadmap, progress.tasks) })),
     summary: summarize(competitions, progress.tasks, progress.today),
+    activity: activity(competitions, progress.tasks),
   }, { headers: privateHeaders });
 }

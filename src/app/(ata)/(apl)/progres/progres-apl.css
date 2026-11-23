@@ -1,0 +1,5 @@
+/* The prototype shows Progres in an iframe (masuk.html?embed=1) whose toast sits above its own bottom bar. Here the
+   screen is a child of the shell, so the toast keeps the shell's position on every tab. No visual rule is new. */
+.app .toast { bottom: 96px; }
+.progres .xp-baris { margin-bottom: 0; }
+.cincin__isi h2 { font-size: 15px; line-height: 20px; }
