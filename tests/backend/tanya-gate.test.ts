@@ -184,6 +184,22 @@ describe("Tanya Ata on the guardian-consent gate (FR-AUTH-07, FR-AUTH-09; migrat
     expect(await keys(b)).toBe(0);
   });
 
+  it("still deletes the keys when the ending consent also supersedes an open birth date correction", async () => {
+    await minor(a, "verified");
+    await storeKey(a);
+    await server();
+    const made = await call("public.create_birth_date_correction($1, $2, $3, $4, $5, $6)", [a, born(19), "Bu Sari", sha("wali@contoh.id"), "w***@contoh.id", sha("koreksi-1")]);
+    expect(made).toHaveProperty("id");
+    await call("public.record_birth_date_correction_delivery($1, true, 'ref-2')", [made.id]);
+    expect(await call("public.withdraw_guardian_consent($1)", [sha("cabut-tok-" + a)])).toMatchObject({ status: "revoked" });
+    await superuser();
+    expect((await db.query("select status from public.birth_date_corrections where user_id = $1", [a])).rows).toEqual([{ status: "superseded" }]);
+    expect(await keys(a)).toBe(0);
+    // The superseded link can no longer make the account an adult, so the gate stays closed.
+    current.user = a;
+    expect(await gate()(a, "lomba")).toEqual(REQUIRED);
+  });
+
   it("leaves an adult's key alone when a former guardian withdraws the consent given while they were a minor", async () => {
     await minor(a, "verified");
     // The student has since turned 18 and connected a key as an adult.
