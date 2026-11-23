@@ -301,7 +301,9 @@ begin
   select birth_year into year from public.profiles where user_id = account_id;
   if year is null then return jsonb_build_object('age_known', false, 'required', false, 'status', 'age_unknown'); end if;
   if not public.is_minor(year) then return jsonb_build_object('age_known', true, 'required', false, 'status', 'not_required'); end if;
+  -- a request whose email never left is not shown as waiting: the account gets the form back to correct the address
   select * into c from public.guardian_consents where user_id = account_id and status <> 'superseded'
+    and not (status = 'pending' and delivery_status = 'failed')
     order by requested_at desc limit 1;
   if not found then return jsonb_build_object('age_known', true, 'required', true, 'status', 'none'); end if;
   return jsonb_build_object(
@@ -423,11 +425,12 @@ begin
     or p_revoke_token_hash is null or p_revoke_token_hash !~ '^[0-9a-f]{64}$' or p_revoke_token_hash = p_token_hash) then
     return jsonb_build_object('error', 'validation');
   end if;
+  -- profile first, then the consent: the same lock order as revoke_guardian_consent, so the two cannot deadlock
+  perform 1 from public.profiles where user_id = (select user_id from public.guardian_consents where token_hash = p_token_hash) for update;
   select * into c from public.guardian_consents where token_hash = p_token_hash and status = 'pending' for update;
   if not found or c.delivery_status <> 'sent' or c.token_expires_at <= now() then
     return jsonb_build_object('error', 'invalid_token');
   end if;
-  perform 1 from public.profiles where user_id = c.user_id for update;
 
   if p_approve then
     update public.guardian_consents set status = 'verified', verified_at = now(), verification_method = 'guardian_email_link',
@@ -437,7 +440,7 @@ begin
   end if;
   insert into public.audit_log (actor_type, action, target_type, target_id, meta)
     values ('system', case when p_approve then 'guardian_consent_verified' else 'guardian_consent_declined' end,
-      'guardian_consent', c.id, jsonb_build_object('user_id', c.user_id, 'version', c.version));
+      'guardian_consent', c.id, jsonb_build_object('version', c.version));
   return jsonb_build_object('status', case when p_approve then 'verified' else 'declined' end);
 end;
 $$;
@@ -458,7 +461,7 @@ begin
     where user_id = p_user_id and onboarding_done and public.is_minor(birth_year);
   insert into public.audit_log (actor_type, actor_id, action, target_type, target_id, meta)
     values (case when p_by = 'student' then 'user' else 'system' end, case when p_by = 'student' then p_user_id end,
-      'guardian_consent_revoked', 'guardian_consent', p_id, jsonb_build_object('user_id', p_user_id, 'by', p_by));
+      'guardian_consent_revoked', 'guardian_consent', p_id, jsonb_build_object('by', p_by));
 end;
 $$;
 revoke all on function public.end_guardian_consent(uuid, uuid, text) from public, anon, authenticated, service_role;
@@ -473,9 +476,10 @@ declare
   c public.guardian_consents;
 begin
   if p_revoke_token_hash is null then return jsonb_build_object('error', 'invalid_token'); end if;
+  perform 1 from public.profiles
+    where user_id = (select user_id from public.guardian_consents where revoke_token_hash = p_revoke_token_hash) for update;
   select * into c from public.guardian_consents where revoke_token_hash = p_revoke_token_hash and status = 'verified' for update;
   if not found then return jsonb_build_object('error', 'invalid_token'); end if;
-  perform 1 from public.profiles where user_id = c.user_id for update;
   perform public.end_guardian_consent(c.id, c.user_id, 'guardian');
   return jsonb_build_object('status', 'revoked');
 end;
@@ -505,3 +509,49 @@ end;
 $$;
 revoke all on function public.revoke_guardian_consent() from public, anon, authenticated, service_role;
 grant execute on function public.revoke_guardian_consent() to authenticated;
+
+-- Account export stays complete: same function as 0006 plus the guardian consent record, without hashes.
+create or replace function public.export_account_data()
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  account_id uuid := auth.uid();
+  at_time timestamptz;
+begin
+  if account_id is null or not public.account_session_active() then
+    raise insufficient_privilege using message = 'authentication required';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(account_id::text, 2));
+  at_time := clock_timestamp();
+  if (select count(*) from public.audit_log
+      where actor_id = account_id and action = 'account_export' and at > at_time - interval '1 hour') >= 3 then
+    return jsonb_build_object('error', 'rate_limited');
+  end if;
+  insert into public.audit_log (actor_id, action, target_type, at)
+    values (account_id, 'account_export', 'account', at_time);
+
+  return jsonb_build_object(
+    'exported_at', at_time,
+    'profile', (select to_jsonb(p) from public.profiles p where p.user_id = account_id),
+    'ai_permissions', (select to_jsonb(p) from public.ai_permissions p where p.user_id = account_id),
+    'consents', coalesce((select jsonb_agg(to_jsonb(c) - 'guardian_contact_hash' order by accepted_at)
+      from public.consents c where c.user_id = account_id), '[]'::jsonb),
+    'guardian_consents', coalesce((select jsonb_agg(
+        to_jsonb(g) - 'guardian_contact_hash' - 'token_hash' - 'revoke_token_hash' - 'delivery_ref' order by requested_at)
+      from public.guardian_consents g where g.user_id = account_id), '[]'::jsonb),
+    'entitlements', coalesce((select jsonb_agg(to_jsonb(e) - 'created_by' - 'reason' - 'source_ref' order by created_at)
+      from public.entitlements e where e.user_id = account_id), '[]'::jsonb),
+    'redemptions', coalesce((select jsonb_agg(to_jsonb(r) - 'code_id' order by created_at)
+      from public.redemptions r where r.user_id = account_id), '[]'::jsonb),
+    'user_competitions', coalesce((select jsonb_agg(to_jsonb(u) order by created_at)
+      from public.user_competitions u where u.user_id = account_id), '[]'::jsonb),
+    'task_progress', coalesce((select jsonb_agg(to_jsonb(t) order by created_at, competition_key, step_id)
+      from public.task_progress t where t.user_id = account_id), '[]'::jsonb)
+  );
+end;
+$$;
+revoke all on function public.export_account_data() from public, anon, authenticated, service_role;
+grant execute on function public.export_account_data() to authenticated;
