@@ -300,3 +300,18 @@ FR-PRG-01, FR-SLT-01. Satu aturan di `shared/logic/tenggat.js` dipakai Lomba, Sl
 ## Antrean Radar mengikuti hari akun (23 November 2026)
 
 FR-SCN-07, FR-PRG-01. Antrean Radar disusun dari hari yang sama dengan countdown: zona waktu akun saat masuk, tanggal perangkat saat belum masuk / DATA DEMO (S35). Disusun ulang saat zona akun diketahui dan saat hari berganti tanpa muat ulang. Tutup hari ini tetap di antrean; tenggat lewat keluar. Tertunda: tidak ada.
+
+## Fase B: Tanya Ata (irisan vertikal pertama)
+
+Selesai dengan uji (provider tiruan, tanpa panggilan ke provider AI sungguhan):
+- FR-CCH-01, FR-CCH-06, FR-CCH-07, FR-BYOK-03: `/ata` mengirim pertanyaan ke `/api/v1/tanya/chat`; jawaban mengalir (SSE) dari provider milik pengguna, dengan batas 12.000 karakter dan galat yang menyebut cara memperbaikinya.
+- FR-CCH-02: paket konteks hanya dari kategori yang lolos `canProcessAi`, dipotong sesuai anggaran token; tiap jawaban menampilkan sumber `[S1]…` dan kategori yang tidak dipakai beserta alasannya.
+- FR-CCH-04: aturan anti-mengarang di prompt dan peringatan bila jawaban aturan memuat angka tanpa data lomba.
+- FR-BYOK-01, 02, 04, 05, 08, 10: uji key sebelum disimpan, AES-256-GCM terikat sesi, URL kustom wajib https dan bukan alamat privat, daftar model, hapus key, 30 permintaan per menit.
+- Mode Tanpa Key: `/api/v1/tanya/prompt` menyusun prompt untuk disalin, tanpa memanggil AI.
+- Provider: OpenAI, Anthropic, Gemini, xAI, DeepSeek, OpenRouter, Groq, Mistral, dan endpoint kustom OpenAI-compatible lewat tiga format kawat.
+- Keputusan PO 23 November 2026: enkripsi amplop dengan AAD berisi versi key dan expiry, pembersihan key sungguhan (logout, sesi berakhir, kedaluwarsa), percakapan hanya di memori, pencabutan izin mengosongkan percakapan dan membatalkan jawaban yang berjalan, Uji Koneksi hanya lewat tombol (16 token, 5 kali per 10 menit), model non-chat ditolak. Ringkasan migrasi dan rollback: `docs/MIGRASI-0009.md`.
+- Gerbang izin: Tanya Ata memakai `canProcessAi` dari FR-AUTH-07 (persetujuan wali) sebagai satu-satunya gerbang; aturan usia sementara dihapus. PR ini bertumpuk di atas PR #26.
+
+Belum: Resep, Ingatan, riwayat percakapan tersimpan (FR-CCH-09), unggah berkas, pencarian web, embedding/rerank, uji terhadap provider sungguhan dan `ata-dev` (migrasi 0009 belum diterapkan di sana). Asumsi S42–S46.
+||||||| 0650e59

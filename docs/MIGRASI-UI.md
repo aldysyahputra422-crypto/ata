@@ -359,3 +359,12 @@ Berkas di `src/lib/prototype/` berikut tidak lagi sama dengan `ata-prototype` sa
 | `src/lib/prototype/lomba/ui/tersimpan.js` | "Kembalikan" pada lomba Dilewati yang tenggatnya sudah lewat tidak memindahkannya ke Radar (tetap di Dilewati, dengan toast), karena Radar akan mengeluarkannya lagi |
 | `src/lib/prototype/lomba/logic/manual.js` (tenggat lewat) | `buatLombaManual` menolak tanggal tenggat yang sudah lewat dengan pesan galat di kolom tanggal; prototipe menerimanya dan menaruhnya di Radar |
 | `src/lib/prototype/masuk/logic/progres.js` | `selisihHari` memakai `sisaHari` bersama (hasil sama) |
+
+## Tanya Ata (`/ata`), Fase B
+
+- Layar: `src/app/(ata)/(apl)/ata/` (`TanyaAta.tsx`, `api.ts`, `tanya-apl.css`). Markup dan kelas mengikuti `tanya/ui/chat.js` prototipe (`chat`, `ctxline`, `ctxdetail`, `msg`, `chips`, `ai-status`, `composer`, `ai-penyedia`, `promptbox`) dengan `tanya.css` apa adanya. Placeholder lama di `(fondasi)/(app)/ata` dihapus.
+- Yang dipindahkan: tab Chat saja. Resep, Langkah Resep, Ingatan, thread ganda, "Akhiri", "Tempel jawaban", dan jawaban contoh tidak dipindahkan.
+- Berbeda dari prototipe: baris konteks menampilkan izin data akun (bukan profil contoh); tiap jawaban punya rincian "Data akun yang dipakai"; sheet sambungan memuat daftar provider dan model dari server.
+- Uji: `tests/e2e/tanya.spec.ts` (390 px dan 1280 px, terang/gelap, axe, memuat/galat/kosong/belum masuk/berhasil, gerak dikurangi) dengan API tiruan.
+- `pnpm visual:parity` tidak dijalankan untuk layar ini.
+||||||| 0650e59

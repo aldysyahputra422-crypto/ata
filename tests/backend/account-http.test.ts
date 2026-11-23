@@ -114,6 +114,9 @@ describe("R0.1 HTTP contract", () => {
     auth.signOut.mockResolvedValue({ error: null });
     expect((await logout(request("POST", "/auth/logout"))).status).toBe(204);
     expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+    // FR-BYOK-02: the stored AI key is deleted before the session is revoked.
+    expect(rpc).toHaveBeenCalledWith("ai_credential_delete");
+    expect(rpc.mock.invocationCallOrder.at(-1)!).toBeLessThan(auth.signOut.mock.invocationCallOrder.at(-1)!);
     deleteUser.mockResolvedValue({ error: null });
     expect((await deleteAccount(request("DELETE", "/account?user_id=B", { confirm: "HAPUS" }))).status).toBe(204);
     expect(deleteUser).toHaveBeenCalledWith(user.id);

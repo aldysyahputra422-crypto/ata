@@ -8,6 +8,8 @@ export async function POST(request: Request) {
   if (session.state === "unavailable") return accountUnavailable();
   if (session.state === "signed_out") return needsSignIn();
 
+  // FR-BYOK-02: the stored AI key goes with the login session. Deleted here explicitly; the session row's cascade is the backstop.
+  await session.client.rpc("ai_credential_delete");
   const { error } = await session.client.auth.signOut({ scope: "local" });
   if (error) return accountUnavailable();
   await recordAuthEvent(session.user.id, "logout");

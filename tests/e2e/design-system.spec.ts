@@ -44,23 +44,3 @@ test.describe("styleguide", () => {
     expect(res?.status()).toBe(404);
   });
 });
-
-// Old foundation shell, still used by the tabs that have not migrated yet (Hari Ini, Lomba and Progres have their own specs).
-test.describe("app shell", () => {
-  test("tab bar on small screens, rail from 1024 px", async ({ page }, info) => {
-    await page.goto("/ata");
-    const tabbar = page.locator(".tabbar");
-    const rail = page.locator(".navrail");
-    if (info.project.name === "mobile") {
-      await expect(tabbar).toBeVisible();
-      await expect(rail).toBeHidden();
-      await expect(tabbar.getByRole("link", { name: "Tanya Ata" })).toHaveAttribute("aria-current", "page");
-      await tabbar.getByRole("link", { name: "Profil" }).click();
-      await expect(page).toHaveURL(/\/profil$/);
-    } else {
-      await expect(rail).toBeVisible();
-      await expect(tabbar).toBeHidden();
-      await expect(rail.getByRole("link", { name: "Tanya Ata", exact: true })).toHaveAttribute("aria-current", "page");
-    }
-  });
-});
