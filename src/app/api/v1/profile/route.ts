@@ -45,6 +45,12 @@ export async function PATCH(request: Request) {
     const message = data.error === "correction_limit"
       ? "Batas koreksi tanggal lahir sudah habis. Hubungi tim Ata untuk memperbaikinya."
       : "Koreksi ini mengubah statusmu menjadi dewasa, jadi perlu dikonfirmasi orang tua/wali lewat email.";
+    if (data.field === "timezone") {
+      return NextResponse.json(
+        { error: { code: data.error, message: "Zona waktu ini membuat usiamu terhitung 18 tahun lebih awal. Ganti zona waktu setelah ulang tahunmu.", field: "timezone" } },
+        { status: 409, headers: privateHeaders },
+      );
+    }
     return NextResponse.json(
       { error: { code: data.error, message, field: "birth_date" } },
       { status: 409, headers: privateHeaders },
