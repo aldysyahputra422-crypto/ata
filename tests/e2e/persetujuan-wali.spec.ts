@@ -165,6 +165,32 @@ test.describe("kenalan: an account under 18 needs its guardian", () => {
     await expect(page.locator("#jawab")).toHaveValue(LAHIR_DEWASA);
   });
 
+  test("a correction confirmed while the questions are still open goes back to them instead of finishing", async ({ page }) => {
+    const s = await akun(page, { hampir: true });
+    await page.goto("/kenalan");
+    await expect(page.getByRole("radio", { name: "5–7 jam" })).toBeVisible();
+    for (let n = 0; n < 4; n++) await page.locator("#kembali").click();
+    await expect(page.locator("#jawab")).toHaveValue(LAHIR_ANAK);
+    await page.locator("#jawab").fill(LAHIR_DEWASA);
+    await page.getByRole("button", { name: "Lanjut" }).click();
+    // the server refuses the date; the guardian step opens from the middle of the questions
+    await expect(page.getByRole("heading", { name: "Persetujuan orang tua/wali" })).toBeVisible();
+    s.dewasa = true; // the guardian confirmed the corrected date elsewhere
+    await page.getByLabel("Nama orang tua/wali").fill("Bu Sari");
+    await page.getByLabel("Email orang tua/wali").fill("sari@contoh.id");
+    await page.locator("#kirimWali").click();
+    // the open question comes back; nothing was finished on the student's behalf
+    await expect(page.getByRole("radio", { name: "5–7 jam" })).toBeVisible();
+    await expect(page.locator("#langkahWali")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /Selesai, Raka/ })).toHaveCount(0);
+    expect(s.kirim.filter((k) => k.url === "complete")).toEqual([]);
+    await page.getByRole("radio", { name: "5–7 jam" }).click();
+    await page.getByRole("button", { name: "Selesai" }).click();
+    await expect(page.getByRole("heading", { name: /Selesai, Raka/ })).toBeVisible();
+    expect(s.kirim.filter((k) => k.url === "complete")).toHaveLength(1);
+    expect(s.kirim.filter((k) => k.url === "profile" && (k.body as { birth_date?: string }).birth_date === LAHIR_ANAK)).toEqual([]);
+  });
+
   test("says so when no email channel is wired, and offers no way around it", async ({ page }) => {
     const s = await akun(page, { hampir: true, kirimEmail: false });
     await page.goto("/kenalan");
