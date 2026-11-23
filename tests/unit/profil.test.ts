@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dariProfil, jamKeOpsi, keIsian, periksa, periksaIsian, selisih, ubahLangkah } from "@/app/(ata)/_layar/profil";
+import { dariProfil, jamKeOpsi, langkahAwal, keIsian, periksa, periksaIsian, selisih, ubahLangkah } from "@/app/(ata)/_layar/profil";
 import { tahunLahirMaks, type Profil } from "@/app/(ata)/_layar/akun";
 import { permissionInput, profileInput, publicPermissions, publicProfile } from "@/lib/account/profile";
 import { LANGKAH } from "@/lib/prototype/masuk/data/onboarding.js";
@@ -40,6 +40,19 @@ describe("onboarding steps", () => {
     expect(ubahLangkah("sekolah", { ...d, sekolah: "  " })).toEqual({ institution: null });
     expect(jamKeOpsi(null)).toBe("");
     expect(jamKeOpsi(20)).toBe("Lebih dari 10 jam");
+  });
+  it("keeps exact saved hours when the range is left unchanged", () => {
+    const d = dariProfil({ ...profil, weekly_hours: 20 });
+    expect(ubahLangkah("jam", d, 20)).toEqual({ weekly_hours: 20 });
+    expect(ubahLangkah("jam", { ...d, jam: "5–7 jam" }, 20)).toEqual({ weekly_hours: 6 });
+    expect(ubahLangkah("jam", { ...d, jam: "" }, 20)).toEqual({ weekly_hours: null });
+  });
+  it("resumes at the first missing required answer, then the first empty optional step", () => {
+    const d = dariProfil(profil);
+    expect(langkahAwal({ ...d, jenjang: "" })).toBe(1);
+    expect(langkahAwal(d)).toBe(3); // school is empty
+    expect(langkahAwal({ ...d, sekolah: "SMAN 3" })).toBe(5); // interests answered, targets empty
+    expect(langkahAwal({ ...d, sekolah: "SMAN 3", target: ["Juara"] })).toBe(6);
   });
   it("validates required steps; the birth year follows the server range", () => {
     const d = dariProfil(profil);

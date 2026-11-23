@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Ikon } from "../../_layar/Ikon";
 import { bacaAkun, bacaProfil, selesaikanOnboarding, simpanProfil, TAHUN_LAHIR_MIN, tahunLahirMaks } from "../../_layar/akun";
-import { dariProfil, periksa, SEMUA, ubahLangkah, type Jawaban } from "../../_layar/profil";
+import { dariProfil, langkahAwal, periksa, SEMUA, ubahLangkah, type Jawaban } from "../../_layar/profil";
 import { MINAT, TARGET } from "@/lib/prototype/masuk/data/onboarding.js";
 import { kenalPersen, MINAT_MAKS } from "@/lib/prototype/masuk/logic/onboarding.js";
 
@@ -25,6 +25,7 @@ export function Kenalan() {
   // a second tap while a save is in flight must not send a second request
   const kunci = useRef(false);
   const judul = useRef<HTMLHeadingElement>(null);
+  const jamTersimpan = useRef<number | null>(null);
 
   const muat = useCallback(async () => {
     setMuatan({ status: "memuat" });
@@ -37,9 +38,8 @@ export function Kenalan() {
     const awal = dariProfil(p);
     setD(awal);
     setSelesai(p.onboarding_done);
-    // resume at the first required answer that is still missing
-    const kosong = SEMUA.findIndex((l) => l.wajib && periksa(l, awal));
-    setI(kosong < 0 ? 0 : kosong);
+    jamTersimpan.current = p.weekly_hours;
+    setI(p.onboarding_done ? 0 : langkahAwal(awal));
     setMuatan({ status: "siap" });
   }, []);
   useEffect(() => { void muat(); }, [muat]);
@@ -116,7 +116,8 @@ export function Kenalan() {
     kunci.current = true;
     setSibuk(true);
     setGalat(null);
-    const simpan = lewati ? null : await simpanProfil(ubahLangkah(l.kunci, d));
+    const simpan = lewati ? null : await simpanProfil(ubahLangkah(l.kunci, d, jamTersimpan.current));
+    if (simpan?.ok) jamTersimpan.current = simpan.data.profile.weekly_hours;
     const tutup = simpan && !simpan.ok ? simpan : akhir ? await selesaikanOnboarding() : null;
     kunci.current = false;
     setSibuk(false);

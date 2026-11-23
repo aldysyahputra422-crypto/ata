@@ -18,8 +18,16 @@ export const dariProfil = (p: Profil): Jawaban => ({
   minat: p.interests, target: p.targets, jam: jamKeOpsi(p.weekly_hours),
 });
 
-/** The one profile field a step saves. */
-export function ubahLangkah(kunci: string, d: Jawaban): UbahProfil {
+/** Where onboarding resumes: the first required answer still missing, else the first optional step left empty. */
+export function langkahAwal(d: Jawaban): number {
+  const wajib = SEMUA.findIndex((l) => l.wajib && periksa(l, d));
+  if (wajib >= 0) return wajib;
+  const kosong = SEMUA.findIndex((l) => !l.wajib && [d[l.kunci as keyof Jawaban]].flat().join("") === "");
+  return kosong < 0 ? SEMUA.length - 1 : kosong;
+}
+
+/** The one profile field a step saves. `jamTersimpan` keeps exact saved hours when their range is left as it was. */
+export function ubahLangkah(kunci: string, d: Jawaban, jamTersimpan: number | null = null): UbahProfil {
   switch (kunci) {
     case "nama": return { display_name: d.nama.trim() };
     case "jenjang": return { jenjang: d.jenjang };
@@ -27,7 +35,9 @@ export function ubahLangkah(kunci: string, d: Jawaban): UbahProfil {
     case "sekolah": return { institution: d.sekolah.trim() || null };
     case "minat": return { interests: d.minat };
     case "target": return { targets: d.target };
-    default: return { weekly_hours: JAM.includes(d.jam) ? JAM_ANGKA[JAM.indexOf(d.jam)] : null };
+    default:
+      if (d.jam && jamKeOpsi(jamTersimpan) === d.jam) return { weekly_hours: jamTersimpan };
+      return { weekly_hours: JAM.includes(d.jam) ? JAM_ANGKA[JAM.indexOf(d.jam)] : null };
   }
 }
 
