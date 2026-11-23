@@ -4,7 +4,7 @@ import { isIP } from "node:net";
 // FR-BYOK-04: a custom base URL must be https and must not point at a private, loopback or link-local address.
 
 export type Resolve = (host: string) => Promise<string[]>;
-const systemResolve: Resolve = async (host) => (await lookup(host, { all: true, verbatim: true })).map((a) => a.address);
+export const systemResolve: Resolve = async (host) => (await lookup(host, { all: true, verbatim: true })).map((a) => a.address);
 
 function v4Blocked(ip: string): boolean {
   const [a, b] = ip.split(".").map(Number);

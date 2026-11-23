@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { accountError } from "@/lib/account/http";
 import { AI_ERROR_TEXT, AiError, createAdapter, findProvider, mapError, type Credential, type ProviderAdapter, type ProviderEntry } from "@/lib/tanya/providers";
+import { pinnedHttp } from "@/lib/tanya/pinned-http";
 import { checkBaseUrl } from "@/lib/tanya/ssrf";
 
 const apiKey = z.string().min(8).max(400).regex(/^[\x21-\x7e]+$/);
@@ -31,7 +32,7 @@ export async function resolveTarget(input: { provider_id: string; base_url?: str
   }
   const checked = await checkBaseUrl(input.base_url ?? "");
   if (!checked.ok) return { error: accountError(400, "blocked_url", URL_TEXT[checked.reason]) };
-  return { provider, baseUrl: checked.url, storedUrl: checked.url, adapter: createAdapter(provider) };
+  return { provider, baseUrl: checked.url, storedUrl: checked.url, adapter: createAdapter(provider, pinnedHttp()) };
 }
 
 export function providerFailure(error: unknown) {

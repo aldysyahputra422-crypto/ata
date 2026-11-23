@@ -1,3 +1,4 @@
+import { createServer, type AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AI_CATEGORIES, type AiCategory } from "@/lib/account/profile";
 import { accountReader, retrieveContext, type CategoryReader } from "@/lib/tanya/context";
@@ -7,6 +8,7 @@ import { classify } from "@/lib/tanya/intent";
 import { execute, handoffPrompt, prepare, provenance, provenanceRecord, type TanyaEvent } from "@/lib/tanya/orchestrator";
 import { buildIR, compile, qualityGate, trimHistory } from "@/lib/tanya/prompt";
 import { AiError, createAdapter, findProvider, PROVIDERS, wireFormat, type Credential, type Http } from "@/lib/tanya/providers";
+import { BlockedAddressError, guardedLookup, pinnedHttp } from "@/lib/tanya/pinned-http";
 import { addressBlocked, checkBaseUrl } from "@/lib/tanya/ssrf";
 import { validateOutput } from "@/lib/tanya/validate";
 
@@ -160,6 +162,39 @@ describe("permission-aware context retrieval", () => {
     expect(rest.sources[0].label).toBe("Slot: Slot Baru");
     expect(rest.sources.find((s) => s.category === "tugas")?.text.split("\n")[0]).toContain("Minggu ini");
     vi.useRealTimers();
+  });
+});
+
+describe("pinned transport for custom base URLs (FR-BYOK-04)", () => {
+  const lookupOnce = (resolve: (host: string) => Promise<string[]>, all: boolean) =>
+    new Promise<{ error: unknown; address: unknown }>((done) =>
+      guardedLookup(resolve)("ai.example", { all }, (error, address) => done({ error, address })));
+
+  it("hands the socket only public addresses and refuses an answer that contains a private one", async () => {
+    expect(await lookupOnce(async () => ["93.184.216.34"], false)).toEqual({ error: null, address: "93.184.216.34" });
+    expect(await lookupOnce(async () => ["93.184.216.34"], true)).toEqual({ error: null, address: [{ address: "93.184.216.34", family: 4 }] });
+    for (const answer of [["10.0.0.1"], ["93.184.216.34", "127.0.0.1"], ["::1"], ["169.254.169.254"], []]) {
+      expect((await lookupOnce(async () => answer, true)).error, answer.join()).toBeInstanceOf(BlockedAddressError);
+    }
+  });
+
+  it("DNS rebinding: public at check time, loopback at connect time, and nothing connects", async () => {
+    let connections = 0;
+    const server = createServer(() => { connections += 1; });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    const port = (server.address() as AddressInfo).port;
+    let calls = 0;
+    const rebinding = async () => (++calls === 1 ? ["93.184.216.34"] : ["127.0.0.1"]);
+    const base = `https://rebind.example:${port}/v1`;
+    expect(await checkBaseUrl(base, rebinding)).toEqual({ ok: true, url: base });
+
+    await expect(pinnedHttp(rebinding)(`${base}/models`, { method: "GET" })).rejects.toBeInstanceOf(BlockedAddressError);
+    const adapter = createAdapter(findProvider("custom")!, pinnedHttp(rebinding));
+    await expect(adapter.listModels({ providerId: "custom", apiKey: "sk-uji", baseUrl: base, model: "m" })).rejects.toMatchObject({ code: "network" });
+    await expect(pinnedHttp(rebinding)(`https://127.0.0.1:${port}/v1/models`, { method: "GET" })).rejects.toBeInstanceOf(BlockedAddressError);
+    expect(calls).toBe(3);
+    expect(connections).toBe(0);
+    await new Promise((done) => server.close(done));
   });
 });
 

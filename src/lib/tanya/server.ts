@@ -8,6 +8,7 @@ import { cookieName, open, validSalt, type Sealed } from "./credentials";
 import { defaultGate, type CanProcessAi, type GateDecision } from "./gate";
 import { HISTORY_CHARS, QUESTION_LIMIT } from "./prompt";
 import { createAdapter, findProvider, type Credential, type ProviderAdapter } from "./providers";
+import { pinnedHttp } from "./pinned-http";
 import { checkBaseUrl } from "./ssrf";
 
 // Server wiring for the Tanya Ata routes.
@@ -99,7 +100,9 @@ export async function loadCredential(client: SupabaseClient, request: Request): 
     if (!checked?.ok) return { state: "blocked_url" };
     baseUrl = checked.url;
   }
-  return { state: "ready", adapter: createAdapter(provider), credential: { providerId: provider.id, apiKey, baseUrl, model: row.model } };
+  // A custom host is connected to through the pinned transport, so the checked address is the one used.
+  const adapter = provider.baseURL === null ? createAdapter(provider, pinnedHttp()) : createAdapter(provider);
+  return { state: "ready", adapter, credential: { providerId: provider.id, apiKey, baseUrl, model: row.model } };
 }
 
 /** FR-BYOK-10. Returns a 429 response when the account is over 30 requests this minute. */

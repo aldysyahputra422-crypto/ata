@@ -9,6 +9,8 @@ vi.mock("server-only", () => ({}));
 const { auth, rpc, from, lookup } = vi.hoisted(() => ({ auth: { getUser: vi.fn() }, rpc: vi.fn(), from: vi.fn(), lookup: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth, rpc, from }) }));
 vi.mock("node:dns/promises", () => ({ lookup }));
+// The pinned transport opens real sockets; its own behaviour is covered in tanya-lib.test.ts.
+vi.mock("@/lib/tanya/pinned-http", () => ({ pinnedHttp: () => (input: string, init: RequestInit) => fetch(input, init) }));
 
 const origin = "https://ata.example";
 const KEY = "sk-user-SECRET-abcd1234";
