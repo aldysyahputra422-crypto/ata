@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Ikon } from "../../_layar/Ikon";
-import { bacaAkun, bacaProfil, selesaikanOnboarding, simpanProfil, TAHUN_LAHIR_MIN, tahunLahirMaks } from "../../_layar/akun";
+import { PersetujuanWali } from "../../_layar/PersetujuanWali";
+import { bacaAkun, bacaPersetujuan, bacaProfil, selesaikanOnboarding, simpanProfil, TANGGAL_LAHIR_MIN, tanggalLahirMaks, type Persetujuan } from "../../_layar/akun";
 import { dariProfil, langkahAwal, periksa, SEMUA, ubahLangkah, type Jawaban } from "../../_layar/profil";
 import { MINAT, TARGET } from "@/lib/prototype/masuk/data/onboarding.js";
 import { kenalPersen, MINAT_MAKS } from "@/lib/prototype/masuk/logic/onboarding.js";
@@ -20,6 +21,8 @@ export function Kenalan() {
   const [d, setD] = useState<Jawaban>({ nama: "", jenjang: "", tahunLahir: "", sekolah: "", minat: [], target: [], jam: "" });
   const [i, setI] = useState(0);
   const [selesai, setSelesai] = useState(false);
+  // FR-AUTH-07: set while an account under 18 waits for its guardian; the server decides, this only shows it
+  const [wali, setWali] = useState<Persetujuan | null>(null);
   const [galat, setGalat] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
   // a second tap while a save is in flight must not send a second request
@@ -40,6 +43,10 @@ export function Kenalan() {
     setSelesai(p.onboarding_done);
     jamTersimpan.current = p.weekly_hours;
     setI(p.onboarding_done ? 0 : langkahAwal(awal));
+    // a request already sent (or answered) brings the student straight back to the consent step
+    const persetujuan = p.onboarding_done ? null : await bacaPersetujuan();
+    const c = persetujuan?.ok ? persetujuan.data.consent : null;
+    setWali(c?.required && c.status !== "none" && c.status !== "verified" ? c : null);
     setMuatan({ status: "siap" });
   }, []);
   useEffect(() => { void muat(); }, [muat]);
@@ -99,6 +106,46 @@ export function Kenalan() {
     );
   }
 
+  const bukaWali = async (): Promise<string | null> => {
+    const r = await bacaPersetujuan();
+    if (!r.ok) return r.status === 401 ? (setMuatan({ status: "keluar" }), null) : r.pesan;
+    setWali(r.data.consent);
+    requestAnimationFrame(() => judul.current?.focus());
+    return null;
+  };
+
+  if (wali) {
+    const tutup = async () => {
+      if (kunci.current) return;
+      kunci.current = true;
+      setSibuk(true);
+      setGalat(null);
+      const r = await selesaikanOnboarding();
+      kunci.current = false;
+      setSibuk(false);
+      if (!r.ok) return r.status === 403 ? void (await bukaWali()) : setGalat(r.pesan);
+      setWali(null);
+      setSelesai(true);
+      requestAnimationFrame(() => judul.current?.focus());
+    };
+    return (
+      <div className="onboard" id="langkahWali">
+        <div className="onboard__atas">
+          <span className="eyebrow">Langkah terakhir</span>
+          <span className="pill">Ata kenal kamu {kenalPersen(d)}%</span>
+        </div>
+        <h1 ref={judul} tabIndex={-1}>Persetujuan orang tua/wali</h1>
+        <p className="lede">Kamu belum 18 tahun, jadi Ata perlu persetujuan orang tua atau walimu sebelum kamu lanjut dan sebelum fitur AI boleh memakai datamu.</p>
+        <PersetujuanWali p={wali} onUbah={async () => { await bukaWali(); }} onKeluar={() => setMuatan({ status: "keluar" })} />
+        <span className="galat" role="alert" hidden={!galat}>{galat}</span>
+        <div className="btn-row">
+          <button type="button" className="btn btn--ghost" id="ubahJawaban" disabled={sibuk} onClick={() => { setWali(null); langkahKe(0); }}>Ubah jawaban</button>
+          {wali.status === "verified" ? <button type="button" className="btn btn--primary" id="lanjut" disabled={sibuk} onClick={() => void tutup()}>{sibuk ? "Menyimpan…" : "Selesai"}</button> : null}
+        </div>
+      </div>
+    );
+  }
+
   const total = SEMUA.length;
   const l = SEMUA[i];
   const akhir = i === total - 1;
@@ -119,8 +166,13 @@ export function Kenalan() {
     const simpan = lewati ? null : await simpanProfil(ubahLangkah(l.kunci, d, jamTersimpan.current));
     if (simpan?.ok) jamTersimpan.current = simpan.data.profile.weekly_hours;
     const tutup = simpan && !simpan.ok ? simpan : akhir ? await selesaikanOnboarding() : null;
+    // 403: the server wants verified guardian consent first (FR-AUTH-07). A birth date correction towards
+    // adult is refused too: it is asked for in the guardian step, where the guardian confirms it by email.
+    const keWali = tutup && !tutup.ok && (tutup.status === 403 || tutup.kode === "guardian_verification_required");
+    const pesanWali = keWali ? await bukaWali() : undefined;
     kunci.current = false;
     setSibuk(false);
+    if (pesanWali !== undefined) return pesanWali ? setGalat(pesanWali) : undefined;
     if (tutup && !tutup.ok) return setGalat(tutup.pesan);
     if (akhir) {
       setSelesai(true);
@@ -160,13 +212,13 @@ export function Kenalan() {
               className="input"
               id="jawab"
               key={l.id}
-              {...(l.jenis === "tahun" ? { type: "number", inputMode: "numeric", min: TAHUN_LAHIR_MIN, max: tahunLahirMaks() } : { maxLength: l.kunci === "nama" ? 30 : 120 })}
-              autoComplete={l.kunci === "nama" ? "nickname" : l.kunci === "sekolah" ? "organization" : "off"}
+              {...(l.jenis === "tahun" ? { type: "date", min: TANGGAL_LAHIR_MIN, max: tanggalLahirMaks() } : { maxLength: l.kunci === "nama" ? 30 : 120 })}
+              autoComplete={l.kunci === "nama" ? "nickname" : l.kunci === "sekolah" ? "organization" : l.jenis === "tahun" ? "bday" : "off"}
               value={String(nilai ?? "")}
               placeholder={l.contoh ?? ""}
               aria-describedby="galatLangkah"
               aria-invalid={galat ? true : undefined}
-              onChange={(e) => setD({ ...d, [l.kunci]: l.jenis === "tahun" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value })}
+              onChange={(e) => setD({ ...d, [l.kunci]: e.target.value })}
               onKeyDown={(e) => { if (e.key === "Enter") void lanjut(false); }}
             />
           </>

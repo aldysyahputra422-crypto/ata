@@ -5,7 +5,7 @@ import { permissionInput, profileInput, publicPermissions, publicProfile } from 
 import { LANGKAH } from "@/lib/prototype/masuk/data/onboarding.js";
 
 const profil: Profil = {
-  display_name: "Raka", jenjang: "SMA/SMK", birth_year: 2009, institution: null, major: null, timezone: null,
+  display_name: "Raka", jenjang: "SMA/SMK", birth_date: "2009-04-17", birth_year: 2009, institution: null, major: null, timezone: null,
   interests: ["KTI"], targets: [], skills: ["Menulis"], goals_text: null, weekly_hours: 6, onboarding_done: true, updated_at: "2026-11-23T00:00:00Z",
 };
 const langkah = (kunci: string) => (LANGKAH as { kunci: string }[]).find((l) => l.kunci === kunci) as never;
@@ -15,7 +15,7 @@ describe("profile input (FR-AUTH-04)", () => {
     expect(profileInput.parse({ display_name: "  Raka ", interests: ["KTI"] })).toEqual({ display_name: "Raka", interests: ["KTI"] });
   });
   it.each([
-    {}, { display_name: "R" }, { jenjang: "S3" }, { birth_year: 1900 }, { birth_year: tahunLahirMaks() + 1 }, { weekly_hours: 81 },
+    {}, { display_name: "R" }, { jenjang: "S3" }, { birth_year: 2009 }, { birth_date: "1900-01-01" }, { birth_date: `${tahunLahirMaks() + 1}-01-01` }, { birth_date: "2009-02-30" }, { birth_date: "2009" }, { birth_date: null }, { weekly_hours: 81 },
     { interests: ["a", "b", "c", "d", "e", "f"] }, { onboarding_done: true }, { user_id: "x" }, { skills: [""] },
   ])("rejects %j", (value) => {
     expect(profileInput.safeParse(value).success).toBe(false);
@@ -35,7 +35,7 @@ describe("profile input (FR-AUTH-04)", () => {
 describe("onboarding steps", () => {
   it("maps answers to profile fields and back", () => {
     const d = dariProfil(profil);
-    expect(d).toMatchObject({ nama: "Raka", tahunLahir: 2009, jam: "5–7 jam" });
+    expect(d).toMatchObject({ nama: "Raka", tahunLahir: "2009-04-17", jam: "5–7 jam" });
     expect(ubahLangkah("jam", d)).toEqual({ weekly_hours: 6 });
     expect(ubahLangkah("sekolah", { ...d, sekolah: "  " })).toEqual({ institution: null });
     expect(jamKeOpsi(null)).toBe("");
@@ -54,12 +54,15 @@ describe("onboarding steps", () => {
     expect(langkahAwal({ ...d, sekolah: "SMAN 3" })).toBe(5); // interests answered, targets empty
     expect(langkahAwal({ ...d, sekolah: "SMAN 3", target: ["Juara"] })).toBe(6);
   });
-  it("validates required steps; the birth year follows the server range", () => {
+  it("validates required steps; the birth date is a full date in the server range", () => {
     const d = dariProfil(profil);
     expect(periksa(langkah("nama"), { ...d, nama: "R" })).toMatch(/minimal dua/);
-    expect(periksa(langkah("tahunLahir"), { ...d, tahunLahir: tahunLahirMaks() })).toBeNull();
-    expect(periksa(langkah("tahunLahir"), { ...d, tahunLahir: tahunLahirMaks() + 1 })).toMatch(/Tahun lahir/);
-    expect(periksa(langkah("tahunLahir"), { ...d, tahunLahir: "" })).toMatch(/Tahun lahir/);
+    expect(periksa(langkah("tahunLahir"), { ...d, tahunLahir: `${tahunLahirMaks()}-12-31` })).toBeNull();
+    expect(periksa(langkah("tahunLahir"), { ...d, tahunLahir: `${tahunLahirMaks() + 1}-01-01` })).toMatch(/tanggal lahir lengkap/);
+    expect(periksa(langkah("tahunLahir"), { ...d, tahunLahir: "2009-02-30" })).toMatch(/tanggal lahir lengkap/);
+    expect(periksa(langkah("tahunLahir"), { ...d, tahunLahir: "2009" })).toMatch(/tanggal lahir lengkap/);
+    expect(periksa(langkah("tahunLahir"), { ...d, tahunLahir: "" })).toMatch(/tanggal lahir lengkap/);
+    expect(ubahLangkah("tahunLahir", { ...d, tahunLahir: "2009-04-18" })).toEqual({ birth_date: "2009-04-18" });
   });
 });
 
@@ -75,7 +78,14 @@ describe("profile form", () => {
     const f = keIsian(profil);
     expect(periksaIsian(f)).toBeNull();
     expect(periksaIsian({ ...f, display_name: "" })?.bidang).toBe("display_name");
-    expect(periksaIsian({ ...f, birth_year: "1900" })?.bidang).toBe("birth_year");
+    expect(periksaIsian({ ...f, birth_date: "1900-01-01" })?.bidang).toBe("birth_date");
+    expect(periksaIsian({ ...f, birth_date: "" })?.bidang).toBe("birth_date");
+    // an account that only ever gave a year can save its other fields; a date it types is still checked
+    expect(periksaIsian({ ...f, birth_date: "" }, { birth_date: null } as never)).toBeNull();
+    expect(periksaIsian({ ...f, birth_date: "1900-01-01" }, { birth_date: null } as never)?.bidang).toBe("birth_date");
+    expect(selisih(profil, { ...f, birth_date: "2009-04-18" })).toEqual({ birth_date: "2009-04-18" });
+    // an account that only has a year sends nothing until the date is filled in
+    expect(selisih({ ...profil, birth_date: null }, keIsian({ ...profil, birth_date: null }))).toEqual({});
     expect(periksaIsian({ ...f, weekly_hours: "99" })?.bidang).toBe("weekly_hours");
   });
 });

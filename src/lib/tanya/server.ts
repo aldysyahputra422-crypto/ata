@@ -5,7 +5,8 @@ import { accountError } from "@/lib/account/http";
 import { AI_CATEGORIES, type AiCategory } from "@/lib/account/profile";
 import { accountReader } from "./context";
 import { cookieName, open, validSalt, type Sealed } from "./credentials";
-import { defaultGate, type CanProcessAi, type GateDecision } from "./gate";
+import { canProcessAi } from "@/lib/account/ai-gate";
+import type { CanProcessAi, GateDecision } from "./gate";
 import { HISTORY_CHARS, QUESTION_LIMIT } from "./prompt";
 import { chatCapable, createAdapter, findProvider, type Credential, type ProviderAdapter } from "./providers";
 import { pinnedHttp } from "./pinned-http";
@@ -14,11 +15,19 @@ import { checkBaseUrl } from "./ssrf";
 // Server wiring for the Tanya Ata routes.
 
 /**
- * The consent gate every route uses. To integrate the guardian-consent module, return its `canProcessAi`
- * here (same signature); nothing else in Tanya Ata changes.
+ * The consent gate every route uses, and the only place Tanya Ata is joined to it: `canProcessAi` (FR-AUTH-07).
+ * Each call asks the database again, so a permission or a guardian consent withdrawn a moment ago is seen.
+ * Fails closed: no session, or a gate that throws, means "do not process".
  */
 export function gateFor(client: SupabaseClient | null): CanProcessAi {
-  return defaultGate(client);
+  return async (userId, category) => {
+    if (!userId || !client) return { allowed: false, reason: "signed_out" };
+    try {
+      return await canProcessAi(userId, category);
+    } catch {
+      return { allowed: false };
+    }
+  };
 }
 export const readerFor = accountReader;
 

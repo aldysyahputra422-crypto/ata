@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AI_CATEGORIES, type AiCategory } from "@/lib/account/profile";
 import { accountReader, retrieveContext, type CategoryReader } from "@/lib/tanya/context";
 import { open, seal, newSalt, credentialsAvailable, expiryFrom } from "@/lib/tanya/credentials";
-import { defaultGate, mayBeMinor, type CanProcessAi, type GateReason } from "@/lib/tanya/gate";
+import type { CanProcessAi, GateReason } from "@/lib/tanya/gate";
 import { classify } from "@/lib/tanya/intent";
 import { execute, handoffPrompt, prepare, provenance, provenanceRecord, type TanyaEvent } from "@/lib/tanya/orchestrator";
 import { alternate, buildIR, compile, qualityGate, trimHistory } from "@/lib/tanya/prompt";
@@ -44,40 +44,6 @@ function fakeClient(tables: Record<string, unknown>, read: string[] = [], today?
     },
   } as never;
 }
-
-describe("consent gate contract (FR-AUTH-07, FR-AUTH-09)", () => {
-  const now = () => new Date("2026-11-23T00:00:00Z");
-  const gate = (birthYear: number | null, categories: Record<string, unknown>) =>
-    defaultGate(fakeClient({ profiles: { birth_year: birthYear }, ai_permissions: { categories } }), now);
-
-  it("returns signed_out without a user or a client", async () => {
-    expect(await defaultGate(null)(null, "profil")).toEqual({ allowed: false, reason: "signed_out" });
-    expect(await gate(1990, { profil: true })(null, "profil")).toEqual({ allowed: false, reason: "signed_out" });
-  });
-
-  it("returns guardian_consent_required for a minor or an unknown age, even with the category on", async () => {
-    for (const year of [2012, 2009, 2008, null]) {
-      expect(await gate(year, { profil: true })("u", "profil"), String(year)).toEqual({ allowed: false, reason: "guardian_consent_required" });
-    }
-    expect(mayBeMinor(2008, now())).toBe(true);
-    expect(mayBeMinor(2007, now())).toBe(false);
-    expect(mayBeMinor("2000", now())).toBe(true);
-  });
-
-  it("returns permission_off for an adult unless that exact category is true", async () => {
-    const adult = gate(2000, { profil: true, lomba: "true", tugas: 1 });
-    expect(await adult("u", "profil")).toEqual({ allowed: true });
-    for (const category of ["lomba", "tugas", "progres", "dokumen"] as AiCategory[]) {
-      expect(await adult("u", category)).toEqual({ allowed: false, reason: "permission_off" });
-    }
-    expect(await adult("u", "lain" as AiCategory)).toEqual({ allowed: false, reason: "permission_off" });
-  });
-
-  it("fails closed when the account cannot be read", async () => {
-    expect(await defaultGate(fakeClient({ profiles: { birth_year: 1990 } }))("u", "profil")).toEqual({ allowed: false, reason: "permission_off" });
-    expect(await defaultGate(fakeClient({ profiles: null, ai_permissions: null }))("u", "profil")).toEqual({ allowed: false, reason: "guardian_consent_required" });
-  });
-});
 
 describe("intent and task classification", () => {
   it("maps questions to an intent, a task and the data that would help", () => {

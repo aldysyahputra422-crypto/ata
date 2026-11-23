@@ -71,6 +71,9 @@ describe("0009 rollback (down SQL)", () => {
     await db.exec(down);
     expect(await objects()).toEqual(before);
     expect(await rowCounts(before.tables)).toEqual(kept);
+    // 0008 (guardian consent) sits under 0009 and is left whole: its tables and the AI gate still work.
+    expect(before.tables).toEqual(expect.arrayContaining(["guardian_consents", "birth_date_corrections"]));
+    expect((await db.query<{ r: unknown }>("select public.ai_processing_gate($1, 'lomba') as r", [user])).rows[0].r).toMatchObject({ allowed: false });
     expect((await db.query("select 1 from auth.users")).rows).toHaveLength(1);
 
     // Running it twice is harmless, and the migration can be applied again from a clean state.

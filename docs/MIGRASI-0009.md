@@ -1,6 +1,6 @@
 # Migrasi 0009 (Tanya Ata): ringkasan untuk tinjauan Product Owner
 
-Berkas: `supabase/migrations/0009_tanya_ata.sql`. Belum pernah dijalankan di proyek Supabase mana pun; hanya diuji di PGlite.
+Berkas: `supabase/migrations/0009_tanya_ata.sql`. Diterapkan setelah 0008 (persetujuan wali, PR #26); 0009 tidak mengubah objek 0008 dan rollback 0009 membiarkan 0008 utuh (diuji). Belum pernah dijalankan di proyek Supabase mana pun; hanya diuji di PGlite.
 
 ## Isi
 
@@ -16,7 +16,7 @@ Berkas: `supabase/migrations/0009_tanya_ata.sql`. Belum pernah dijalankan di pro
 
 ## Dampak pada data yang ada
 
-Tidak ada. Migrasi ini hanya menambah tiga tabel, sepuluh fungsi, dan satu policy. Tidak ada tabel, kolom, fungsi, policy, atau baris dari migrasi 0001–0007 yang diubah atau dihapus (dibuktikan uji: daftar objek sebelum dan sesudah dibandingkan). Fungsi `ai_credential_put/delete` menambah baris ke `audit_log` saat key disambung atau diputus (tanpa key maupun ciphertext).
+Tidak ada. Migrasi ini hanya menambah tiga tabel, sepuluh fungsi, dan satu policy. Tidak ada tabel, kolom, fungsi, policy, atau baris dari migrasi 0001–0008 yang diubah atau dihapus (dibuktikan uji: daftar objek sebelum dan sesudah dibandingkan). Fungsi `ai_credential_put/delete` menambah baris ke `audit_log` saat key disambung atau diputus (tanpa key maupun ciphertext).
 
 ## Rollback
 

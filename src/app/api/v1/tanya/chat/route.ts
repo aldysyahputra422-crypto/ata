@@ -81,12 +81,7 @@ export async function POST(request: Request) {
       try {
         send(meta);
         for await (const event of execute(prepared, loaded.adapter, loaded.credential, abort.signal)) {
-          if (revoked.length) {
-            settled = true;
-            send({ type: "error", code: "permission_revoked", message: REVOKED_MESSAGE, action: "none", partial: false, categories: revoked });
-            await finish("stopped", "permission_revoked");
-            break;
-          }
+          if (revoked.length) break;
           send(event);
           if (event.type === "done") {
             settled = true;
@@ -97,9 +92,20 @@ export async function POST(request: Request) {
           }
         }
       } catch {
-        // The client went away mid-stream; there is nobody left to tell.
+        // The provider call was aborted, or the client went away mid-stream.
       } finally {
         if (watch) clearInterval(watch);
+        // A revocation always ends the stream with permission_revoked, however the aborted provider call ended:
+        // with an event, with none, or by throwing.
+        if (!settled && revoked.length) {
+          settled = true;
+          try {
+            send({ type: "error", code: "permission_revoked", message: REVOKED_MESSAGE, action: "none", partial: false, categories: revoked });
+          } catch {
+            // the client is gone
+          }
+          await finish("stopped", "permission_revoked");
+        }
         if (!settled) await finish("stopped", "stopped");
         try {
           controller.close();
