@@ -19,7 +19,15 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 - Selesai: Radar, Tersimpan, Detail, Slot, Peta Jalan di `/lomba` (K-03, K-23, FR-RDM-03, FR-PRG-03); tabel `user_competitions` dengan RLS dan trigger batas Slot aktif; sinkron akun lokal-dulu.
 - Selesai: migrasi 0005 diterapkan di `ata-dev` dan diuji dengan sesi sungguhan (batas Gratis 1/Pro 3, RLS dua akun, turun paket, ekspor, dua permintaan Slot bersamaan). Halaman Paket menghitung Slot terpakai dari baris akun di server (`GET /api/v1/user-competitions`); belum masuk memakai data perangkat; gagal muat dinyatakan, bukan 0. Slot yang sama dikirim dua kali bersamaan tidak lagi ditolak 409.
 - Tertunda: pencarian lewat API key (hanya kata kunci siap pakai), paritas sudut bingkai sudah diperbaiki dari prototipe; gerbang akhir (paritas lima layar, e2e yang dilewati, lint, 0005 di Supabase lokal) ada di docs/gerbang-m1-lomba.md.
-- Tertunda: Tanya Ata, Progres, Profil (masih halaman fondasi lama).
+- Tertunda: Tanya Ata, Profil (masih halaman fondasi lama). Progres sudah dimigrasikan (lihat "M1 Layar Progres").
+
+## M1 Layar Progres (23 November 2026)
+
+- Selesai (FR-PRG-01, FR-PRG-03, FR-PRG-05): layar `/progres` di shell `(ata)/(apl)`, port dari `masuk/ui/progres.js`. Saat masuk, cincin per Slot, daftar tugas, XP, level, streak, pencapaian, dan heatmap 12 minggu berasal dari `GET /api/v1/progress`; centang tugas disimpan lewat `PUT /api/v1/tasks/{lomba}/{langkah}`. Tidak ada angka yang dihitung ulang di klien dan tidak ada data akun yang dibaca dari localStorage.
+- Perubahan API (aditif): `GET /api/v1/progress` kini memuat `activity` (jumlah langkah selesai per tanggal, dari `task_progress.completed_on`). Tanpa migrasi.
+- Belum masuk: data perangkat, berlabel DATA DEMO bila masih contoh, dengan keterangan bahwa itu bukan data akun.
+- Keadaan: memuat, kosong (tanpa Slot/tugas/aktivitas), galat dengan "Coba lagi", sukses (toast XP). Klik ganda pada satu tugas hanya mengirim satu permintaan; jawaban lama yang terlambat dibuang.
+- Tertunda: timer fokus (FR-PRG-04), check-in mingguan (FR-PRG-06), kesiapan submit (FR-PRG-07), tandai sudah submit (FR-PRG-09) belum punya penyimpanan server; kartunya bertanda "Belum tersedia" tanpa angka, untuk akun maupun perangkat. Kartu "Data progres" (ekspor/hapus) prototipe belum dipindahkan. Linimasa per fase (FR-PRG-02) masih berupa daftar tugas dengan penanda telat. Libur streak (FR-PRG-08) dan mode offline (FR-PRG-10) belum.
 
 ## M1 Progres per akun (23 November 2026)
 
@@ -28,7 +36,7 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 - Selesai: data perangkat/demo dan data akun dipisah (`ata-lingkup`). Data perangkat disisihkan saat masuk dan dikembalikan saat keluar; tidak ada lagi unggah otomatis data perangkat ke akun.
 - Diuji: PGlite (RLS, idempotensi, pembatalan, zona waktu, ekspor, cascade), stack Supabase lokal lewat HTTP dengan dua akun (`scripts/test-account-local.mjs`: 6 dan 8 permintaan bersamaan, isolasi, zona waktu), e2e Hari Ini dan Lomba.
 - Selesai: migrasi 0006 diterapkan di `ata-dev` pada 23 November 2026 setelah backup terenkripsi; produksi tidak disentuh. Aturan XP, pembatalan, zona waktu, Slot yang dilepas, dan data perangkat diputuskan PO (S24–S28). Tanggal di kepala Hari Ini mengikuti zona waktu akun saat masuk.
-- Tertunda: riwayat peristiwa tak-terubah (`activity_events` di blueprint) belum dibuat; `task_progress` hanya menyimpan status efektif terakhir. Layar Progres dan Profil belum membaca akun. Pengaturan zona waktu belum punya UI.
+- Tertunda: riwayat peristiwa tak-terubah (`activity_events` di blueprint) belum dibuat; `task_progress` hanya menyimpan status efektif terakhir. Layar Profil belum membaca akun. Pengaturan zona waktu belum punya UI.
 
 ## M1 Hari Ini (22 November 2026)
 

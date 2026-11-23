@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-import { stripProgress, summarize, withProgress, type TaskRow } from "@/lib/account/progress";
+import { activity, stripProgress, summarize, withProgress, type TaskRow } from "@/lib/account/progress";
 
 const plan = { disetujui: true, langkah: [{ id: "s1", nama: "A", tanggal: "2026-11-20" }, { id: "s2", nama: "B", tanggal: "2026-11-25" }] };
 const task = (step_id: string, status: TaskRow["status"], completed_on: string | null = null, due_on: string | null = null): TaskRow =>
@@ -44,5 +44,14 @@ describe("account progress (FR-PRG-03)", () => {
     expect(xp(days, "2026-11-24").streak).toBe(2);
     expect(xp(days, "2026-11-25").streak).toBe(0);
     expect(xp([task("s1", "done", "2026-11-21"), task("s2", "done", "2026-11-23")], "2026-11-23").streak).toBe(1);
+  });
+
+  it("activity counts finished steps per completion day, from the same rows as the streak", () => {
+    const rows = [{ competition_key: "lomba-a", roadmap: plan }];
+    const tasks = [task("s1", "done", "2026-11-22"), task("s2", "done", "2026-11-22"), task("s3", "doing")];
+    expect(activity(rows, tasks)).toEqual({ "2026-11-22": 2 });
+    expect(activity(rows, [])).toEqual({});
+    // rows of a competition without a roadmap, or of another account's key, add nothing
+    expect(activity(rows, [{ ...task("s1", "done", "2026-11-22"), competition_key: "lomba-lain" }])).toEqual({});
   });
 });
