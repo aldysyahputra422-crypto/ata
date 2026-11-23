@@ -61,6 +61,26 @@ export interface ProviderAdapter {
 export type Http = (input: string, init: RequestInit) => Promise<Response>;
 export const PROVIDER_TIMEOUT_MS = 60_000; // FR-BYOK-04
 const MODEL_LIST_LIMIT = 200;
+const MODEL_LIST_BYTES = 2_000_000;
+
+/** Reads a response body as text, giving up once it is larger than any honest provider would send. */
+async function readCapped(response: Response, limit: number): Promise<string> {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return text + decoder.decode();
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel().catch(() => {});
+      throw new AiError("bad_response");
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+}
 
 function statusError(response: Response): AiError {
   const status = response.status;
@@ -259,7 +279,7 @@ export function createAdapter(provider: ProviderEntry, http: Http = (input, init
     const response = await call(cred, wire.modelsPath(provider), { method: "GET" });
     let body: unknown;
     try {
-      body = await response.json();
+      body = JSON.parse(await readCapped(response, MODEL_LIST_BYTES));
     } catch {
       throw new AiError("bad_response");
     }
