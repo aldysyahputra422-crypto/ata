@@ -37,6 +37,9 @@ type Pesan =
   | { id: number; jenis: "galat"; galat: Galat; pertanyaan: string };
 /** The server reads the last 12 messages and rejects more than 40. */
 const RIWAYAT_MAKS = 24;
+/** Data categories the answers in this conversation were built from. */
+const kategoriDipakai = (pesan: Pesan[]) => [...new Set(pesan.flatMap((p) => (p.jenis === "ata" && p.asal ? p.asal.sources.map((s) => s.category) : [])))];
+const namaKategori = (ids: string[]) => ids.map((c) => NAMA[c] ?? c).join(", ");
 type Muatan = { status: "memuat" } | { status: "galat"; pesan: string } | { status: "siap"; data: Status };
 
 function Sumber({ asal }: { asal: Asal }) {
@@ -183,7 +186,9 @@ export function TanyaAta() {
   const [sambung, setSambung] = useState(false);
   const [prompt, setPrompt] = useState<{ teks: string; asal: Asal } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [dibersihkan, setDibersihkan] = useState<string | null>(null);
   const batal = useRef<AbortController | null>(null);
+  const dicabut = useRef(false);
   const nomor = useRef(0);
   const kotak = useRef<HTMLDivElement>(null);
   const masukan = useRef<HTMLTextAreaElement>(null);
@@ -196,6 +201,27 @@ export function TanyaAta() {
   }, []);
   useEffect(() => { void muat(); }, [muat]);
   useEffect(() => () => batal.current?.abort(), []);
+  // Permissions can change in another tab or on /profil: read them again when this screen comes back into view.
+  useEffect(() => {
+    const segarkan = () => { if (document.visibilityState === "visible") void muat(true); };
+    window.addEventListener("focus", segarkan);
+    document.addEventListener("visibilitychange", segarkan);
+    return () => {
+      window.removeEventListener("focus", segarkan);
+      document.removeEventListener("visibilitychange", segarkan);
+    };
+  }, [muat]);
+  // A category this conversation used is no longer allowed: stop the running answer and clear the conversation.
+  useEffect(() => {
+    if (muatan.status !== "siap") return;
+    const hilang = kategoriDipakai(pesan).filter((c) => !muatan.data.permissions[c]?.allowed);
+    if (!hilang.length) return;
+    dicabut.current = true;
+    batal.current?.abort();
+    setPesan([]);
+    setPrompt(null);
+    setDibersihkan(`Izin ${namaKategori(hilang)} dicabut, jadi percakapan dan data yang memakainya dibersihkan.`);
+  }, [muatan, pesan]);
   useEffect(() => {
     const el = kotak.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -257,6 +283,9 @@ export function TanyaAta() {
       return setPrompt({ teks: hasil.data.prompt, asal: hasil.data.provenance });
     }
     const sebelum = riwayat();
+    const kategori = kategoriDipakai(pesan);
+    dicabut.current = false;
+    setDibersihkan(null);
     const idAta = ++nomor.current + 1;
     nomor.current += 1;
     // A retry replaces the failed attempt instead of repeating the question.
@@ -271,10 +300,26 @@ export function TanyaAta() {
     batal.current = kendali;
     const ubah = (ganti: (p: Extract<Pesan, { jenis: "ata" }>) => Pesan) =>
       setPesan((semua) => semua.map((p) => (p.id === idAta && p.jenis === "ata" ? ganti(p) : p)));
-    await tanya(pertanyaan, sebelum, kendali.signal, (e) => {
-      if (e.type === "meta") ubah((p) => ({ ...p, model: e.model, asal: e.provenance }));
+    await tanya(pertanyaan, sebelum, kategori, kendali.signal, (e) => {
+      // The conversation was cleared because a permission was revoked: nothing from this answer is kept.
+      if (dicabut.current) return;
+      if (e.type === "meta") {
+        if (e.cleared?.length) {
+          // The server refused the earlier turns: they were answered with data that is no longer permitted.
+          setPesan((semua) => semua.filter((p) => p.id >= idAta - 1));
+          setDibersihkan(`Izin ${namaKategori(e.cleared)} dicabut, jadi percakapan sebelumnya dibersihkan dan tidak dikirim ke AI.`);
+          void muat(true);
+        }
+        ubah((p) => ({ ...p, model: e.model, asal: e.provenance }));
+      }
       else if (e.type === "delta") ubah((p) => ({ ...p, teks: p.teks + e.text }));
       else if (e.type === "done") ubah((p) => ({ ...p, mengalir: false, peringatan: e.warnings }));
+      else if (e.code === "permission_revoked") {
+        dicabut.current = true;
+        setPesan([]);
+        setDibersihkan(`Izin ${namaKategori(e.categories ?? [])} dicabut saat Ata menjawab. Jawaban dihentikan dan percakapan dibersihkan.`);
+        void muat(true);
+      }
       else if (e.code === "stopped") ubah((p) => ({ ...p, mengalir: false, catatan: "Kamu menghentikan jawaban ini." }));
       else {
         // Keep what already arrived, marked as incomplete; an empty bubble is replaced by the error.
@@ -339,6 +384,10 @@ export function TanyaAta() {
             </div>
           </div>
 
+          <p className="small muted tanya__sementara" id="catatanMemori">
+            Percakapan ini hanya ada di halaman ini. Ata tidak menyimpannya, jadi percakapan hilang saat halaman dimuat ulang atau ditutup.
+          </p>
+          {dibersihkan && <div className="banner banner--warn" role="status" id="izinDicabut"><Ikon nama="shield" /><p>{dibersihkan}</p></div>}
           <div className="chat__body" id="pesanBox" ref={kotak} aria-live="polite" aria-label="Percakapan dengan Ata" tabIndex={0}>
             {pesan.length === 0 && (
               <div className="empty">

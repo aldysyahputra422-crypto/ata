@@ -1,7 +1,7 @@
 import { accountError, accountSession, accountUnavailable, checkOrigin, needsSignIn, parseJsonBody } from "@/lib/account/http";
 import { execute, prepare, provenance, provenanceRecord, type TanyaEvent } from "@/lib/tanya/orchestrator";
 import { findProvider } from "@/lib/tanya/providers";
-import { gateFor, loadCredential, parseTanya, readerFor, takeRequest, TANYA_BODY_BYTES } from "@/lib/tanya/server";
+import { gateFor, loadCredential, parseTanya, readerFor, revokedAmong, REVOCATION_POLL_MS, REVOKED_MESSAGE, takeRequest, TANYA_BODY_BYTES } from "@/lib/tanya/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -11,6 +11,8 @@ const NO_CONNECTION = {
   expired: "Sambungan AI-mu sudah berakhir. Sambungkan lagi untuk lanjut.",
   blocked_url: "Alamat provider kustommu tidak lagi bisa dipakai. Sambungkan lagi dengan alamat https publik.",
 } as const;
+
+type RevokedEvent = { type: "error"; code: "permission_revoked"; message: string; action: "none"; partial: false; categories: string[] };
 
 /** Tanya Ata with the user's own key (FR-CCH-01, FR-BYOK-03). Streams server-sent events: meta, delta…, then done or error. */
 export async function POST(request: Request) {
@@ -29,7 +31,11 @@ export async function POST(request: Request) {
   if (loaded.state !== "ready") return accountError(409, loaded.state === "none" ? "no_connection" : "connection_expired", NO_CONNECTION[loaded.state]);
 
   const { client, user } = session;
-  const prepared = await prepare({ question: input.question, history: input.history, userId: user.id, gate: gateFor(client), read: readerFor(client) });
+  // Permissions are read fresh for this request (the gate holds one read and is never reused across requests).
+  const gate = gateFor(client);
+  // Earlier turns answered with a category that has since been switched off are not sent on: the history is dropped.
+  const cleared = await revokedAmong(gate, user.id, input.contextCategories);
+  const prepared = await prepare({ question: input.question, history: cleared.length ? [] : input.history, userId: user.id, gate, read: readerFor(client) });
   if (!prepared.quality.pass) {
     return accountError(422, "prompt_quality", "Pertanyaanmu belum cukup jelas untuk dikirim ke AI. Tulis lebih spesifik.");
   }
@@ -50,16 +56,36 @@ export async function POST(request: Request) {
   request.signal.addEventListener("abort", () => abort.abort(), { once: true });
   const meta = {
     type: "meta", run_id: runId, provider: findProvider(loaded.credential.providerId)?.name ?? loaded.credential.providerId,
-    model: loaded.credential.model, provenance: provenance(prepared),
+    model: loaded.credential.model, provenance: provenance(prepared), cleared,
   };
+  // While the answer streams, the categories it depends on are checked again; a revocation stops the provider call.
+  const dependsOn = [...new Set([...record.categories, ...(cleared.length ? [] : input.contextCategories)])];
+  let revoked: string[] = [];
+  let checking = false;
+  const watch = dependsOn.length ? setInterval(() => {
+    if (checking || abort.signal.aborted) return;
+    checking = true;
+    revokedAmong(gateFor(client), user.id, dependsOn).then((gone) => {
+      if (gone.length) {
+        revoked = gone;
+        abort.abort();
+      }
+    }, () => {}).finally(() => { checking = false; });
+  }, REVOCATION_POLL_MS) : null;
 
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (event: TanyaEvent | typeof meta) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      const send = (event: TanyaEvent | typeof meta | RevokedEvent) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       let settled = false;
       try {
         send(meta);
         for await (const event of execute(prepared, loaded.adapter, loaded.credential, abort.signal)) {
+          if (revoked.length) {
+            settled = true;
+            send({ type: "error", code: "permission_revoked", message: REVOKED_MESSAGE, action: "none", partial: false, categories: revoked });
+            await finish("stopped", "permission_revoked");
+            break;
+          }
           send(event);
           if (event.type === "done") {
             settled = true;
@@ -72,6 +98,7 @@ export async function POST(request: Request) {
       } catch {
         // The client went away mid-stream; there is nobody left to tell.
       } finally {
+        if (watch) clearInterval(watch);
         if (!settled) await finish("stopped", "stopped");
         try {
           controller.close();
@@ -81,6 +108,7 @@ export async function POST(request: Request) {
       }
     },
     cancel() {
+      if (watch) clearInterval(watch);
       abort.abort();
     },
   });

@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { accountError } from "@/lib/account/http";
-import { AI_CATEGORIES } from "@/lib/account/profile";
+import { AI_CATEGORIES, type AiCategory } from "@/lib/account/profile";
 import { accountReader } from "./context";
 import { cookieName, open, validSalt, type Sealed } from "./credentials";
 import { defaultGate, type CanProcessAi, type GateDecision } from "./gate";
@@ -31,20 +31,33 @@ const message = z.strictObject({ role: z.enum(["user", "assistant"]), content: z
 export const tanyaInput = z.strictObject({
   question: z.string().refine((value) => value.trim().length > 0),
   history: z.array(message).max(40).default([]),
+  // Account-data categories the earlier turns in `history` were answered with. The server drops the history
+  // when any of them is no longer permitted, so revoked data is never sent on.
+  context_categories: z.array(z.enum(AI_CATEGORIES)).max(AI_CATEGORIES.length).default([]),
 });
 export const TANYA_BODY_BYTES = 400 * 1024;
 
-export function parseTanya(body: unknown): { error: Response } | { question: string; history: z.infer<typeof message>[] } {
+export function parseTanya(body: unknown): { error: Response } | { question: string; history: z.infer<typeof message>[]; contextCategories: AiCategory[] } {
   const parsed = tanyaInput.safeParse(body);
   if (!parsed.success) return { error: accountError(400, "validation", "Tulis pertanyaanmu dulu.") };
-  const { question, history } = parsed.data;
+  const { question, history, context_categories } = parsed.data;
   if (question.length > QUESTION_LIMIT) {
     const over = (question.length - QUESTION_LIMIT).toLocaleString("id-ID");
     return { error: accountError(413, "too_long", `Teksmu ${question.length.toLocaleString("id-ID")} karakter, batasnya 12.000. Potong ${over} karakter dulu.`) };
   }
   if (history.reduce((n, m) => n + m.content.length, 0) > HISTORY_CHARS * 4) return { error: accountError(413, "too_long", "Riwayat percakapan terlalu panjang. Mulai percakapan baru.") };
-  return { question, history };
+  return { question, history, contextCategories: [...new Set(context_categories)] };
 }
+
+/** Categories from `categories` that the gate does not allow right now. Call with a fresh gate: a gate caches one read. */
+export async function revokedAmong(gate: CanProcessAi, userId: string, categories: readonly AiCategory[]): Promise<AiCategory[]> {
+  const decisions = await Promise.all(categories.map(async (category) => [category, await gate(userId, category)] as const));
+  return decisions.filter(([, decision]) => !decision.allowed).map(([category]) => category);
+}
+
+export const REVOKED_MESSAGE = "Izin data yang dipakai percakapan ini dicabut. Jawaban dihentikan dan percakapan dibersihkan.";
+/** How often a running answer re-checks the permissions it depends on. */
+export const REVOCATION_POLL_MS = 2000;
 
 export const secureRequest = (request: Request) => new URL(request.url).protocol === "https:" || process.env.NODE_ENV === "production";
 

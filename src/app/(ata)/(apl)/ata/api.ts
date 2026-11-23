@@ -48,13 +48,14 @@ export const siapkanPrompt = (question: string, history: Riwayat) =>
   panggil<{ prompt: string; provenance: Asal }>("/api/v1/tanya/prompt", "POST", { question, history });
 
 export type Peristiwa =
-  | { type: "meta"; provider: string; model: string; provenance: Asal }
+  | { type: "meta"; provider: string; model: string; provenance: Asal; cleared?: string[] }
   | { type: "delta"; text: string }
   | { type: "done"; warnings: string[] }
-  | ({ type: "error"; partial?: boolean } & Galat);
+  | ({ type: "error"; partial?: boolean; categories?: string[] } & Galat);
 
-/** Streams one answer. Calls `pada` for each server event; resolves when the stream ends, is cut, or is stopped. */
-export async function tanya(question: string, history: Riwayat, signal: AbortSignal, pada: (p: Peristiwa) => void): Promise<void> {
+/** Streams one answer. `kategori` are the data categories the earlier turns in `history` were answered with.
+ *  Calls `pada` for each server event; resolves when the stream ends, is cut, or is stopped. */
+export async function tanya(question: string, history: Riwayat, kategori: string[], signal: AbortSignal, pada: (p: Peristiwa) => void): Promise<void> {
   let selesai = false;
   const lapor = (p: Peristiwa) => {
     if (p.type === "done" || p.type === "error") selesai = true;
@@ -63,7 +64,7 @@ export async function tanya(question: string, history: Riwayat, signal: AbortSig
   try {
     const res = await fetch("/api/v1/tanya/chat", {
       method: "POST", cache: "no-store", credentials: "same-origin", signal,
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, history }),
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, history, context_categories: kategori }),
     });
     if (!res.ok || !res.body) {
       const e = (await res.json().catch(() => null))?.error;
