@@ -35,6 +35,8 @@ type Pesan =
   | { id: number; jenis: "aku"; teks: string }
   | { id: number; jenis: "ata"; teks: string; model: string; asal: Asal | null; mengalir: boolean; peringatan: string[]; catatan?: string }
   | { id: number; jenis: "galat"; galat: Galat; pertanyaan: string };
+/** The server reads the last 12 messages and rejects more than 40. */
+const RIWAYAT_MAKS = 24;
 type Muatan = { status: "memuat" } | { status: "galat"; pesan: string } | { status: "siap"; data: Status };
 
 function Sumber({ asal }: { asal: Asal }) {
@@ -228,8 +230,12 @@ export function TanyaAta() {
     for (const p of pesan) {
       if (p.jenis === "aku") out.push({ role: "user", content: p.teks });
       else if (p.jenis === "ata" && p.teks) out.push({ role: "assistant", content: p.teks });
+      else if (p.jenis === "galat") {
+        // A failed turn is not part of the conversation: drop its question and any partial answer.
+        while (out.length && out.pop()?.role !== "user");
+      }
     }
-    return out;
+    return out.slice(-RIWAYAT_MAKS);
   };
 
   const periksa = (teks: string) => {
