@@ -1,0 +1,11 @@
+/* Profil inside the app shell. The prototype has no account profile form, so these few rules lay one out with its tokens. */
+.setelan { padding-bottom: 96px; }
+.setelan .card { display: flex; flex-direction: column; gap: 12px; }
+.setelan textarea.input { min-height: 88px; resize: vertical; }
+.setelan select.input { appearance: auto; }
+.profil__dua { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.profil__status { min-height: 18px; }
+@container app (min-width: 640px) {
+  .profil__dua { grid-template-columns: 1fr 1fr; }
+  .setelan { padding-bottom: 24px; }
+}

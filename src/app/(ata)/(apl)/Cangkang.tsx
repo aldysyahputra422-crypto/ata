@@ -9,7 +9,7 @@ import { pasangLingkungan } from "@/lib/prototype/shared/lingkungan.js";
 import { buatMaskot } from "@/lib/prototype/shared/maskot.js";
 import { skalaDok } from "@/lib/prototype/shared/logic/lingkungan.js";
 
-// Lomba, Tanya Ata, Progres and Profil still point at the old foundation routes until each screen migrates.
+// Tanya Ata and Progres still point at the old foundation routes until each screen migrates.
 export const TAB = [
   { id: "hari-ini", label: "Hari Ini", ikon: "sun", href: "/hari-ini" },
   { id: "lomba", label: "Lomba", ikon: "trophy", href: "/lomba" },

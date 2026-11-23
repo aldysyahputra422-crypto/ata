@@ -253,7 +253,7 @@ Tidak ada.
 
 - Perilaku yang sengaja berubah: akun yang masuk tidak lagi melihat atau menerima Slot contoh dari perangkat.
 - `pnpm visual:parity` tidak dijalankan ulang: tidak ada CSS atau markup yang berubah.
-- Layar Profil belum dimigrasikan. (Progres: lihat "M1 Layar Progres".)
+- Profil: lihat "Fase A". (Progres: lihat "M1 Layar Progres".)
 - Penutup (23 November 2026): tanggal di kepala Hari Ini memakai `today` dari `/api/v1/progress` (zona waktu akun) saat masuk; belum masuk tetap jam perangkat. Markup dan CSS tidak berubah. Uji: `tests/e2e/hari-ini.spec.ts` (jam perangkat 21 November 23.58, hari akun 22 November).
 
 ## M1 Layar Progres (23 November 2026)
@@ -311,3 +311,31 @@ Port `masuk/ui/progres.js` ke `/progres` di shell `(ata)/(apl)`, dengan markup, 
 ### Keterbatasan
 
 - `suppressHydrationWarning` pada `<html>` tetap ada untuk `data-theme` dari `?tema=`, dan pada `.device` untuk `data-device` dari lebar layar: keduanya hanya diketahui browser sebelum cat pertama.
+
+## Fase A: Kenalan dan Profil per akun (23 November 2026)
+
+Sumber prototipe: `masuk/ui/onboarding.js`, `masuk/ui/pengaturan.js`, `masuk/ui/data-progres.js`. Markup dan class prototipe dipertahankan; yang berubah sumber datanya (akun, bukan `localStorage`).
+
+### Berkas yang diubah atau ditambah
+
+- `src/app/(ata)/(layar)/kenalan/` (baru): onboarding tujuh langkah, simpan per langkah ke `PATCH /api/v1/profile`, lanjut dari jawaban wajib pertama yang kosong.
+- `src/app/(ata)/(apl)/profil/` (baru): formulir profil, izin data AI, ekspor, keluar, hapus akun. `profil-apl.css` hanya menata tata letak formulir yang tidak ada di prototipe.
+- `src/app/(ata)/_layar/akun.ts`, `_layar/profil.ts` (baru): pemanggil API dan aturan murni (pemetaan jawaban, validasi, selisih).
+- `src/app/api/v1/profile/`, `src/app/api/v1/permissions/`, `src/lib/account/profile.ts`, `supabase/migrations/0007_profile_onboarding.sql`.
+- `src/app/api/v1/auth/google/callback/route.ts`: akun yang belum selesai onboarding mendarat di `/kenalan`.
+
+### Berkas yang dihapus
+
+- `src/app/(fondasi)/(app)/profil/page.tsx`: placeholder fondasi tanpa fitur, tidak diimpor berkas lain; rutenya kini dilayani `(ata)/(apl)/profil`.
+
+### Uji
+
+- Backend (PGlite): `tests/backend/profile.test.ts` (25 uji: tanpa tulis langsung, anon dan sesi kedaluwarsa ditolak, validasi, isolasi dua akun, idempotensi, audit izin, ekspor).
+- Unit: `tests/unit/profil.test.ts`. e2e: `tests/e2e/profil.spec.ts` (390 px dan 1280 px, terang/gelap, axe, memuat/galat/belum masuk, ketuk ganda, gagal simpan) dengan API akun tiruan.
+
+### Keterbatasan
+
+- Belum diuji terhadap `ata-dev`: migrasi 0007 belum diterapkan di sana, jadi `/kenalan` dan simpan Profil akan gagal di `ata-dev` sampai migrasi dijalankan.
+- Tahun lahir maksimum dihitung dari tahun berjalan (usia minimal 10), bukan angka tetap 2012 di prototipe.
+- Pengaturan tampilan prototipe (tema, kaca, gerak) dan "Data progres" perangkat belum dipindahkan ke `/profil`.
+- `pnpm visual:parity` tidak dijalankan: tidak ada padanan satu-banding-satu untuk formulir Profil di prototipe.

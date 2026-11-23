@@ -22,5 +22,11 @@ export async function GET(request: Request) {
   if (error || !data.user || !data.session) return oauthResult(request, "/?galat=oauth");
 
   await recordAuthEvent(data.user.id, "login");
-  return oauthResult(request, safeReturnPath(returnTo));
+  // First sign-in (FR-AUTH-04): an account that has not finished onboarding starts there, unless it asked for a page.
+  const target = safeReturnPath(returnTo);
+  if (target === "/hari-ini") {
+    const profile = await client.from("profiles").select("onboarding_done").maybeSingle();
+    if (profile.data?.onboarding_done === false) return oauthResult(request, "/kenalan");
+  }
+  return oauthResult(request, target);
 }
