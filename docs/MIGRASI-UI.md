@@ -254,3 +254,4 @@ Tidak ada.
 - Perilaku yang sengaja berubah: akun yang masuk tidak lagi melihat atau menerima Slot contoh dari perangkat.
 - `pnpm visual:parity` tidak dijalankan ulang: tidak ada CSS atau markup yang berubah.
 - Layar Progres dan Profil belum dimigrasikan, jadi XP akun baru tampil di Hari Ini.
+- Penutup (23 November 2026): tanggal di kepala Hari Ini memakai `today` dari `/api/v1/progress` (zona waktu akun) saat masuk; belum masuk tetap jam perangkat. Markup dan CSS tidak berubah. Uji: `tests/e2e/hari-ini.spec.ts` (jam perangkat 21 November 23.58, hari akun 22 November).

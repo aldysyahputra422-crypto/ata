@@ -28,7 +28,9 @@ const TEMA = [
 ] as const;
 type Tema = (typeof TEMA)[number]["id"];
 
-const hariIndo = () => new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+// an account's day is the server's, in the account's timezone; only device data follows the device clock
+const hariIndo = (akun?: string) =>
+  (akun ? new Date(`${akun}T00:00:00Z`) : new Date()).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: akun ? "UTC" : undefined });
 const tanggalPendek = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 const hitungMundur = (n: number) => (n < 0 ? `telat ${-n} hari` : n === 0 ? "hari ini" : n === 1 ? "besok" : `${n} hari lagi`);
 const hrefTab = (id: string) => TAB.find((t) => t.id === id)?.href ?? "/hari-ini";
@@ -172,7 +174,7 @@ export function HariIni() {
       </div>
       <div className="judul-layar">
         <h1>Hari Ini</h1>
-        <p className="hari">{hariIndo()}{data.contoh ? <> <span className="label-demo">DATA DEMO</span></> : null}</p>
+        <p className="hari">{hariIndo(sumber === "akun" ? hariIni : undefined)}{data.contoh ? <> <span className="label-demo">DATA DEMO</span></> : null}</p>
       </div>
 
       <div className="hari-grid">
