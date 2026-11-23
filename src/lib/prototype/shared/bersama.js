@@ -17,6 +17,9 @@ export function segarkanHari(kini = new Date()) {
   return true;
 }
 const waktu = { get hariIni() { return HARI_INI; }, tambahHari };
+/* app only: the stores hold one account's copy (ata-lingkup, see _layar/lingkup.ts). No sample Slot or sample progress then. */
+const akunAktif = () => { try { const l = localStorage.getItem('ata-lingkup'); return !!l && l !== 'lokal'; } catch (e) { return false; } };
+const awal = () => (akunAktif() ? { ...awalBersama(), slot: [] } : awalBersama());
 let cache = null;
 let cadangan = null; /* bila localStorage diblokir: tetap jalan di memori (tanpa sinkron antar tab) */
 
@@ -43,8 +46,8 @@ export function bacaBersama() {
   segarkanHari();
   if (cache) return cache;
   const s = mentah();
-  const rapi = rapikanBersama(s === undefined ? awalBersama() : s, dikenal);
-  const b = lengkapiPeta(rapi, katalog(rapi), usulkanLangkah, waktu);
+  const rapi = rapikanBersama(s === undefined ? awal() : s, dikenal);
+  const b = lengkapiPeta(rapi, katalog(rapi), usulkanLangkah, waktu, !akunAktif());
   if (s === undefined || JSON.stringify(s) !== JSON.stringify(b)) tulis(b); else cache = b;
   return b;
 }
@@ -53,7 +56,7 @@ export function bacaBersama() {
 export function benihBersama(isi) {
   if (mentah() !== undefined) return bacaBersama();
   cache = null;
-  tulis(rapikanBersama({ ...awalBersama(), ...isi }, dikenal));
+  tulis(rapikanBersama({ ...awal(), ...isi }, dikenal));
   cache = null;
   return bacaBersama();
 }
@@ -65,7 +68,7 @@ export function ubahBersama(fn) {
   const r = fn(kini);
   const info = r && r.v === undefined ? r : { b: r };
   if (!info.b || info.b === kini) return { ...info, b: kini };
-  const b = lengkapiPeta(rapikanBersama(info.b, (id) => dikenal(id) || !!info.b.kartu?.[id]), katalog(info.b), usulkanLangkah, waktu);
+  const b = lengkapiPeta(rapikanBersama(info.b, (id) => dikenal(id) || !!info.b.kartu?.[id]), katalog(info.b), usulkanLangkah, waktu, !akunAktif());
   b.diperbarui = new Date().toISOString(); /* kapan data progres terakhir berubah (ditampilkan di Data Progres) */
   tulis(b);
   return { ...info, b };
@@ -74,7 +77,7 @@ export function ubahBersama(fn) {
 export function resetBersama({ simpanPaket = false } = {}) {
   const paket = bacaBersama().paket;
   cache = null;
-  tulis({ ...awalBersama(), paket: simpanPaket ? paket : 'gratis' });
+  tulis({ ...awal(), paket: simpanPaket ? paket : 'gratis' });
   cache = null;
   return bacaBersama();
 }
@@ -103,7 +106,7 @@ export const namaPaketKini = () => NAMA_PAKET[bacaBersama().paket] || NAMA_PAKET
 /* batas boleh diisi dari server (app); tanpa itu memakai paket di store */
 export const slotLebih = (batas = batasKini(), paket = bacaBersama().paket) =>
   pesanSlotLebih(bacaBersama().slot.length, batas, NAMA_PAKET[paket] || NAMA_PAKET.gratis);
-export const adaDataContoh = () => slotContoh(bacaBersama(), dikenal).length > 0;
+export const adaDataContoh = () => !akunAktif() && slotContoh(bacaBersama(), dikenal).length > 0;
 
 /* status tugas dari Hari Ini (belum/dikerjakan/selesai), tersimpan di store bersama dengan tanggal selesai */
 export function ubahStatusTugas(id, status) {

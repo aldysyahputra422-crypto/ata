@@ -87,7 +87,7 @@ export function rapikanBersama(simpanan, ada = () => true) {
 
 /* Peta Jalan untuk tiap Slot yang belum punya. Slot contoh pertama sudah disetujui dan sudah berjalan:
    tiga langkah selesai, langkah keempat lewat tenggat sehari (supaya demo Progres punya tugas telat). */
-export function lengkapiPeta(b, cari, usul, { hariIni, tambahHari }) {
+export function lengkapiPeta(b, cari, usul, { hariIni, tambahHari }, denganContoh = true) {
   let peta = b.peta;
   for (const id of b.slot) {
     if (peta[id]) continue;
@@ -95,7 +95,7 @@ export function lengkapiPeta(b, cari, usul, { hariIni, tambahHari }) {
     if (!l) continue;
     const u = usul(l, hariIni);
     let langkah = u.langkah.map((s) => ({ ...s }));
-    const contoh = id === SLOT_AWAL[0];
+    const contoh = denganContoh && id === SLOT_AWAL[0]; /* app: salinan akun tidak pernah diisi kemajuan contoh */
     if (contoh) {
       langkah = langkah.map((s, i) => (i <= 3 ? { ...s, tanggal: tambahHari(hariIni, -3 * (4 - i) + 2), selesai: i < 3 } : s));
     }

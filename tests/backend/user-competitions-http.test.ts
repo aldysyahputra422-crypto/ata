@@ -3,6 +3,7 @@ import { GET } from "@/app/api/v1/user-competitions/route";
 import { DELETE, PUT } from "@/app/api/v1/user-competitions/[key]/route";
 
 const { auth, rpc, from } = vi.hoisted(() => ({ auth: { getUser: vi.fn() }, rpc: vi.fn(), from: vi.fn() }));
+vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth, rpc, from }) }));
 
 const origin = "https://ata.example";
@@ -17,7 +18,8 @@ const row = { competition_key: "lomba-a", source: "catalog", state: "slot", card
 
 function signedIn() {
   auth.getUser.mockResolvedValue({ data: { user: { id: "account-a", is_anonymous: false } }, error: null });
-  rpc.mockResolvedValue({ data: true, error: null });
+  rpc.mockImplementation(async (name: string) =>
+    name === "progress_today" ? { data: { today: "2026-11-23", timezone: "Asia/Jakarta" }, error: null } : { data: true, error: null });
 }
 const update = vi.fn();
 const insert = vi.fn();
@@ -28,7 +30,7 @@ function table(updated: Result, inserted: Result = updated) {
   update.mockReturnValue({ eq: () => ({ select: () => ({ maybeSingle: async () => updated }) }) });
   insert.mockReturnValue({ select: () => ({ single: async () => inserted }) });
   remove.mockReturnValue({ eq: async () => updated });
-  from.mockReturnValue({ update, insert, delete: remove });
+  from.mockReturnValue({ update, insert, delete: remove, select: async () => ({ data: [], error: null }) });
 }
 
 beforeEach(() => {

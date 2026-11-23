@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { accountError, accountSession, accountUnavailable, checkOrigin, needsSignIn, parseJsonBody, privateHeaders } from "@/lib/account/http";
 import { competitionBodyBytes, competitionColumns, competitionInput, competitionKey } from "@/lib/account/competitions";
+import { readProgress, stripProgress, withProgress } from "@/lib/account/progress";
 
 type Context = { params: Promise<{ key: string }> };
 
@@ -23,9 +24,10 @@ export async function PUT(request: Request, context: Context) {
   const body = competitionInput.safeParse(await parseJsonBody(request, competitionBodyBytes));
   if (!body.success) return accountError(422, "validation", "Data lomba tidak valid.");
 
+  // Step status is not part of the roadmap document: it is set through /api/v1/tasks and dropped here.
   // Omitted card/roadmap keep their stored value; an explicit null clears them.
   const { state, source, card, roadmap } = body.data;
-  const values = { state, source, ...(card === undefined ? {} : { card }), ...(roadmap === undefined ? {} : { roadmap }) };
+  const values = { state, source, ...(card === undefined ? {} : { card }), ...(roadmap === undefined ? {} : { roadmap: stripProgress(roadmap) }) };
   const table = () => ready.session.client.from("user_competitions");
   // Not an upsert: ON CONFLICT DO UPDATE would need UPDATE on competition_key (not granted) and would run the
   // insert trigger first, which refuses an existing Slot at capacity. Update the row, insert only when there is none.
@@ -46,7 +48,9 @@ export async function PUT(request: Request, context: Context) {
   if (error?.code === "42501") return needsSignIn();
   if (error?.code === "23514") return accountError(422, "validation", "Data lomba tidak valid.");
   if (error || !data) return accountUnavailable();
-  return NextResponse.json(data, { headers: privateHeaders });
+  const progress = await readProgress(ready.session.client);
+  if (!progress) return accountUnavailable();
+  return NextResponse.json({ ...data, roadmap: withProgress(data.competition_key, data.roadmap, progress.tasks) }, { headers: privateHeaders });
 }
 
 export async function DELETE(request: Request, context: Context) {

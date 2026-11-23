@@ -1,8 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { progresAkun } from "./akun";
 
-// M1 Lomba (K-03, K-23, FR-RDM-03): the prototype's five screens inside the app shell. Data lives on the device and,
-// signed in, is mirrored to /api/v1/user-competitions (stubbed here).
+// M1 Lomba (K-03, K-23, FR-RDM-03): the prototype's five screens inside the app shell. Signed out, data lives on the
+// device. Signed in, the device data is set aside and the screens show the account's rows from
+// /api/v1/user-competitions (stubbed here); device and sample data are never sent to an account (FR-PRG-03).
 const features = (limit: number) => ({ activeSlots: { status: "final", limit } });
 const base = { slot_limits: { free: 1, pro: 3 }, config: { google: true, payments: false }, ai: { mode: "B", connections: 0, search_connections: 0 } };
 const user = { id: "u1", email: "raka@example.com", display_name: "Raka", role: "user" };
@@ -65,20 +67,40 @@ test.describe("lomba", () => {
     await expect(page.locator(".lede")).toHaveText("1 dari 3 Slot terpakai. Paket Pro mencakup 3 Slot aktif.");
   });
 
-  test("first sign-in: device data is sent to the account, nothing is deleted", async ({ page }) => {
-    const sent = await stub(page, free);
+  test("first sign-in: the device's sample data is not sent to the account and comes back after signing out", async ({ page }) => {
+    await stub(page, out);
     await open(page, "slot");
-    await expect.poll(() => sent.some((s) => s.key === SEED && s.body?.state === "slot")).toBe(true);
-    expect(sent.filter((s) => s.method === "DELETE")).toEqual([]);
+    await expect(page.locator(".lede")).toContainText("1 dari 1 Slot terpakai");
+    const ringkas = () => page.evaluate(() => {
+      const b = JSON.parse(localStorage.getItem("ata-bersama") ?? "{}") as { slot: string[]; peta: Record<string, { langkah: { id: string; selesai?: boolean }[] }> };
+      return JSON.stringify([b.slot, Object.entries(b.peta).map(([k, p]) => [k, p.langkah.map((l) => [l.id, !!l.selesai])])]);
+    });
+    const lokal = await ringkas();
+    await page.unrouteAll();
+    const sent = await stub(page, free);
+    await page.reload();
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await expect(page.locator(".lede")).toContainText("0 dari 1 Slot terpakai");
+    await page.waitForTimeout(800);
+    expect(sent).toEqual([]);
+    await page.unrouteAll();
+    await stub(page, out);
+    await page.reload();
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "lokal");
+    await expect(page.locator(".lede")).toContainText("1 dari 1 Slot terpakai");
+    expect(await ringkas()).toBe(lokal);
   });
 
   test("a Slot the plan rejects stays on the device and the user is told", async ({ page }) => {
-    await stub(page, free, { put: (s) => (s.body?.state === "slot" ? 409 : 200) });
-    await open(page, "slot");
+    const sent = await stub(page, { ...free, plan: { ...free.plan, features: features(2) } }, {
+      items: [{ competition_key: SEED, source: "catalog", state: "slot", card: null, roadmap: null }],
+      put: (s) => (s.body?.state === "slot" && s.key !== SEED ? 409 : 200),
+    });
+    await open(page, "radar");
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await page.locator('[data-aksi="slot"]').click();
     await expect(page.locator(".toast")).toContainText("melebihi batas paketmu");
-    await expect(page.locator(".lb-folder, .folder-ata").first()).toBeVisible();
-    await page.reload();
-    await expect(page.locator(".lede")).toContainText("1 dari 1 Slot terpakai");
+    expect(sent.filter((s) => s.method === "DELETE")).toEqual([]);
   });
 
   test("account Slots above the limit are all shown (downgrade keeps rows)", async ({ page }) => {
@@ -106,15 +128,15 @@ test.describe("lomba", () => {
   });
 
   test("a newer account roadmap replaces the device copy when the device has no edits of its own", async ({ page }) => {
-    const sent = await stub(page, free);
+    const awal = [{ id: "s1", nama: "Baca panduan", tanggal: "2027-01-10" }, { id: "s2", nama: "Kerangka", tanggal: "2027-01-20" }];
+    await stub(page, free, { items: [{ competition_key: SEED, source: "catalog", state: "slot", card: null, roadmap: { disetujui: true, langkah: awal } }] });
     await open(page, "peta");
-    await expect.poll(() => sent.some((s) => s.key === SEED && s.body?.state === "slot")).toBe(true);
-    const body = sent.filter((s) => s.key === SEED).at(-1)!.body as { roadmap: { langkah: { id: string; nama: string; tanggal: string }[] } };
-    const { id, nama, tanggal } = body.roadmap.langkah[0];
-    // what another device stored: jsonb key order and a step without the fields the device adds on load
-    const roadmap = { langkah: [...body.roadmap.langkah.map((l) => ({ tanggal: l.tanggal, nama: l.nama, id: l.id })), { tanggal, id: id + "x", nama: nama + " dari perangkat lain" }] };
-    await page.reload();
     await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await expect(page.locator(".lb-steps")).toContainText("Kerangka");
+    await page.waitForTimeout(800);
+    // what another device stored: jsonb key order and one more step
+    const roadmap = { langkah: [...awal.map((l) => ({ tanggal: l.tanggal, nama: l.nama, id: l.id })), { tanggal: "2027-01-25", id: "s3", nama: "Draf dari perangkat lain" }], disetujui: true };
+    await page.unrouteAll();
     const sent2 = await stub(page, free, { items: [{ competition_key: SEED, source: "catalog", state: "slot", card: null, roadmap }] });
     await page.reload();
     await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
@@ -130,9 +152,9 @@ test.describe("lomba", () => {
     const sent = await stub(page, free); // account u1, nothing stored yet
     await page.reload();
     await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
-    await expect(page.locator(".lede")).toContainText("1 dari 1 Slot terpakai");
-    await expect.poll(() => sent.length).toBeGreaterThan(0);
-    expect(sent.filter((x) => x.key === "essay-unesa-2026")).toEqual([]);
+    await expect(page.locator(".lede")).toContainText("0 dari 1 Slot terpakai");
+    await page.waitForTimeout(800);
+    expect(sent).toEqual([]);
   });
 
   test("a roadmap edit that failed to reach the account is kept over the older account row and sent again", async ({ page }) => {
@@ -180,12 +202,18 @@ test.describe("lomba", () => {
       await tab("Lomba").click();
       await expect(page.locator("#screen")).toBeVisible();
     }
-    expect(await page.locator("body > .tarik").count()).toBe(1);
+    await expect(page.locator("body > .tarik")).toHaveCount(1);
+    await page.waitForTimeout(300);
+    await expect(page.locator("body > .tarik")).toHaveCount(1);
   });
 
   test("account unreachable: device data stays, banner explains, nothing is sent", async ({ page }) => {
-    const sent = await stub(page, free, { list: 503 });
+    await stub(page, free, { items: [{ competition_key: SEED, source: "catalog", state: "slot", card: null, roadmap: null }] });
     await open(page, "slot");
+    await expect(page.locator("#views")).toHaveAttribute("data-akun", "akun");
+    await page.unrouteAll();
+    const sent = await stub(page, free, { list: 503 });
+    await page.reload();
     await expect(page.locator(".demo-banner")).toContainText("Akun tidak bisa dihubungi");
     await expect(page.locator(".lede")).toContainText("1 dari 1 Slot terpakai");
     expect(sent).toEqual([]);
@@ -212,6 +240,7 @@ test.describe("lomba", () => {
 
   test("Hari Ini links open the Slot screen", async ({ page }) => {
     await stub(page, free);
+    await progresAkun(page);
     await page.goto("/hari-ini");
     await expect(page.locator(".slot-baris").first()).toHaveAttribute("href", "/lomba#slot");
   });
