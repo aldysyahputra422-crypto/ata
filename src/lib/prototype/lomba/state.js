@@ -5,8 +5,9 @@ import { LOMBA, PROFIL } from './data/lomba.js';
 import { buatDeck, samakanSlot, sisipkanBaru } from './logic/radar.js';
 import { masihBuka } from './logic/label.js';
 import { rapikan } from './logic/simpanan.js';
-import { bersihkanSimulasiLama, hariLagiDari } from './logic/manual.js';
-import { bacaBersama, benihBersama, ubahBersama, resetBersama, batasKini, namaPaketKini, HARI_INI as HARI } from '../shared/bersama.js';
+import { bersihkanSimulasiLama } from './logic/manual.js';
+import { denganSisaHari } from '../shared/logic/tenggat.js';
+import { bacaBersama, benihBersama, ubahBersama, resetBersama, batasKini, namaPaketKini, cariLomba, HARI_INI as HARI } from '../shared/bersama.js';
 import { aturSlot, SLOT_AWAL } from '../shared/logic/bersama.js';
 
 const KEY = 'ata-demo-lomba';
@@ -66,9 +67,10 @@ export function reset() {
 export const batasSlot = () => batasKini();
 export const namaPaket = () => namaPaketKini();
 
-/* semua lomba: katalog + lomba yang ditambahkan pengguna sendiri (isian manual). Sisa hari isian manual dihitung ulang tiap hari. */
-export const semuaLomba = () => [...LOMBA, ...state.unggahan.map((u) => (u.manual ? { ...u, hariLagi: hariLagiDari(u.tenggatIso, HARI) } : u))];
-export const cari = (id) => semuaLomba().find((l) => l.id === id) || (bacaBersama().kartu[id] ? { id, ...bacaBersama().kartu[id] } : undefined);
+/* semua lomba: katalog + lomba yang ditambahkan pengguna sendiri. Sisa hari SELALU dihitung dari tanggal tenggat yang
+   tersimpan (tenggatIso) dan hari ini; angka sisa hari yang ikut tersimpan tidak pernah dipakai (basi keesokan harinya). */
+export const semuaLomba = () => [...LOMBA, ...state.unggahan.map((u) => denganSisaHari(u, HARI))];
+export const cari = (id) => semuaLomba().find((l) => l.id === id) || cariLomba(id) || undefined;
 
 /* the roadmap for a competition; lives in the shared store (created there for every Slot) */
 export function petaUntuk(id) {

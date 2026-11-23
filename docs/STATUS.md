@@ -279,3 +279,7 @@ Dikerjakan langsung di folder iCloud (tanpa mirror), 0 berkas `dataless`.
 
 Uji akhir: `node --test` 187/187, harness aplikasi 29/29, Lomba 16/16, Portofolio 17/17, Masuk 26/26.
 | C11 | Overhaul gerak & visual: detail Lomba gaya travel (hero parallax, lembar bergrip, bilah aksi menempel), kartu → detail via View Transitions, folder condong, penanda tab berpegas, tema memudar, tekan taktil | selesai, `gerak.test.mjs`; `node --test` 191/191, harness 29/16/26/17 |
+
+## Countdown tenggat dari tanggal tersimpan (23 November 2026)
+
+FR-PRG-01, FR-SLT-01. Satu aturan di `shared/logic/tenggat.js` dipakai Lomba, Slot, Hari Ini, Progres, saran, dan prioritas tugas: sisa hari = tanggal tenggat tersimpan − hari ini. Akun: tanggal dan hari dari server (`deadline_on`, `days_left`, `today`, `timezone`). Tanpa migrasi (ASSUMPTIONS S32–S34). Uji: `tenggat.test.mjs`, `account-deadline.test.ts`, `hari-ini.spec.ts`.

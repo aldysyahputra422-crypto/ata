@@ -1,5 +1,7 @@
 /* Lomba yang ditambahkan PENGGUNA sendiri (isian manual / dari URL). Tidak ada OCR: Ata tidak membaca poster.
    Murni: tanpa DOM, tanpa jam (tanggal hari ini disuntik). Semua isian dicek; yang tidak diisi tetap null, tidak ditebak. */
+import { sisaHari, tanggalSah } from '../../shared/logic/tenggat.js';
+
 export const KATEGORI_MANUAL = ['karya-tulis', 'poster', 'video', 'bisnis', 'olimpiade', 'pidato'];
 export const JENJANG_MANUAL = ['SD', 'SMP', 'SMA', 'SMK', 'MA', 'mahasiswa', 'umum'];
 const GEM = ['mint', 'lemon', 'sky', 'rose', 'apricot'];
@@ -8,8 +10,7 @@ const bersih = (t, max) => String(t ?? '').replace(/\s+/g, ' ').trim().slice(0, 
 
 /** hari dari `hariIniIso` (YYYY-MM-DD, tanggal lokal) ke `iso`; null bila tanpa tanggal */
 export function hariLagiDari(iso, hariIniIso) {
-  if (!iso) return null;
-  return Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(hariIniIso + 'T00:00:00Z')) / 864e5);
+  return sisaHari(iso, hariIniIso);
 }
 
 /** URL publik http(s) saja; selain itu null */
@@ -32,7 +33,7 @@ export function buatLombaManual(isian, { id, hariIniIso }) {
   if (nama.length < 3) galat.nama = 'Tulis nama lomba (minimal 3 huruf), persis seperti di poster atau situs resminya.';
   const kategori = KATEGORI_MANUAL.includes(isian.kategori) ? isian.kategori : null;
   if (!kategori) galat.kategori = 'Pilih kategori lomba.';
-  const tenggatIso = /^\d{4}-\d{2}-\d{2}$/.test(isian.tenggatIso || '') && !Number.isNaN(Date.parse(isian.tenggatIso)) ? isian.tenggatIso : null;
+  const tenggatIso = tanggalSah(isian.tenggatIso);
   if (isian.tenggatIso && !tenggatIso) galat.tenggatIso = 'Tanggal tidak dikenali.';
   const urlMentah = bersih(isian.url, 500);
   const url = urlSah(urlMentah);

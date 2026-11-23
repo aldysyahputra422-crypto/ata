@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { accountSession, accountUnavailable, needsSignIn, privateHeaders } from "@/lib/account/http";
+import { withDeadline } from "@/lib/account/competitions";
 import { currentPlan } from "@/lib/account/plan";
 import { activity, readProgress, summarize, withProgress } from "@/lib/account/progress";
 
@@ -25,7 +26,7 @@ export async function GET() {
     timezone: progress.timezone,
     plan: plan.plan,
     slot_limit: limit,
-    competitions: competitions.map((row) => ({ ...row, roadmap: withProgress(row.competition_key, row.roadmap, progress.tasks) })),
+    competitions: competitions.map((row) => withDeadline({ ...row, roadmap: withProgress(row.competition_key, row.roadmap, progress.tasks) }, progress.today)),
     summary: summarize(competitions, progress.tasks, progress.today),
     activity: activity(competitions, progress.tasks),
   }, { headers: privateHeaders });

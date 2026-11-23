@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { accountError, accountSession, accountUnavailable, checkOrigin, needsSignIn, parseJsonBody, privateHeaders } from "@/lib/account/http";
-import { competitionBodyBytes, competitionColumns, competitionInput, competitionKey } from "@/lib/account/competitions";
+import { competitionBodyBytes, competitionColumns, competitionInput, competitionKey, withDeadline } from "@/lib/account/competitions";
 import { readProgress, stripProgress, withProgress } from "@/lib/account/progress";
 
 type Context = { params: Promise<{ key: string }> };
@@ -50,7 +50,7 @@ export async function PUT(request: Request, context: Context) {
   if (error || !data) return accountUnavailable();
   const progress = await readProgress(ready.session.client);
   if (!progress) return accountUnavailable();
-  return NextResponse.json({ ...data, roadmap: withProgress(data.competition_key, data.roadmap, progress.tasks) }, { headers: privateHeaders });
+  return NextResponse.json(withDeadline({ ...data, roadmap: withProgress(data.competition_key, data.roadmap, progress.tasks) }, progress.today), { headers: privateHeaders });
 }
 
 export async function DELETE(request: Request, context: Context) {

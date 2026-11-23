@@ -120,8 +120,12 @@ export function Lomba() {
           tersambung = false;
           const server = await bacaServer();
           if (batal) return;
-          if (server.status !== "ok")
+          if (server.status !== "ok") {
+            if (server.status === "keluar") bersama.aturZonaHari(null);
             return setAkun(server.status === "keluar" ? "lokal" : "terputus");
+          }
+          // Countdowns of an account follow the account's day (profiles.timezone), not the device's time zone.
+          if (bersama.aturZonaHari(server.timezone)) terpasang.ctx.render();
           // read again each time: "Reset data demo" clears it so the account's rows win over the sample data
           const dasar = bacaCatatan();
           const hasil = gabung(

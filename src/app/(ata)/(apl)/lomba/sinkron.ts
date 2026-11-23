@@ -192,7 +192,7 @@ async function kirimStatus(kunci: string, status: StatusServer): Promise<HasilKi
 }
 
 export async function bacaServer(): Promise<
-  { status: "ok"; items: BarisServer[] } | { status: "keluar" | "gagal" }
+  { status: "ok"; items: BarisServer[]; timezone: string | null } | { status: "keluar" | "gagal" }
 > {
   try {
     const res = await fetch("/api/v1/user-competitions", {
@@ -201,9 +201,9 @@ export async function bacaServer(): Promise<
     });
     if (res.status === 401) return { status: "keluar" };
     if (!res.ok) return { status: "gagal" };
-    const body = (await res.json()) as { items?: BarisServer[] };
+    const body = (await res.json()) as { items?: BarisServer[]; timezone?: unknown };
     return Array.isArray(body.items)
-      ? { status: "ok", items: body.items }
+      ? { status: "ok", items: body.items, timezone: typeof body.timezone === "string" ? body.timezone : null }
       : { status: "gagal" };
   } catch {
     return { status: "gagal" };
