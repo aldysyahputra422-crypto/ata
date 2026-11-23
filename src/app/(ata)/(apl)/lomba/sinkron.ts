@@ -261,7 +261,8 @@ export function buatPenyinkron(
         statusDitolak.set(kunci, s);
         lapor("Status langkah ini belum bisa disimpan ke akun. Muat ulang untuk melihat data akunmu.");
       } else {
-        lapor("Belum tersimpan ke akun. Perubahanmu aman di perangkat ini dan dikirim lagi nanti.");
+        // step status is the account's: a reload shows what the account holds, so no later retry is promised
+        lapor("Status langkah belum tersimpan ke akun. Kalau halaman dimuat ulang sebelum tersimpan, status kembali mengikuti akun.");
         return;
       }
     }

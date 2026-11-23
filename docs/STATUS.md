@@ -16,7 +16,7 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 - Selesai: data perangkat/demo dan data akun dipisah (`ata-lingkup`). Data perangkat disisihkan saat masuk dan dikembalikan saat keluar; tidak ada lagi unggah otomatis data perangkat ke akun.
 - Diuji: PGlite (RLS, idempotensi, pembatalan, zona waktu, ekspor, cascade), stack Supabase lokal lewat HTTP dengan dua akun (`scripts/test-account-local.mjs`: 6 dan 8 permintaan bersamaan, isolasi, zona waktu), e2e Hari Ini dan Lomba.
 - Tertunda: migrasi 0006 belum dijalankan di `ata-dev` (menunggu persetujuan PO). Riwayat peristiwa tak-terubah (`activity_events` di blueprint) belum dibuat; `task_progress` hanya menyimpan status efektif terakhir. Layar Progres dan Profil belum membaca akun. Pengaturan zona waktu belum punya UI.
-- Keputusan sementara yang menunggu PO: S24–S27 di docs/ASSUMPTIONS.md.
+- Keputusan sementara yang menunggu PO: S24–S28 di docs/ASSUMPTIONS.md.
 
 ## M1 Hari Ini (22 November 2026)
 
