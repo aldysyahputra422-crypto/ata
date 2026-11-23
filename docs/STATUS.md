@@ -279,3 +279,15 @@ Dikerjakan langsung di folder iCloud (tanpa mirror), 0 berkas `dataless`.
 
 Uji akhir: `node --test` 187/187, harness aplikasi 29/29, Lomba 16/16, Portofolio 17/17, Masuk 26/26.
 | C11 | Overhaul gerak & visual: detail Lomba gaya travel (hero parallax, lembar bergrip, bilah aksi menempel), kartu → detail via View Transitions, folder condong, penanda tab berpegas, tema memudar, tekan taktil | selesai, `gerak.test.mjs`; `node --test` 191/191, harness 29/16/26/17 |
+
+## Fase B: Tanya Ata (irisan vertikal pertama)
+
+Selesai dengan uji (provider tiruan, tanpa panggilan ke provider AI sungguhan):
+- FR-CCH-01, FR-CCH-06, FR-CCH-07, FR-BYOK-03: `/ata` mengirim pertanyaan ke `/api/v1/tanya/chat`; jawaban mengalir (SSE) dari provider milik pengguna, dengan batas 12.000 karakter dan galat yang menyebut cara memperbaikinya.
+- FR-CCH-02: paket konteks hanya dari kategori yang lolos `canProcessAi`, dipotong sesuai anggaran token; tiap jawaban menampilkan sumber `[S1]…` dan kategori yang tidak dipakai beserta alasannya.
+- FR-CCH-04: aturan anti-mengarang di prompt dan peringatan bila jawaban aturan memuat angka tanpa data lomba.
+- FR-BYOK-01, 02, 04, 05, 08, 10: uji key sebelum disimpan, AES-256-GCM terikat sesi, URL kustom wajib https dan bukan alamat privat, daftar model, hapus key, 30 permintaan per menit.
+- Mode Tanpa Key: `/api/v1/tanya/prompt` menyusun prompt untuk disalin, tanpa memanggil AI.
+- Provider: OpenAI, Anthropic, Gemini, xAI, DeepSeek, OpenRouter, Groq, Mistral, dan endpoint kustom OpenAI-compatible lewat tiga format kawat.
+
+Belum: Resep, Ingatan, riwayat percakapan tersimpan (FR-CCH-09), unggah berkas, pencarian web, embedding/rerank, persetujuan wali (menunggu FR-AUTH-07), uji terhadap provider sungguhan dan `ata-dev` (migrasi 0009 belum diterapkan di sana). Asumsi S32–S36.

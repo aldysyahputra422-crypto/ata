@@ -339,3 +339,11 @@ Sumber prototipe: `masuk/ui/onboarding.js`, `masuk/ui/pengaturan.js`, `masuk/ui/
 - Tahun lahir maksimum dihitung dari tahun berjalan (usia minimal 10), bukan angka tetap 2012 di prototipe.
 - Pengaturan tampilan prototipe (tema, kaca, gerak) dan "Data progres" perangkat belum dipindahkan ke `/profil`.
 - `pnpm visual:parity` tidak dijalankan: tidak ada padanan satu-banding-satu untuk formulir Profil di prototipe.
+
+## Tanya Ata (`/ata`), Fase B
+
+- Layar: `src/app/(ata)/(apl)/ata/` (`TanyaAta.tsx`, `api.ts`, `tanya-apl.css`). Markup dan kelas mengikuti `tanya/ui/chat.js` prototipe (`chat`, `ctxline`, `ctxdetail`, `msg`, `chips`, `ai-status`, `composer`, `ai-penyedia`, `promptbox`) dengan `tanya.css` apa adanya. Placeholder lama di `(fondasi)/(app)/ata` dihapus.
+- Yang dipindahkan: tab Chat saja. Resep, Langkah Resep, Ingatan, thread ganda, "Akhiri", "Tempel jawaban", dan jawaban contoh tidak dipindahkan.
+- Berbeda dari prototipe: baris konteks menampilkan izin data akun (bukan profil contoh); tiap jawaban punya rincian "Data akun yang dipakai"; sheet sambungan memuat daftar provider dan model dari server.
+- Uji: `tests/e2e/tanya.spec.ts` (390 px dan 1280 px, terang/gelap, axe, memuat/galat/kosong/belum masuk/berhasil, gerak dikurangi) dengan API tiruan.
+- `pnpm visual:parity` tidak dijalankan untuk layar ini.
