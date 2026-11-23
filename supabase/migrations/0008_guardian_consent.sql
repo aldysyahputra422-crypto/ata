@@ -357,7 +357,8 @@ begin
         or (cur.birth_year is not null and cur.birth_year <> extract(year from new_date));
       -- adult in the saved timezone: the guardian's correction link is the way. Adult only in the timezone sent
       -- along is refused further down as a timezone change, which no correction link can settle.
-      if correction and old_age = 'minor' and public.age_status(new_date, null, cur.timezone) = 'adult' then
+      -- (a date that stays under 18 in the timezone sent along is a minor's own correction)
+      if correction and old_age = 'minor' and new_age = 'adult' and public.age_status(new_date, null, cur.timezone) = 'adult' then
         insert into public.audit_log (actor_id, action, target_type) values (account_id, 'birth_date_change_refused', 'profile');
         return jsonb_build_object('error', 'guardian_verification_required', 'field', 'birth_date');
       end if;

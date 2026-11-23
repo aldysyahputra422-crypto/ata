@@ -666,6 +666,12 @@ describe("0008 guardian consent and the AI gate (FR-AUTH-07)", () => {
       // a timezone that does not change the answer is still free to choose
       await as(a);
       expect((await patch({ birth_date: born(16, 0, west), timezone: "Pacific/Kiritimati" })).profile).toMatchObject({ timezone: "Pacific/Kiritimati" });
+      // the other way round: 18 tomorrow in the timezone sent along, though already 18 in the saved one, is still a minor
+      await superuser();
+      await db.query("update public.profiles set birth_date_corrections = 0 where user_id = $1", [a]);
+      await as(a);
+      expect((await patch({ birth_date: eve, timezone: "Etc/GMT+12" })).profile).toMatchObject({ birth_date: eve, timezone: "Etc/GMT+12" });
+      expect(await call("public.guardian_consent_status()")).toMatchObject({ required: true, account_state: "pending" });
     });
 
     it("ends a correction link when another guardian answers or the consent ends", async () => {
