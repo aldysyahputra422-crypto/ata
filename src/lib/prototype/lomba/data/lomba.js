@@ -1,10 +1,11 @@
 /* Demo profile and ten REAL competitions taken from Instagram competition posters (no fictional competitions).
    hariLagi: days until the deadline, relative to today; null = deadline not stated on the poster (show "cek juknis").
    Real entries only carry what the poster/caption states: unknown fee = biaya null, unknown eligibility = tingkat []. */
-/* Dihitung saat dibaca, dari tanggal lokal pengguna (bukan UTC): tab yang tetap terbuka melewati tengah malam
-   tidak menggeser tenggat poster ke hari berikutnya. */
-const sisaHari = (iso, kini = new Date()) =>
-  (iso ? Math.round((Date.parse(iso + 'T00:00:00Z') - Date.UTC(kini.getFullYear(), kini.getMonth(), kini.getDate())) / 864e5) : null);
+import { sisaHari as selisih } from '../../shared/logic/tenggat.js';
+import { hariIniKini } from '../../shared/hari.js';
+/* Dihitung saat dibaca dari tanggal tenggat dan "hari ini" bersama (shared/hari.js: tanggal lokal perangkat, atau
+   tanggal di zona waktu akun saat masuk): tab yang tetap terbuka melewati tengah malam tidak menggeser tenggat poster. */
+const sisaHari = (iso) => selisih(iso, hariIniKini());
 const DILIHAT = 'Poster @infolomba, dilihat 20 November 2026';
 const dilihat = (akun) => `Poster ${akun}, dilihat 21 November 2026`;
 export const PROFIL = { nama: 'Raka', minat: ['karya-tulis', 'olimpiade', 'poster'], tingkat: 'SMA', jamPerMinggu: 4 };

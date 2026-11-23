@@ -48,6 +48,28 @@ test.describe("hari ini", () => {
     await expect(page.locator(".folder-ata--kosong")).toContainText("2 tersisa");
   });
 
+  test("account: the Slot countdown is the server's deadline date against the account's day (FR-PRG-01)", async ({ page }) => {
+    let today = "2026-12-01";
+    await me(page, free);
+    await progresAkun(page, { today: () => today, timezone: "Asia/Jayapura", deadline: { "interval-2027": "2026-12-04" } });
+    await open(page);
+    // the device clock is a different day: only the server's day counts
+    await expect(page.locator(".slot-baris")).toContainText("3 hari lagi");
+    today = "2026-12-04";
+    await page.reload();
+    await expect(page.locator(".slot-baris")).toContainText("Tenggat hari ini");
+    today = "2026-12-06";
+    await page.reload();
+    await expect(page.locator(".slot-baris")).toContainText("Lewat tenggat 2 hari");
+  });
+
+  test("account: a Slot without a stored deadline date shows no countdown", async ({ page }) => {
+    await me(page, free);
+    await progresAkun(page);
+    await open(page);
+    await expect(page.locator(".slot-baris")).toContainText("Tanpa tenggat");
+  });
+
   test("account API down: the screen still works from device data", async ({ page }) => {
     await me(page, { error: { code: "unavailable", message: "x" } }, 503);
     await open(page);

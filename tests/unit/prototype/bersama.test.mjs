@@ -58,11 +58,12 @@ test('tidying drops unknown ids, duplicates and bad steps, but never drops exist
 });
 
 test('an uploaded poster Slot is kept through its card even though the catalogue does not know it', () => {
-  const b = rapikanBersama({ v: VERSI_BERSAMA, slot: ['unggah-x'], kartu: { 'unggah-x': { nama: 'Lomba Cipta Puisi', kategori: 'karya-tulis', hariLagi: 16 } } }, ada);
+  const b = rapikanBersama({ v: VERSI_BERSAMA, slot: ['unggah-x'], kartu: { 'unggah-x': { nama: 'Lomba Cipta Puisi', kategori: 'karya-tulis', tenggatIso: tambahHari(HARI, 16), hariLagi: 99 } } }, ada);
   assert.deepEqual(b.slot, ['unggah-x']);
   const s = ringkasSlot(siap(b), cari(b), waktu)[0];
   assert.equal(s.nama, 'Lomba Cipta Puisi');
   assert.equal(s.tenggat, tambahHari(HARI, 16));
+  assert.equal(s.hariLagi, 16, 'counted from the stored date; the saved number 99 is ignored');
 });
 
 test('every Slot gets a Peta Jalan; the demo Slot is approved, three steps done, one overdue', () => {

@@ -1,13 +1,13 @@
 /* Progres: cincin, heatmap 12 minggu, streak, kesiapan submit. Fungsi murni. */
 
+import { sisaHari } from '../../shared/logic/tenggat.js';
+
 const HARI = 24 * 60 * 60 * 1000;
 const iso = (d) => new Date(d).toISOString().slice(0, 10);
 
+/* one countdown rule for the whole app (shared/logic/tenggat.js); 0 when either side is not a date, as before */
 export function selisihHari(tenggat, hariIni) {
-  const a = Date.parse(`${String(tenggat).slice(0, 10)}T00:00:00Z`);
-  const b = Date.parse(`${String(hariIni).slice(0, 10)}T00:00:00Z`);
-  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
-  return Math.round((a - b) / HARI);
+  return sisaHari(String(tenggat).slice(0, 10), String(hariIni).slice(0, 10)) ?? 0;
 }
 
 export function cincin({ wajib = 0, selesai = 0, tenggat, hariIni } = {}) {

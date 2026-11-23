@@ -3,19 +3,14 @@
    Aturan isinya ada di logic/bersama.js (diuji). Berkas ini hanya baca, tulis, dan dengar. */
 import { LOMBA } from '../lomba/data/lomba.js';
 import { usulkanLangkah, tambahHari } from '../lomba/logic/peta.js';
+import { denganSisaHari, tanggalSah } from './logic/tenggat.js';
+import { HARI_INI, segarkanHari } from './hari.js';
 import {
-  KUNCI_BERSAMA, tanggalLokal, pesanSlotLebih, slotContoh, awalBersama, rapikanBersama, lengkapiPeta, ringkasSlot, daftarTugas, batasSlot, aturStatusTugas, aturIzinAI,
+  KUNCI_BERSAMA, pesanSlotLebih, slotContoh, awalBersama, rapikanBersama, lengkapiPeta, ringkasSlot, daftarTugas, batasSlot, aturStatusTugas, aturIzinAI,
 } from './logic/bersama.js';
 
-/* Tanggal lokal pengguna. Binding hidup: tab yang tetap terbuka melewati tengah malam ikut berganti hari,
-   karena segarkanHari() dipanggil pada setiap baca dan tulis store. Pengimpor selalu membaca nilai terbaru. */
-export let HARI_INI = tanggalLokal();
-export function segarkanHari(kini = new Date()) {
-  const t = tanggalLokal(kini);
-  if (t === HARI_INI) return false;
-  HARI_INI = t;
-  return true;
-}
+/* "Hari ini" (binding hidup) ada di hari.js: tanggal lokal perangkat, atau tanggal di zona waktu akun saat masuk. */
+export { HARI_INI, segarkanHari, aturZonaHari } from './hari.js';
 const waktu = { get hariIni() { return HARI_INI; }, tambahHari };
 /* app only: the stores hold one account's copy (ata-lingkup, see _layar/lingkup.ts). No sample Slot or sample progress then. */
 const akunAktif = () => { try { const l = localStorage.getItem('ata-lingkup'); return !!l && l !== 'lokal'; } catch (e) { return false; } };
@@ -23,13 +18,27 @@ const awal = () => (akunAktif() ? { ...awalBersama(), slot: [] } : awalBersama()
 let cache = null;
 let cadangan = null; /* bila localStorage diblokir: tetap jalan di memori (tanpa sinkron antar tab) */
 
-const katalog = (b) => (id) => LOMBA.find((l) => l.id === id) || (b.kartu[id] ? { id, ...b.kartu[id] } : null);
+/* a card only stores the deadline DATE; its days left are counted from that date at every read, never saved */
+const katalog = (b) => (id) => LOMBA.find((l) => l.id === id) || (b.kartu[id] ? denganSisaHari({ id, ...b.kartu[id] }, HARI_INI) : null);
 const dikenal = (id) => LOMBA.some((l) => l.id === id);
+
+/* Cards saved before deadlines were stored as dates only hold a days-left number, which is stale by now.
+   The date the user typed is still in Lomba's own store: take it from there, otherwise the card has no deadline. */
+function pulihkanTenggat(s) {
+  if (!s || typeof s !== 'object' || !s.kartu || typeof s.kartu !== 'object') return s;
+  const tanpa = Object.entries(s.kartu).filter(([, k]) => k && typeof k === 'object' && !tanggalSah(k.tenggatIso) && Number.isFinite(k.hariLagi));
+  if (!tanpa.length) return s;
+  let unggahan = [];
+  try { unggahan = JSON.parse(localStorage.getItem('ata-demo-lomba') || 'null')?.unggahan || []; } catch (e) { /* no date to recover */ }
+  const kartu = { ...s.kartu };
+  for (const [id, k] of tanpa) kartu[id] = { ...k, tenggatIso: tanggalSah(unggahan.find((u) => u && u.id === id)?.tenggatIso) };
+  return { ...s, kartu };
+}
 
 function mentah() {
   try {
     const s = localStorage.getItem(KUNCI_BERSAMA);
-    return s === null ? undefined : JSON.parse(s);
+    return s === null ? undefined : pulihkanTenggat(JSON.parse(s));
   } catch (e) {
     return cadangan ?? undefined;
   }

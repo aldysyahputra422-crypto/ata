@@ -14,11 +14,11 @@ const pro = { ...base, signed_in: true, user, plan: { plan: "pro", status: "acti
 const SEED = "interval-2027";
 
 type Sent = { method: string; key: string; body: { state?: string } | null };
-const stub = async (page: Page, me: unknown, opts: { items?: unknown[]; list?: number; put?: (s: Sent) => number } = {}) => {
+const stub = async (page: Page, me: unknown, opts: { items?: unknown[]; list?: number; put?: (s: Sent) => number; timezone?: string } = {}) => {
   const sent: Sent[] = [];
   await page.route("**/api/v1/me", (route) => route.fulfill({ json: me }));
   await page.route("**/api/v1/user-competitions", (route) =>
-    route.fulfill({ status: opts.list ?? 200, json: opts.list && opts.list >= 400 ? { error: { code: "unavailable" } } : { items: opts.items ?? [], plan: "free", slot_limit: 1 } }));
+    route.fulfill({ status: opts.list ?? 200, json: opts.list && opts.list >= 400 ? { error: { code: "unavailable" } } : { items: opts.items ?? [], plan: "free", slot_limit: 1, ...(opts.timezone ? { timezone: opts.timezone } : {}) } }));
   await page.route("**/api/v1/user-competitions/*", (route) => {
     const req = route.request();
     const s: Sent = { method: req.method(), key: decodeURIComponent(req.url().split("/").pop() ?? ""), body: req.postDataJSON() as Sent["body"] };
@@ -257,4 +257,72 @@ test.describe("lomba", () => {
       }
     });
   }
+});
+
+// The Radar queue follows "today": the account's day (profiles.timezone, from the server) when signed in, the
+// device's day signed out / DATA DEMO. essay-unesa-2026 closes on 2026-11-24.
+test.describe("lomba: Radar queue and the account's day", () => {
+  const ESAI = "National Essay Competition 2026";
+  const teratas = (page: Page) => page.locator(".lb-card.is-top");
+  // 22:00 on the 24th in Jakarta; already 05:00 on the 25th on a device in Kiritimati (UTC+14)
+  const SAAT = new Date("2026-11-24T15:00:00Z");
+
+  test.describe("device a day ahead (Pacific/Kiritimati)", () => {
+    test.use({ timezoneId: "Pacific/Kiritimati" });
+
+    test("signed in: a competition closing today on the account's day is offered", async ({ page }) => {
+      await page.clock.install({ time: SAAT });
+      await stub(page, free, { timezone: "Asia/Jakarta" });
+      await open(page);
+      await expect(page.locator('#views[data-akun="akun"]')).toBeVisible();
+      await expect(teratas(page)).toContainText(ESAI);
+      await expect(teratas(page)).toContainText(/hari ini/i);
+    });
+
+    test("signed out: the device's day is used, so the competition is closed and not offered", async ({ page }) => {
+      await page.clock.install({ time: SAAT });
+      await stub(page, out);
+      await open(page);
+      await expect(page.locator('#views[data-akun="lokal"]')).toBeVisible();
+      await page.getByRole("button", { name: "Cari lomba tambahan" }).click(); // the sample Slot fills the free plan
+      await expect(teratas(page)).toBeVisible();
+      await expect(page.locator(".lb-deck")).not.toContainText(ESAI);
+    });
+  });
+
+  test.describe("device a day behind (America/Los_Angeles)", () => {
+    test.use({ timezoneId: "America/Los_Angeles" });
+
+    test("signed in: a deadline passed on the account's day is not offered, whatever the device's day", async ({ page }) => {
+      // the 24th at 09:00 in Los Angeles; the 25th at 00:00 in Jakarta
+      await page.clock.install({ time: new Date("2026-11-24T17:00:00Z") });
+      // an account whose day is still the 24th is offered it ...
+      await stub(page, free, { timezone: "America/Los_Angeles" });
+      await open(page);
+      await expect(page.locator('#views[data-akun="akun"]')).toBeVisible();
+      await expect(teratas(page)).toContainText(ESAI);
+      // ... an account already on the 25th is not, on the same device at the same instant
+      await page.unrouteAll();
+      await stub(page, free, { timezone: "Asia/Jakarta" });
+      await page.reload();
+      await expect(page.locator('#views[data-akun="akun"]')).toBeVisible();
+      await expect(teratas(page)).toBeVisible();
+      await expect(page.locator(".lb-deck")).not.toContainText(ESAI);
+    });
+  });
+
+  test.describe("day change", () => {
+    test.use({ timezoneId: "Asia/Jakarta" });
+
+    test("a tab left open past the account's midnight drops the competition that closed", async ({ page }) => {
+      await page.clock.install({ time: new Date("2026-11-24T16:58:00Z") }); // 23:58 on the 24th
+      await stub(page, free, { timezone: "Asia/Jakarta" });
+      await open(page);
+      await expect(page.locator('#views[data-akun="akun"]')).toBeVisible();
+      await expect(teratas(page)).toContainText(ESAI);
+      await page.clock.fastForward("05:00"); // 00:03 on the 25th, same page, no reload
+      await expect(teratas(page)).toBeVisible();
+      await expect(page.locator(".lb-deck")).not.toContainText(ESAI);
+    });
+  });
 });

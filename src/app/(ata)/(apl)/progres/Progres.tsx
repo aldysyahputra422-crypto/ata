@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Ikon } from "../../_layar/Ikon";
 import { heatmap } from "@/lib/prototype/masuk/logic/progres.js";
 import { reaksiSemua } from "@/lib/prototype/shared/maskot.js";
-import { ATURAN_XP, XP, aturStatus, aturStatusAkun, type Tugas } from "../hari-ini/data";
+import { ATURAN_XP, XP, aturStatus, aturStatusAkun, sisaTugas, type Tugas } from "../hari-ini/data";
 import { useDataHari } from "../hari-ini/pakaiData";
 
 const LINGKAR = 2 * Math.PI * 32;
@@ -53,7 +53,8 @@ export function Progres() {
   const { data } = muatan;
   const { hariIni, tugas, slot, progres } = data;
   const selesai = tugas.filter((t) => t.selesai).length;
-  const telat = tugas.filter((t) => !t.selesai && t.tenggat < hariIni);
+  const lewat = (t: Tugas) => !t.selesai && sisaTugas(t, hariIni) < 0;
+  const telat = tugas.filter(lewat);
   const h = (heatmap as (a: object, o: object) => unknown)(data.aktivitas, { minggu: 12, hariIni }) as { kolom: Kolom[]; total: number };
   const nama = sumber === "akun" ? akun.nama ?? "kamu" : data.namaDemo;
 
@@ -131,7 +132,7 @@ export function Progres() {
                 <input type="checkbox" data-tugas={t.id} checked={t.selesai} disabled={sibuk.includes(t.id)} onChange={() => void ubah(t)} />
                 <span className="tugas__teks">{t.judul}<span className="tugas__slot small muted">{t.slotNama}</span></span>
               </label>
-              <span className={`pill num ${!t.selesai && t.tenggat < hariIni ? "pill--telat" : ""}`}>{t.tenggat.slice(8)}/{t.tenggat.slice(5, 7)}</span>
+              <span className={`pill num ${lewat(t) ? "pill--telat" : ""}`}>{t.tenggat.slice(8)}/{t.tenggat.slice(5, 7)}</span>
             </li>
           ))}
         </ul>
