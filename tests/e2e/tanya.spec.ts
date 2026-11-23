@@ -250,6 +250,20 @@ test.describe("Tanya Ata", () => {
     await expect(page.locator(".tanya__sumber summary").last()).toContainText("Tanpa data akun");
   });
 
+  test("revoking a permission also closes a prepared prompt that carries that data", async ({ page }) => {
+    const o: Parameters<typeof tanya>[1] = { izin: ["lomba"] };
+    await tanya(page, o);
+    await page.route("**/api/v1/tanya/prompt", (route) => route.fulfill({ json: { mode: "handoff", prompt: "Kamu adalah Ata.\n[S1] Lomba Esai Nasional", provenance: asal } }));
+    await page.goto("/ata");
+    await page.locator("#tulis").fill("Tolong review ideku");
+    await page.locator("#kirim").click();
+    await expect(page.locator("#promptSalin")).toContainText("Lomba Esai Nasional");
+    o.izin = [];
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.locator("#izinDicabut")).toContainText("Izin Lomba dicabut");
+    await expect(page.locator("#promptSalin")).toHaveCount(0);
+  });
+
   test("a revocation the server reports: earlier turns are dropped, and a running answer is discarded", async ({ page }) => {
     let langkah = 0;
     const o: Parameters<typeof tanya>[1] = { tersambung: true, izin: ["lomba"] };

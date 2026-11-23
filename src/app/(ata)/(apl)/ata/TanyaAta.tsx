@@ -218,10 +218,12 @@ export function TanyaAta() {
   // A category this conversation used is no longer allowed: stop the running answer and clear the conversation.
   // Runs when permissions are read again, not on every message: the server decides what an answer may use.
   const pesanKini = useRef(pesan);
-  useEffect(() => { pesanKini.current = pesan; }, [pesan]);
+  const promptKini = useRef(prompt);
+  useEffect(() => { pesanKini.current = pesan; promptKini.current = prompt; }, [pesan, prompt]);
   useEffect(() => {
     if (muatan.status !== "siap") return;
-    const hilang = kategoriDipakai(pesanKini.current).filter((c) => !muatan.data.permissions[c]?.allowed);
+    const dipakai = new Set([...kategoriDipakai(pesanKini.current), ...(promptKini.current?.asal.sources.map((x) => x.category) ?? [])]);
+    const hilang = [...dipakai].filter((c) => !muatan.data.permissions[c]?.allowed);
     if (!hilang.length) return;
     dicabut.current = true;
     batal.current?.abort();
