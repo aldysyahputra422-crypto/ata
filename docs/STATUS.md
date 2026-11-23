@@ -7,7 +7,7 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 - Selesai (FR-ONB-01, FR-ONB-02, FR-AUTH-01, FR-AUTH-08): onboarding `/kenalan` menyimpan tiap jawaban ke `profiles` akun dan bisa dilanjutkan di perangkat lain; login Google pertama diarahkan ke sana. `/profil` di shell aplikasi membaca dan menyimpan profil akun, mengatur izin data AI per kategori (semua mati sejak awal), ekspor, keluar, dan hapus akun.
 - API: `GET/PATCH /api/v1/profile`, `POST /api/v1/profile/onboarding/complete`, `GET/PATCH /api/v1/permissions`. Input divalidasi zod; tulis hanya lewat fungsi database (`update_profile`, `complete_onboarding`, `set_ai_permission`), tabel tetap tidak bisa ditulis langsung oleh client.
 - Migrasi 0007 (kolom `display_name`, `targets`, `skills` di `profiles` + tiga fungsi). Diuji di PGlite saja; **belum diterapkan di `ata-dev`** dan menunggu persetujuan PO.
-- Tertunda: FR-AUTH-07 (persetujuan wali di bawah 18 tahun), FR-ONB-04 di luar meter bawaan prototipe, FR-ONB-05/07/08, pengaturan tampilan prototipe (tema, gerak), dan layar Progres (dikerjakan terpisah). Izin data AI baru tersimpan; belum ada fitur AI yang membacanya.
+- Tertunda: FR-AUTH-07 (persetujuan wali di bawah 18 tahun), FR-ONB-04 di luar meter bawaan prototipe, FR-ONB-05/07/08, pengaturan tampilan prototipe (tema, gerak). Layar Progres: lihat "M1 Layar Progres". Izin data AI baru tersimpan; belum ada fitur AI yang membacanya.
 
 ## Atribut dokumen dari server (23 November 2026)
 
@@ -19,7 +19,7 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 - Selesai: Radar, Tersimpan, Detail, Slot, Peta Jalan di `/lomba` (K-03, K-23, FR-RDM-03, FR-PRG-03); tabel `user_competitions` dengan RLS dan trigger batas Slot aktif; sinkron akun lokal-dulu.
 - Selesai: migrasi 0005 diterapkan di `ata-dev` dan diuji dengan sesi sungguhan (batas Gratis 1/Pro 3, RLS dua akun, turun paket, ekspor, dua permintaan Slot bersamaan). Halaman Paket menghitung Slot terpakai dari baris akun di server (`GET /api/v1/user-competitions`); belum masuk memakai data perangkat; gagal muat dinyatakan, bukan 0. Slot yang sama dikirim dua kali bersamaan tidak lagi ditolak 409.
 - Tertunda: pencarian lewat API key (hanya kata kunci siap pakai), paritas sudut bingkai sudah diperbaiki dari prototipe; gerbang akhir (paritas lima layar, e2e yang dilewati, lint, 0005 di Supabase lokal) ada di docs/gerbang-m1-lomba.md.
-- Tertunda: Tanya Ata, Profil (masih halaman fondasi lama). Progres sudah dimigrasikan (lihat "M1 Layar Progres").
+- Tertunda: Tanya Ata. Profil sudah dimigrasikan (lihat "Fase A"). Progres sudah dimigrasikan (lihat "M1 Layar Progres").
 
 ## M1 Layar Progres (23 November 2026)
 
