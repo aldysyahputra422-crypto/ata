@@ -1,6 +1,7 @@
 /* XP, level, streak, pencapaian: dihitung HANYA dari langkah Peta Jalan yang benar-benar selesai.
    Aturan terbuka (ditampilkan apa adanya di UI lewat ATURAN_XP). Murni: tanpa DOM, tanpa jam.
    Langkah lama yang selesai tanpa tanggal (sebelum pencatatan dimulai) tetap dapat XP dasar, tetapi tidak dihitung ke streak. */
+import { sisaHari } from './tenggat.js';
 export const XP = { TEPAT_WAKTU: 10, TERLAMBAT: 5, PETA_TUNTAS: 20, PER_LEVEL: 100 };
 export const ATURAN_XP = [
   `+${XP.TEPAT_WAKTU} XP untuk setiap langkah yang selesai sebelum atau tepat di tenggatnya`,
@@ -45,7 +46,7 @@ export function hitungXP(peta = {}, hariIni) {
 /* prioritas tugas: aturan tetap yang ditampilkan di legenda */
 export function prioritasTugas(t, hariIni) {
   if (t.selesai || !t.tenggat) return { tingkat: 'rendah', label: 'Rendah' };
-  const n = Math.round((Date.parse(`${t.tenggat}T00:00:00Z`) - Date.parse(`${hariIni}T00:00:00Z`)) / 864e5);
+  const n = sisaHari(t.tenggat, hariIni) ?? 0;
   if (n <= 2) return { tingkat: 'tinggi', label: 'Tinggi', n };
   if (n <= 7) return { tingkat: 'sedang', label: 'Sedang', n };
   return { tingkat: 'rendah', label: 'Rendah', n };

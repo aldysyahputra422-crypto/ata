@@ -66,7 +66,7 @@ describe("/api/v1/user-competitions", () => {
     const response = await GET();
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(await response.json()).toEqual({ items: [row], plan: "free", slot_limit: 1 });
+    expect(await response.json()).toEqual({ items: [{ ...row, deadline_on: null, days_left: null }], plan: "free", slot_limit: 1, today: "2026-11-23", timezone: "Asia/Jakarta" });
   });
 
   it("validates the key and the body", async () => {
@@ -85,7 +85,7 @@ describe("/api/v1/user-competitions", () => {
     table({ data: row, error: null });
     const response = await PUT(request("PUT", "lomba-a", { state: "slot", roadmap: { langkah: [] } }), context("lomba-a"));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(row);
+    expect(await response.json()).toEqual({ ...row, deadline_on: null, days_left: null });
     // only granted columns, no key and no owner
     expect(update).toHaveBeenCalledWith({ state: "slot", source: "catalog", roadmap: { langkah: [] } });
     expect(insert).not.toHaveBeenCalled();

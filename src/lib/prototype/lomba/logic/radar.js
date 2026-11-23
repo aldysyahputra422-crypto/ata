@@ -49,3 +49,26 @@ export function sisipkanBaru(state, ids, dilihat) {
   const baru = ids.filter((id) => !kenal.has(id));
   return { state: baru.length ? { ...state, antrean: [...baru, ...state.antrean.filter((x) => !baru.includes(x))] } : state, dilihat: [...new Set([...kenal, ...ids])] };
 }
+
+/* The Radar queue for the day the caller reads the competitions on (each entry's hariLagi is counted from "today": the
+   account's day when signed in, the device's day otherwise; see shared/hari.js). Run at load and whenever the day changes.
+   `list` = the catalogue; `lain` = competitions the user added (they sit in the same queue, but are never inserted anew);
+   `ditutup` = ids of `lain` this function took out of the queue earlier.
+   - a competition whose deadline has passed leaves the queue; one closing today (hariLagi 0) stays;
+   - it is remembered (catalogue: forgotten from `dilihat`; `lain`: kept in `ditutup`), so if the day turns out to be
+     earlier (the device is a day ahead of the account), it is offered again instead of staying hidden;
+   - saved, skipped and Slot lists are never touched. Pure. */
+export function segarkanAntrean(state, list, dilihat, { lain = [], ditutup = [] } = {}) {
+  const buka = (l) => l.hariLagi === null || l.hariLagi === undefined || l.hariLagi >= 0;
+  const tutupLain = new Set(lain.filter((l) => !buka(l)).map((l) => l.id));
+  const tutup = new Set([...list.filter((l) => !buka(l)).map((l) => l.id), ...tutupLain]);
+  const dipegang = new Set([...state.tersimpan, ...state.dilewati, ...state.slot]);
+  const kenal = dilihat || [...state.antrean, ...dipegang];
+  const kembali = ditutup.filter((id) => lain.some((l) => l.id === id && buka(l)) && !dipegang.has(id) && !state.antrean.includes(id));
+  const sisa = state.antrean.filter((id) => !tutup.has(id));
+  const antrean = [...kembali, ...sisa];
+  const r = sisipkanBaru(kembali.length || sisa.length !== state.antrean.length ? { ...state, antrean } : state,
+    list.filter(buka).map((l) => l.id), kenal.filter((id) => !tutup.has(id) || dipegang.has(id)));
+  const ingat = [...new Set([...ditutup, ...state.antrean.filter((id) => tutupLain.has(id))])].filter((id) => tutupLain.has(id) && !dipegang.has(id));
+  return { ...r, ditutup: ingat, berubah: r.state !== state };
+}

@@ -68,9 +68,22 @@ export function Lomba() {
           if (tersambung) void penyinkron?.sekarang();
         };
         window.addEventListener("pagehide", pergi);
+        // A tab left open past midnight (the account's when signed in, the device's otherwise): countdowns and the
+        // Radar queue follow the new day.
+        const hariBaru = () => {
+          const ganti = bersama.segarkanHari();
+          if ((st.segarkanAntrean() || ganti) && !batal) terpasang.ctx.render();
+        };
+        const tampak = () => {
+          if (!document.hidden) hariBaru();
+        };
+        const jedaHari = window.setInterval(hariBaru, 30_000);
+        document.addEventListener("visibilitychange", tampak);
         lepas = () => {
           kejadian.forEach((k) => document.removeEventListener(k, ubah, true));
           window.removeEventListener("pagehide", pergi);
+          window.clearInterval(jedaHari);
+          document.removeEventListener("visibilitychange", tampak);
           if (tersambung) void penyinkron?.sekarang(); // leaving the tab must not drop a change waiting to be sent
           penyinkron?.henti();
           terpasang.lepas();
@@ -120,8 +133,17 @@ export function Lomba() {
           tersambung = false;
           const server = await bacaServer();
           if (batal) return;
-          if (server.status !== "ok")
+          if (server.status !== "ok") {
+            if (server.status === "keluar") {
+              const hariGanti = bersama.aturZonaHari(null);
+              if (st.segarkanAntrean() || hariGanti) terpasang.ctx.render();
+            }
             return setAkun(server.status === "keluar" ? "lokal" : "terputus");
+          }
+          // Countdowns of an account follow the account's day (profiles.timezone), not the device's time zone.
+          // The Radar queue was built on the device's day; it is rebuilt for the account's day.
+          const hariGanti = bersama.aturZonaHari(server.timezone);
+          if (st.segarkanAntrean() || hariGanti) terpasang.ctx.render();
           // read again each time: "Reset data demo" clears it so the account's rows win over the sample data
           const dasar = bacaCatatan();
           const hasil = gabung(
