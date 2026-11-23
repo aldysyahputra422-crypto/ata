@@ -106,7 +106,7 @@ export function Kenalan() {
     );
   }
 
-  const bukaWali = async (): Promise<string | null> => {
+  const bukaWali = async (selesaikan = false): Promise<string | null> => {
     const r = await bacaPersetujuan();
     if (!r.ok) return r.status === 401 ? (setMuatan({ status: "keluar" }), null) : r.pesan;
     if (!r.data.consent.required) {
@@ -118,8 +118,9 @@ export function Kenalan() {
       setD(awal);
       jamTersimpan.current = profil.data.profile.weekly_hours;
       setWali(null);
-      const tutup = profil.data.profile.onboarding_done ? null : await selesaikanOnboarding();
-      if (tutup && !tutup.ok) setI(langkahAwal(awal));
+      // only a student who had already reached the end is finished here; otherwise the questions go on
+      const tutup = profil.data.profile.onboarding_done ? null : selesaikan ? await selesaikanOnboarding() : undefined;
+      if (tutup === undefined || (tutup && !tutup.ok)) setI(langkahAwal(awal));
       else setSelesai(true);
       requestAnimationFrame(() => judul.current?.focus());
       return null;
@@ -138,7 +139,7 @@ export function Kenalan() {
       const r = await selesaikanOnboarding();
       kunci.current = false;
       setSibuk(false);
-      if (!r.ok) return r.status === 403 ? void (await bukaWali()) : setGalat(r.pesan);
+      if (!r.ok) return r.status === 403 ? void (await bukaWali(true)) : setGalat(r.pesan);
       setWali(null);
       setSelesai(true);
       requestAnimationFrame(() => judul.current?.focus());
@@ -151,7 +152,7 @@ export function Kenalan() {
         </div>
         <h1 ref={judul} tabIndex={-1}>Persetujuan orang tua/wali</h1>
         <p className="lede">Kamu belum 18 tahun, jadi Ata perlu persetujuan orang tua atau walimu sebelum kamu lanjut dan sebelum fitur AI boleh memakai datamu.</p>
-        <PersetujuanWali p={wali} onUbah={async () => { await bukaWali(); }} onKeluar={() => setMuatan({ status: "keluar" })} />
+        <PersetujuanWali p={wali} onUbah={async () => { await bukaWali(true); }} onKeluar={() => setMuatan({ status: "keluar" })} />
         <span className="galat" role="alert" hidden={!galat}>{galat}</span>
         <div className="btn-row">
           <button type="button" className="btn btn--ghost" id="ubahJawaban" disabled={sibuk} onClick={() => { setWali(null); langkahKe(0); }}>Ubah jawaban</button>
@@ -184,7 +185,7 @@ export function Kenalan() {
     // 403: the server wants verified guardian consent first (FR-AUTH-07). A birth date correction towards
     // adult is refused too: it is asked for in the guardian step, where the guardian confirms it by email.
     const keWali = tutup && !tutup.ok && (tutup.status === 403 || tutup.kode === "guardian_verification_required");
-    const pesanWali = keWali ? await bukaWali() : undefined;
+    const pesanWali = keWali ? await bukaWali(akhir) : undefined;
     kunci.current = false;
     setSibuk(false);
     if (pesanWali !== undefined) return pesanWali ? setGalat(pesanWali) : undefined;
