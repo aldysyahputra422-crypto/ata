@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Ikon } from "../../_layar/Ikon";
 import { PersetujuanWali } from "../../_layar/PersetujuanWali";
-import { bacaAkun, bacaPersetujuan, bacaProfil, selesaikanOnboarding, simpanProfil, TAHUN_LAHIR_MIN, tahunLahirMaks, type Persetujuan } from "../../_layar/akun";
+import { bacaAkun, bacaPersetujuan, bacaProfil, selesaikanOnboarding, simpanProfil, TANGGAL_LAHIR_MIN, tanggalLahirMaks, type Persetujuan } from "../../_layar/akun";
 import { dariProfil, langkahAwal, periksa, SEMUA, ubahLangkah, type Jawaban } from "../../_layar/profil";
 import { MINAT, TARGET } from "@/lib/prototype/masuk/data/onboarding.js";
 import { kenalPersen, MINAT_MAKS } from "@/lib/prototype/masuk/logic/onboarding.js";
@@ -166,8 +166,10 @@ export function Kenalan() {
     const simpan = lewati ? null : await simpanProfil(ubahLangkah(l.kunci, d, jamTersimpan.current));
     if (simpan?.ok) jamTersimpan.current = simpan.data.profile.weekly_hours;
     const tutup = simpan && !simpan.ok ? simpan : akhir ? await selesaikanOnboarding() : null;
-    // 403: the server wants verified guardian consent first (FR-AUTH-07)
-    const pesanWali = tutup && !tutup.ok && tutup.status === 403 ? await bukaWali() : undefined;
+    // 403: the server wants verified guardian consent first (FR-AUTH-07). A birth date correction towards
+    // adult is refused too: it is asked for in the guardian step, where the guardian confirms it by email.
+    const keWali = tutup && !tutup.ok && (tutup.status === 403 || tutup.kode === "guardian_verification_required");
+    const pesanWali = keWali ? await bukaWali() : undefined;
     kunci.current = false;
     setSibuk(false);
     if (pesanWali !== undefined) return pesanWali ? setGalat(pesanWali) : undefined;
@@ -210,13 +212,13 @@ export function Kenalan() {
               className="input"
               id="jawab"
               key={l.id}
-              {...(l.jenis === "tahun" ? { type: "number", inputMode: "numeric", min: TAHUN_LAHIR_MIN, max: tahunLahirMaks() } : { maxLength: l.kunci === "nama" ? 30 : 120 })}
-              autoComplete={l.kunci === "nama" ? "nickname" : l.kunci === "sekolah" ? "organization" : "off"}
+              {...(l.jenis === "tahun" ? { type: "date", min: TANGGAL_LAHIR_MIN, max: tanggalLahirMaks() } : { maxLength: l.kunci === "nama" ? 30 : 120 })}
+              autoComplete={l.kunci === "nama" ? "nickname" : l.kunci === "sekolah" ? "organization" : l.jenis === "tahun" ? "bday" : "off"}
               value={String(nilai ?? "")}
               placeholder={l.contoh ?? ""}
               aria-describedby="galatLangkah"
               aria-invalid={galat ? true : undefined}
-              onChange={(e) => setD({ ...d, [l.kunci]: l.jenis === "tahun" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value })}
+              onChange={(e) => setD({ ...d, [l.kunci]: e.target.value })}
               onKeyDown={(e) => { if (e.key === "Enter") void lanjut(false); }}
             />
           </>

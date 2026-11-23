@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { GUARDIAN_CONSENT_VERSION, GUARDIAN_LINK_HOURS, consentRequestInput, guardianLink, mailbox, maskEmail, newToken, sha256 } from "@/lib/account/consent";
-import { guardianDelivery } from "@/lib/account/consent-delivery";
+import { deliveryNotConfigured, guardianDelivery } from "@/lib/account/consent-delivery";
 import { accountError, accountSession, accountUnavailable, appOrigin, checkOrigin, needsSignIn, parseJsonBody, privateHeaders } from "@/lib/account/http";
 import { readProfile } from "@/lib/account/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   const delivery = guardianDelivery();
   if (!delivery || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return accountError(503, "delivery_unavailable", "Pengiriman email ke wali belum tersambung di lingkungan ini, jadi persetujuan belum bisa diminta.");
+    return deliveryNotConfigured();
   }
 
   const profile = await readProfile(session.client);

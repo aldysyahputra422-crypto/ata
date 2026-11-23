@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as getConsent } from "@/app/api/v1/consent/route";
 import { POST as requestConsent } from "@/app/api/v1/consent/request/route";
 import { POST as revokeConsent } from "@/app/api/v1/consent/revoke/route";
+import { DELETE as cancelCorrection, POST as requestCorrection } from "@/app/api/v1/consent/birth-date/route";
 import { POST as lookup } from "@/app/api/v1/consent/guardian/lookup/route";
 import { POST as confirm } from "@/app/api/v1/consent/guardian/confirm/route";
 import { POST as withdraw } from "@/app/api/v1/consent/guardian/withdraw/route";
@@ -90,12 +91,16 @@ describe("/api/v1/consent (FR-AUTH-07)", () => {
 
   it("returns the consent status without hashes and says whether delivery is wired", async () => {
     signedIn();
-    results.guardian_consent_status = { data: { status: "pending", required: true, guardian_name: "Bu Sari", contact_masked: "w***@contoh.id", version: "v1", scope: ["profil", "lain"], token_hash: sha("x"), guardian_contact_hash: sha("y") }, error: null };
+    results.guardian_consent_status = { data: { status: "pending", account_state: "pending", required: true, birth_date: "2010-05-01", birth_date_known: true, corrections_left: 2, correction: { birth_date: "2000-05-01", contact_masked: "w***@contoh.id", token_hash: sha("z") }, deletion_due_at: null, guardian_name: "Bu Sari", contact_masked: "w***@contoh.id", version: "v1", scope: ["profil", "lain"], token_hash: sha("x"), guardian_contact_hash: sha("y") }, error: null };
     const on = await (await getConsent()).json();
-    expect(on.consent).toMatchObject({ status: "pending", required: true, delivery_available: true, scope: ["profil"] });
+    expect(on.consent).toMatchObject({ status: "pending", account_state: "pending", required: true, delivery: "configured", scope: ["profil"], corrections_left: 2, correction: { birth_date: "2000-05-01" } });
     expect(JSON.stringify(on)).not.toMatch(/[0-9a-f]{64}/);
     delivery(false);
-    expect((await (await getConsent()).json()).consent.delivery_available).toBe(false);
+    // no API key or sender: said plainly, never reported as sendable
+    expect((await (await getConsent()).json()).consent.delivery).toBe("not_configured");
+    vi.stubEnv("RESEND_API_KEY", "test-key");
+    expect((await (await getConsent()).json()).consent.delivery).toBe("not_configured"); // key without a sender address
+    delivery(false);
     results.guardian_consent_status = { data: { status: "apa-saja" }, error: null };
     expect((await getConsent()).status).toBe(503);
   });
@@ -151,8 +156,12 @@ describe("/api/v1/consent (FR-AUTH-07)", () => {
     delivery(false);
     const response = await requestConsent(post("/api/v1/consent/request", guardian));
     expect(response.status).toBe(503);
-    expect((await response.json()).error.code).toBe("delivery_unavailable");
+    expect((await response.json()).error.code).toBe("delivery_not_configured");
+    const correction = await requestCorrection(post("/api/v1/consent/birth-date", { ...guardian, birth_date: "2000-05-01" }));
+    expect(correction.status).toBe(503);
+    expect((await correction.json()).error.code).toBe("delivery_not_configured");
     expect(adminRpc).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("records a failed delivery and reports it, so the link can never verify", async () => {
@@ -204,7 +213,7 @@ describe("guardian routes (FR-AUTH-07)", () => {
   it("looks a link up by the token's hash and answers 404 for anything unknown", async () => {
     adminResults.guardian_consent_lookup = { data: { kind: "confirm", student_name: "Raka", guardian_name: "Bu Sari", version: "v1", scope: ["profil"], user_id: "account-a" }, error: null };
     const response = await lookup(post("/api/v1/consent/guardian/lookup", { token: TOKEN }));
-    expect(await response.json()).toEqual({ kind: "confirm", student_name: "Raka", guardian_name: "Bu Sari", version: "v1", scope: ["profil"], expires_at: null, verified_at: null });
+    expect(await response.json()).toEqual({ kind: "confirm", student_name: "Raka", guardian_name: "Bu Sari", version: "v1", scope: ["profil"], expires_at: null, verified_at: null, birth_date: null });
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(adminRpc).toHaveBeenCalledWith("guardian_consent_lookup", { p_token_hash: sha(TOKEN) });
     adminResults.guardian_consent_lookup = { data: { error: "invalid_token" }, error: null };
@@ -212,20 +221,46 @@ describe("guardian routes (FR-AUTH-07)", () => {
   });
 
   it("confirms with the hashed token and hands the withdrawal token over once, storing only its hash", async () => {
+    adminResults.guardian_consent_lookup = { data: { kind: "confirm" }, error: null };
     adminResults.confirm_guardian_consent = { data: { status: "verified" }, error: null };
     const response = await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: true, verifier_name: " Sari Wulandari ", is_guardian: true }));
     const body = await response.json();
     expect(body.status).toBe("verified");
     expect(body.withdraw_token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(adminRpc).toHaveBeenCalledWith("confirm_guardian_consent", { p_token_hash: sha(TOKEN), p_approve: true, p_verifier_name: "Sari Wulandari", p_revoke_token_hash: sha(body.withdraw_token) });
+    expect(adminRpc).toHaveBeenCalledWith("confirm_guardian_consent", { p_token_hash: sha(TOKEN), p_approve: true, p_verifier_name: "Sari Wulandari", p_revoke_token_hash: sha(body.withdraw_token), p_request_deletion: false });
 
     adminResults.confirm_guardian_consent = { data: { status: "declined" }, error: null };
     const declined = await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: false }));
-    expect(await declined.json()).toEqual({ status: "declined" });
+    expect(await declined.json()).toEqual({ status: "declined", deletion_requested: false });
+    adminResults.confirm_guardian_consent = { data: { status: "declined", deletion_requested: true }, error: null };
+    const deleting = await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: false, request_deletion: true }));
+    expect(await deleting.json()).toEqual({ status: "declined", deletion_requested: true });
+    expect(adminRpc).toHaveBeenLastCalledWith("confirm_guardian_consent", { p_token_hash: sha(TOKEN), p_approve: false, p_verifier_name: null, p_revoke_token_hash: null, p_request_deletion: true });
+    // an approval cannot carry a deletion request, and a withdrawal link is not an answer
+    expect((await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: true, verifier_name: "Sari", is_guardian: true, request_deletion: true }))).status).toBe(422);
+    adminResults.guardian_consent_lookup = { data: { kind: "withdraw" }, error: null };
+    expect((await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: false }))).status).toBe(404);
+    adminResults.guardian_consent_lookup = { data: { kind: "confirm" }, error: null };
     adminResults.confirm_guardian_consent = { data: { error: "invalid_token" }, error: null };
     const used = await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: true, verifier_name: "Sari", is_guardian: true }));
     expect(used.status).toBe(404);
     expect(await used.json()).not.toHaveProperty("withdraw_token");
+  });
+
+  it("answers a birth date correction by what the stored link is, not by what the request claims", async () => {
+    adminResults.guardian_consent_lookup = { data: { kind: "correction", student_name: "Raka", guardian_name: "Bu Sari", birth_date: "2000-05-01" }, error: null };
+    expect(await (await lookup(post("/api/v1/consent/guardian/lookup", { token: TOKEN }))).json()).toMatchObject({ kind: "correction", birth_date: "2000-05-01", scope: [] });
+    adminResults.confirm_birth_date_correction = { data: { status: "applied" }, error: null };
+    const yes = await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: true, verifier_name: "Sari Wulandari", is_guardian: true }));
+    expect(await yes.json()).toEqual({ status: "corrected" });
+    expect(adminRpc).toHaveBeenLastCalledWith("confirm_birth_date_correction", { p_token_hash: sha(TOKEN), p_approve: true, p_verifier_name: "Sari Wulandari" });
+    expect(adminRpc).not.toHaveBeenCalledWith("confirm_guardian_consent", expect.anything());
+    adminResults.confirm_birth_date_correction = { data: { status: "declined" }, error: null };
+    expect(await (await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: false }))).json()).toEqual({ status: "declined" });
+    adminResults.confirm_birth_date_correction = { data: { error: "invalid_token" }, error: null };
+    expect((await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: false }))).status).toBe(404);
+    // without the statement of being the parent/guardian nothing is confirmed
+    expect((await confirm(post("/api/v1/consent/guardian/confirm", { token: TOKEN, approve: true, verifier_name: "Sari Wulandari" }))).status).toBe(422);
   });
 
   it("withdraws with the withdrawal token", async () => {
@@ -260,12 +295,63 @@ describe("routes that now depend on consent (FR-AUTH-07)", () => {
     expect((await patchPermission(patch("/api/v1/permissions", { category: "dokumen", allowed: true }))).status).toBe(409);
   });
 
-  it("answers 409 when a minor's birth year is changed to an adult's", async () => {
+  it("answers 409 when a birth date correction needs the guardian or is over the limit, and rejects a bare year", async () => {
     signedIn();
-    results.update_profile = { data: { error: "age_locked", field: "birth_year" }, error: null };
-    const response = await patchProfile(patch("/api/v1/profile", { birth_year: 1990 }));
+    results.update_profile = { data: { error: "guardian_verification_required", field: "birth_date" }, error: null };
+    const response = await patchProfile(patch("/api/v1/profile", { birth_date: "1990-01-01" }));
     expect(response.status).toBe(409);
-    expect((await response.json()).error).toMatchObject({ code: "age_locked", field: "birth_year" });
+    expect((await response.json()).error).toMatchObject({ code: "guardian_verification_required", field: "birth_date" });
+    results.update_profile = { data: { error: "correction_limit", field: "birth_date" }, error: null };
+    const limit = await patchProfile(patch("/api/v1/profile", { birth_date: "2010-01-02" }));
+    expect(limit.status).toBe(409);
+    expect((await limit.json()).error.code).toBe("correction_limit");
+    rpc.mockClear();
+    for (const body of [{ birth_year: 1990 }, { birth_date: "1990" }, { birth_date: "1990-02-30" }, { birth_date: 19900101 }, { birth_date: null }, { birth_date: "1990-01-01", birth_date_corrections: 0 }]) {
+      expect((await patchProfile(patch("/api/v1/profile", body))).status, JSON.stringify(body)).toBe(422);
+    }
+    expect(rpc).not.toHaveBeenCalledWith("update_profile", expect.anything());
+  });
+
+  it("opens a birth date correction only through the server, with the link going to the guardian", async () => {
+    signedIn();
+    adminResults.create_birth_date_correction = { data: { id: "kor-1", expires_at: "2026-11-26T00:00:00Z" }, error: null };
+    adminResults.record_birth_date_correction_delivery = { data: { delivery_status: "sent" }, error: null };
+    const body = { ...guardian, birth_date: "2000-05-01" };
+    const response = await requestCorrection(post("/api/v1/consent/birth-date", body));
+    expect(response.status).toBe(202);
+    const sent = await response.json();
+    expect(sent).toEqual({ status: "pending", birth_date: "2000-05-01", contact_masked: "w***@contoh.id", expires_at: "2026-11-26T00:00:00Z" });
+    const created = adminRpc.mock.calls.find(([name]) => name === "create_birth_date_correction")![1] as Record<string, string>;
+    expect(created).toMatchObject({ p_user_id: "account-a", p_birth_date: "2000-05-01", p_contact_hash: sha("wali@contoh.id") });
+    const mail = JSON.parse(fetchMock.mock.calls[0][1].body as string) as { to: string[]; text: string; subject: string };
+    expect(mail.to).toEqual(["wali@contoh.id"]);
+    expect(mail.subject).toMatch(/koreksi tanggal lahir/i);
+    const token = /#t=([A-Za-z0-9_-]{43})/.exec(mail.text)![1];
+    expect(created.p_token_hash).toBe(sha(token));
+    expect(JSON.stringify(sent)).not.toContain(token); // the account never sees the link
+
+    for (const bad of [{ ...body, birth_date: "2000" }, { ...body, guardian_email: "raka+x@contoh.id" }, { ...body, user_id: "account-b" }, { birth_date: "2000-05-01" }]) {
+      expect((await requestCorrection(post("/api/v1/consent/birth-date", bad))).status, JSON.stringify(bad)).toBe(422);
+    }
+    for (const [error, status] of [["not_required", 409], ["correction_limit", 409], ["guardian_mismatch", 409], ["rate_limited", 429], ["validation", 422]] as const) {
+      adminResults.create_birth_date_correction = { data: { error }, error: null };
+      expect((await requestCorrection(post("/api/v1/consent/birth-date", body))).status, error).toBe(status);
+    }
+    adminResults.create_birth_date_correction = { data: { id: "kor-2", expires_at: "2026-11-26T00:00:00Z" }, error: null };
+    fetchMock.mockResolvedValueOnce(new Response("{}", { status: 500 }));
+    const failed = await requestCorrection(post("/api/v1/consent/birth-date", body));
+    expect(failed.status).toBe(502);
+    expect(adminRpc).toHaveBeenLastCalledWith("record_birth_date_correction_delivery", { p_id: "kor-2", p_sent: false, p_ref: null });
+
+    results.cancel_birth_date_correction = { data: { status: "cancelled" }, error: null };
+    const del = (source = origin) => new Request(origin + "/api/v1/consent/birth-date", { method: "DELETE", headers: { origin: source } });
+    expect((await cancelCorrection(del())).status).toBe(200);
+    expect((await cancelCorrection(del("https://lain.example"))).status).toBe(403);
+    results.cancel_birth_date_correction = { data: { error: "not_found" }, error: null };
+    expect((await cancelCorrection(del())).status).toBe(404);
+    auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+    expect((await requestCorrection(post("/api/v1/consent/birth-date", body))).status).toBe(401);
+    expect((await cancelCorrection(del())).status).toBe(401);
   });
 });
 

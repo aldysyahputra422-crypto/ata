@@ -10,7 +10,7 @@ import { Ikon } from "../../_layar/Ikon";
 import { Sheet, Toast } from "../../_layar/Lapisan";
 import { PersetujuanWali } from "../../_layar/PersetujuanWali";
 import {
-  bacaAkun, bacaIzin, bacaPersetujuan, bacaProfil, ekspor, hapusAkun, KATEGORI_IZIN, keluar, simpanProfil, tanggal, TAHUN_LAHIR_MIN, tahunLahirMaks, ubahIzin,
+  bacaAkun, bacaIzin, bacaPersetujuan, bacaProfil, ekspor, hapusAkun, KATEGORI_IZIN, keluar, simpanProfil, tanggal, TANGGAL_LAHIR_MIN, tanggalLahirMaks, ubahIzin,
   type Akun, type Izin, type Persetujuan, type Profil as DataProfil,
 } from "../../_layar/akun";
 import { keIsian, periksaIsian, selisih, type Isian } from "../../_layar/profil";
@@ -24,7 +24,7 @@ const ZONA = [
   { id: "Asia/Jayapura", nama: "WIT (Jayapura)" },
 ];
 const NAMA_BIDANG: Record<string, string> = {
-  display_name: "Nama panggilan", jenjang: "Jenjang", birth_year: "Tahun lahir", institution: "Sekolah atau kampus", major: "Jurusan",
+  display_name: "Nama panggilan", jenjang: "Jenjang", birth_date: "Tanggal lahir", institution: "Sekolah atau kampus", major: "Jurusan",
   timezone: "Zona waktu", interests: "Minat lomba", targets: "Target", skills: "Kemampuan", goals_text: "Tujuan", weekly_hours: "Jam belajar",
 };
 
@@ -153,7 +153,7 @@ export function Profil() {
     setGalat(null);
     setToast("Profil tersimpan di akunmu.");
     // a new birth year can change whether guardian consent is needed, and with it the permissions
-    if ("birth_year" in ubah) await segarkanWali();
+    if ("birth_date" in ubah || "timezone" in ubah) await segarkanWali();
   };
 
   const saklar = async (id: keyof Izin, boleh: boolean) => {
@@ -226,8 +226,13 @@ export function Profil() {
               <input className="input" id="p-display_name" maxLength={30} autoComplete="nickname" value={f.display_name} aria-invalid={salah("display_name")} onChange={(e) => isi("display_name", e.target.value)} />
             </div>
             <div className="field">
-              <label htmlFor="p-birth_year">Tahun lahir</label>
-              <input className="input" id="p-birth_year" type="number" inputMode="numeric" min={TAHUN_LAHIR_MIN} max={tahunLahirMaks()} value={f.birth_year} aria-invalid={salah("birth_year")} onChange={(e) => isi("birth_year", e.target.value)} />
+              <label htmlFor="p-birth_date">Tanggal lahir</label>
+              <input className="input" id="p-birth_date" type="date" autoComplete="bday" min={TANGGAL_LAHIR_MIN} max={tanggalLahirMaks()} value={f.birth_date} aria-invalid={salah("birth_date")} aria-describedby="hintLahir" onChange={(e) => isi("birth_date", e.target.value)} />
+              <span className="hint" id="hintLahir">
+                {profil.birth_date === null && profil.birth_year !== null
+                  ? `Akunmu baru menyimpan tahun ${profil.birth_year}. Lengkapi tanggalnya; sampai itu, akunmu diperlakukan sebagai di bawah 18 tahun bila tahunnya belum pasti dewasa.`
+                  : "Menentukan apakah persetujuan orang tua/wali diperlukan. Koreksi dibatasi dan tercatat."}
+              </span>
             </div>
           </div>
           <div className="field">
@@ -311,7 +316,7 @@ export function Profil() {
           {izin && izinTerkunci ? (
             <p className="small" id="izinTerkunci" role="status">
               {!wali ? "Status persetujuan wali belum bisa dimuat, jadi izin belum bisa dinyalakan. Muat ulang untuk mencoba lagi."
-                : wali.status === "age_unknown" ? "Isi tahun lahir di profil dulu. Izin baru bisa dinyalakan setelah usiamu diketahui."
+                : wali.status === "age_unknown" ? "Isi tanggal lahir di profil dulu. Izin baru bisa dinyalakan setelah usiamu diketahui."
                 : "Izin terkunci sampai orang tua/walimu menyetujui. Semua kategori mati."}
             </p>
           ) : null}

@@ -40,9 +40,13 @@ export async function PATCH(request: Request) {
       { status: 422, headers: privateHeaders },
     );
   }
-  if (data.error === "age_locked") {
+  // FR-AUTH-07: a correction from under 18 to adult needs the guardian's confirmation; corrections are limited
+  if (data.error === "guardian_verification_required" || data.error === "correction_limit") {
+    const message = data.error === "correction_limit"
+      ? "Batas koreksi tanggal lahir sudah habis. Hubungi tim Ata untuk memperbaikinya."
+      : "Koreksi ini mengubah statusmu menjadi dewasa, jadi perlu dikonfirmasi orang tua/wali lewat email.";
     return NextResponse.json(
-      { error: { code: "age_locked", message: "Tahun lahir ini tidak bisa diubah sendiri karena menentukan persetujuan wali.", field: "birth_year" } },
+      { error: { code: data.error, message, field: "birth_date" } },
       { status: 409, headers: privateHeaders },
     );
   }

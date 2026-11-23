@@ -19,7 +19,7 @@ type Result = { error?: string; field?: string; profile?: Profile; done?: boolea
 const call = async (sql: string, params: unknown[] = []) => (await db.query<{ r: Result }>(`select ${sql} as r`, params)).rows[0].r;
 const patch = (value: unknown) => call("public.update_profile($1::jsonb)", [JSON.stringify(value)]);
 const allow = (category: string, allowed: boolean) => call("public.set_ai_permission($1, $2)", [category, allowed]);
-const required = { display_name: "Raka", jenjang: "Kuliah D3–S1", birth_year: 2005 };
+const required = { display_name: "Raka", jenjang: "Kuliah D3–S1", birth_date: "2005-03-01" };
 
 describe("0007 profile, onboarding and AI permissions (FR-AUTH-04, FR-AUTH-09)", () => {
   beforeAll(async () => {
