@@ -51,7 +51,7 @@ export type Peristiwa =
   | { type: "meta"; provider: string; model: string; provenance: Asal; cleared?: string[] }
   | { type: "delta"; text: string }
   | { type: "done"; warnings: string[] }
-  | ({ type: "error"; partial?: boolean; categories?: string[] } & Galat);
+  | ({ type: "error"; partial?: boolean; categories?: string[]; guardian?: boolean } & Galat);
 
 /** Streams one answer. `kategori` are the data categories the earlier turns in `history` were answered with.
  *  Calls `pada` for each server event; resolves when the stream ends, is cut, or is stopped. */

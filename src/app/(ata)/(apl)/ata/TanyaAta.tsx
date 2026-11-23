@@ -326,7 +326,9 @@ export function TanyaAta() {
       else if (e.code === "permission_revoked") {
         dicabut.current = true;
         setPesan([]);
-        setDibersihkan(`Izin ${namaKategori(e.categories ?? [])} dicabut saat Ata menjawab. Jawaban dihentikan dan percakapan dibersihkan.`);
+        setDibersihkan(e.guardian || !e.categories?.length
+          ? "Persetujuan orang tua atau wali tidak lagi berlaku. Jawaban dihentikan dan percakapan dibersihkan."
+          : `Izin ${namaKategori(e.categories)} dicabut saat Ata menjawab. Jawaban dihentikan dan percakapan dibersihkan.`);
         void muat(true);
       }
       else if (e.code === "stopped") ubah((p) => ({ ...p, mengalir: false, catatan: "Kamu menghentikan jawaban ini." }));

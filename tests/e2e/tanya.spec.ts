@@ -340,6 +340,29 @@ test.describe("Tanya Ata", () => {
     await expect(galat).toHaveCount(0);
   });
 
+  test("guardian consent: a refused question says why, and consent lost mid-answer clears the conversation", async ({ page }) => {
+    let langkah = 0;
+    const o: Parameters<typeof tanya>[1] = { tersambung: true, izin: ["lomba"] };
+    o.chat = () => (++langkah === 1
+      ? { body: [jawaban[0], { type: "delta", text: "Setengah jawa" }, { type: "error", code: "permission_revoked", message: "x", action: "none", partial: false, categories: ["lomba"], guardian: true }] }
+      : { status: 403, body: { error: { code: "guardian_consent_required", message: "Akunmu butuh persetujuan orang tua atau wali sebelum memakai AI. Selesaikan dulu di Profil." } } });
+    await tanya(page, o);
+    await page.goto("/ata");
+    await page.locator("#tulis").fill("Tolong review ideku");
+    o.izin = [];
+    o.alasan = "guardian_consent_required";
+    await page.locator("#kirim").click();
+    await expect(page.locator("#izinDicabut")).toContainText("Persetujuan orang tua atau wali tidak lagi berlaku");
+    await expect(page.locator(".msg")).toHaveCount(0);
+    await expect(page.locator("#pesanBox")).not.toContainText("Setengah jawa");
+
+    await page.locator("#tulis").fill("Coba lagi");
+    await page.locator("#kirim").click();
+    await expect(page.locator(".tanya [role=alert]")).toContainText("butuh persetujuan orang tua atau wali sebelum memakai AI");
+    await expect(page.locator(".msg--ata")).toHaveCount(0);
+    expect(await axe(page)).toEqual([]);
+  });
+
   test("a rate limit and a lost connection are reported before any answer", async ({ page }) => {
     let n = 0;
     const balasan = [

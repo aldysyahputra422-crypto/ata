@@ -64,6 +64,16 @@ export async function revokedAmong(gate: CanProcessAi, userId: string, categorie
   return decisions.filter(([, decision]) => !decision.allowed).map(([category]) => category);
 }
 
+/**
+ * True when the account may not use AI at all yet: under 18 without verified guardian consent, or age unknown
+ * (FR-AUTH-07). The gate reports this before it looks at the category, so one question answers it.
+ */
+export async function needsGuardian(gate: CanProcessAi, userId: string): Promise<boolean> {
+  return (await gate(userId, "profil")).reason === "guardian_consent_required";
+}
+export const GUARDIAN_MESSAGE = "Akunmu butuh persetujuan orang tua atau wali sebelum memakai AI. Selesaikan dulu di Profil.";
+export const guardianRequired = () => accountError(403, "guardian_consent_required", GUARDIAN_MESSAGE);
+
 export const REVOKED_MESSAGE = "Izin data yang dipakai percakapan ini dicabut. Jawaban dihentikan dan percakapan dibersihkan.";
 /** How often a running answer re-checks the permissions it depends on. */
 export const REVOCATION_POLL_MS = 2000;

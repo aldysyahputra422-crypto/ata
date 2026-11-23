@@ -266,18 +266,51 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
     expect(logs.join("\n")).not.toMatch(/SECRET|RAHASIA|review ideku|Idemu/);
   });
 
+  for (const [who, setup] of [
+    ["a minor whose consent is pending", () => { db.age = "minor"; db.consent = "pending"; }],
+    ["a minor who never asked a guardian", () => { db.age = "minor"; db.consent = "none"; }],
+    ["a minor whose guardian refused", () => { db.age = "minor"; db.consent = "rejected"; }],
+    ["a minor whose consent was revoked", () => { db.age = "minor"; db.consent = "revoked"; }],
+    ["an account of unknown age", () => { db.age = "unknown"; db.consent = "verified"; }],
+  ] as const) {
+    it(`refuses ${who}: nothing goes to a provider, not even the question, and no key can be connected`, async () => {
+      // The key was connected while the account was still allowed to.
+      const cookie = await connected();
+      db.categories = { lomba: true, profil: true };
+      setup();
+      db.tables.length = 0;
+      const taken = db.taken;
+      const response = await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie));
+      expect(response.status).toBe(403);
+      expect((await response.json()).error).toMatchObject({ code: "guardian_consent_required" });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(db.tables).toEqual([]);
+      expect(db.runs).toEqual([]);
+      expect(db.taken).toBe(taken);
+
+      const connectAgain = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }));
+      expect(connectAgain.status).toBe(403);
+      expect((await connectAgain.json()).error.code).toBe("guardian_consent_required");
+      expect(fetchMock).not.toHaveBeenCalled();
+      const state = await (await status()).json();
+      expect(Object.values(state.permissions)).toEqual(Array(8).fill({ allowed: false, reason: "guardian_consent_required" }));
+
+      // A prompt to copy calls no AI and carries no account data.
+      const handoff = await (await prompt(request("/api/v1/tanya/prompt", "POST", { question: "Tolong review ideku" }, cookie))).json();
+      expect(handoff.provenance.sources).toEqual([]);
+      expect(handoff.prompt).not.toContain(NOTE);
+      expect(db.tables).not.toContain("user_competitions");
+    });
+  }
+
   for (const [reason, who, setup] of [
-    ["guardian_consent_required", "a minor whose consent is pending", () => { db.age = "minor"; db.consent = "pending"; db.categories = { lomba: true, profil: true }; }],
-    ["guardian_consent_required", "a minor whose guardian refused", () => { db.age = "minor"; db.consent = "rejected"; db.categories = { lomba: true, profil: true }; }],
-    ["guardian_consent_required", "a minor whose consent was revoked", () => { db.age = "minor"; db.consent = "revoked"; db.categories = { lomba: true, profil: true }; }],
-    ["guardian_consent_required", "an account of unknown age", () => { db.age = "unknown"; db.consent = "verified"; db.categories = { lomba: true, profil: true }; }],
     ["permission_off", "an adult with the category off", () => { db.categories = {}; }],
     ["permission_off", "a minor with verified consent and the category off", () => { db.age = "minor"; db.consent = "verified"; db.categories = {}; }],
     ["permission_off", "a gate that fails", () => { db.gateError = true; db.categories = { lomba: true, profil: true }; }],
   ] as const) {
     it(`sends no account data for ${who} (${reason})`, async () => {
-      setup();
       const cookie = await connected();
+      setup();
       db.tables.length = 0;
       fetchMock.mockResolvedValueOnce(answer("Oke."));
       const out = await events(await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie)));
@@ -337,7 +370,7 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
     }
   });
 
-  it("guardian consent withdrawn between two questions: the next request sends no account data and drops the earlier turns", async () => {
+  it("guardian consent withdrawn or refused between two questions: the next request is refused", async () => {
     db.age = "minor"; db.consent = "verified"; db.categories = { lomba: true };
     const cookie = await connected();
     fetchMock.mockResolvedValueOnce(answer("Satu [S1]."));
@@ -347,17 +380,51 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
       db.consent = consent;
       db.tables.length = 0;
       fetchMock.mockReset();
-      fetchMock.mockResolvedValueOnce(answer("Dua."));
-      const out = await events(await chat(request("/api/v1/tanya/chat", "POST", {
+      const response = await chat(request("/api/v1/tanya/chat", "POST", {
         question: "Tolong review ideku lagi", context_categories: ["lomba"],
         history: [{ role: "user", content: "Tolong review ideku" }, { role: "assistant", content: `Satu, tentang ${NOTE}-lomba` }],
-      }, cookie)));
-      expect(out[0]).toMatchObject({ cleared: ["lomba"], provenance: { sources: [], blocked: [{ category: "lomba", reason: "guardian_consent_required" }, { category: "profil", reason: "guardian_consent_required" }] } });
-      expect(fetchMock.mock.calls[0][1].body as string).not.toContain(NOTE);
-      expect(db.tables).not.toContain("user_competitions");
+      }, cookie));
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe("guardian_consent_required");
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(db.tables).toEqual([]);
       expect((await (await status()).json()).permissions.lomba).toEqual({ allowed: false, reason: "guardian_consent_required" });
     }
+    // Consent given again: allowed again, with nothing remembered in between.
+    db.consent = "verified";
+    fetchMock.mockResolvedValueOnce(answer("Tiga [S1]."));
+    expect((await events(await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie)))).at(-1).type).toBe("done");
   });
+
+  it("guardian consent withdrawn while an answer that uses no account data streams: the answer still stops", async () => {
+    db.age = "minor"; db.consent = "verified"; db.categories = {};
+    const cookie = await connected();
+    let providerSignal: AbortSignal | undefined;
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => {
+      providerSignal = init.signal ?? undefined;
+      return new Response(new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "Awal" } }] })}\n\n`));
+          init.signal?.addEventListener("abort", () => controller.close());
+        },
+      }));
+    });
+    const response = await chat(request("/api/v1/tanya/chat", "POST", { question: "Halo Ata" }, cookie));
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    while (!text.includes("Awal")) text += decoder.decode((await reader.read()).value);
+    db.consent = "revoked";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value);
+    }
+    const out = text.split("\n\n").filter(Boolean).map((line) => JSON.parse(line.replace(/^data: /, "")));
+    expect(out.at(-1)).toMatchObject({ type: "error", code: "permission_revoked", guardian: true, categories: [] });
+    expect(providerSignal?.aborted).toBe(true);
+    expect(db.runs.at(-1)).toMatchObject({ status: "stopped", error: "permission_revoked" });
+  }, 15000);
 
   for (const [how, end] of [
     ["the provider stream errors on abort", (c: ReadableStreamDefaultController<Uint8Array>, signal: AbortSignal) => c.error(signal.reason ?? new DOMException("aborted", "AbortError"))],
@@ -394,7 +461,7 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
         }
         const out = text.split("\n\n").filter(Boolean).map((line) => JSON.parse(line.replace(/^data: /, "")));
         expect(out.map((e) => e.type)).toEqual(firstDelta ? ["meta", "delta", "error"] : ["meta", "error"]);
-        expect(out.at(-1)).toMatchObject({ code: "permission_revoked", categories: ["lomba"], partial: false });
+        expect(out.at(-1)).toMatchObject({ code: "permission_revoked", categories: ["lomba"], guardian: true, partial: false });
         expect(providerSignal?.aborted).toBe(true);
         expect(db.runs.at(-1)).toMatchObject({ status: "stopped", error: "permission_revoked" });
       }, 15000);

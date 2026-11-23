@@ -1,7 +1,7 @@
 import { accountError, accountSession, accountUnavailable, checkOrigin, needsSignIn, parseJsonBody } from "@/lib/account/http";
 import { execute, prepare, provenance, provenanceRecord, type TanyaEvent } from "@/lib/tanya/orchestrator";
 import { findProvider } from "@/lib/tanya/providers";
-import { gateFor, loadCredential, parseTanya, readerFor, revokedAmong, REVOCATION_POLL_MS, REVOKED_MESSAGE, takeRequest, TANYA_BODY_BYTES } from "@/lib/tanya/server";
+import { gateFor, GUARDIAN_MESSAGE, guardianRequired, loadCredential, needsGuardian, parseTanya, readerFor, revokedAmong, REVOCATION_POLL_MS, REVOKED_MESSAGE, takeRequest, TANYA_BODY_BYTES } from "@/lib/tanya/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,7 +13,7 @@ const NO_CONNECTION = {
   not_chat: "Model yang tersimpan bukan model percakapan. Sambungkan lagi dengan model chat.",
 } as const;
 
-type RevokedEvent = { type: "error"; code: "permission_revoked"; message: string; action: "none"; partial: false; categories: string[] };
+type RevokedEvent = { type: "error"; code: "permission_revoked"; message: string; action: "none"; partial: false; guardian: boolean; categories: string[] };
 
 /** Tanya Ata with the user's own key (FR-CCH-01, FR-BYOK-03). Streams server-sent events: meta, delta…, then done or error. */
 export async function POST(request: Request) {
@@ -25,15 +25,18 @@ export async function POST(request: Request) {
   const input = parseTanya(await parseJsonBody(request, TANYA_BODY_BYTES));
   if ("error" in input) return input.error;
 
+  const { client, user } = session;
+  // Asked again on every request, and again while the answer streams: nothing about consent is remembered.
+  const gate = gateFor(client);
+  // A minor without verified guardian consent sends nothing to an AI provider, not even the question (FR-AUTH-07).
+  if (await needsGuardian(gate, user.id)) return guardianRequired();
+
   const limited = await takeRequest(session.client);
   if (limited) return limited;
   const loaded = await loadCredential(session.client, request);
   if (loaded.state === "unavailable") return accountUnavailable();
   if (loaded.state !== "ready") return accountError(409, loaded.state === "none" ? "no_connection" : loaded.state === "not_chat" ? "model_not_chat" : "connection_expired", NO_CONNECTION[loaded.state]);
 
-  const { client, user } = session;
-  // Permissions are read fresh for this request (the gate holds one read and is never reused across requests).
-  const gate = gateFor(client);
   // Earlier turns answered with a category that has since been switched off are not sent on: the history is dropped.
   const cleared = await revokedAmong(gate, user.id, input.contextCategories);
   const prepared = await prepare({ question: input.question, history: cleared.length ? [] : input.history, userId: user.id, gate, read: readerFor(client) });
@@ -59,20 +62,21 @@ export async function POST(request: Request) {
     type: "meta", run_id: runId, provider: findProvider(loaded.credential.providerId)?.name ?? loaded.credential.providerId,
     model: loaded.credential.model, provenance: provenance(prepared), cleared,
   };
-  // While the answer streams, the categories it depends on are checked again; a revocation stops the provider call.
+  // While the answer streams, guardian consent and the categories it depends on are checked again; losing either
+  // stops the provider call.
   const dependsOn = [...new Set([...record.categories, ...(cleared.length ? [] : input.contextCategories)])];
-  let revoked: string[] = [];
+  let revoked: { categories: string[]; guardian: boolean } | null = null;
   let checking = false;
-  const watch = dependsOn.length ? setInterval(() => {
+  const watch = setInterval(() => {
     if (checking || abort.signal.aborted) return;
     checking = true;
-    revokedAmong(gateFor(client), user.id, dependsOn).then((gone) => {
-      if (gone.length) {
-        revoked = gone;
+    Promise.all([revokedAmong(gate, user.id, dependsOn), needsGuardian(gate, user.id)]).then(([gone, guardian]) => {
+      if (gone.length || guardian) {
+        revoked = { categories: gone, guardian };
         abort.abort();
       }
     }, () => {}).finally(() => { checking = false; });
-  }, REVOCATION_POLL_MS) : null;
+  }, REVOCATION_POLL_MS);
 
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -81,7 +85,7 @@ export async function POST(request: Request) {
       try {
         send(meta);
         for await (const event of execute(prepared, loaded.adapter, loaded.credential, abort.signal)) {
-          if (revoked.length) break;
+          if (revoked) break;
           send(event);
           if (event.type === "done") {
             settled = true;
@@ -94,13 +98,14 @@ export async function POST(request: Request) {
       } catch {
         // The provider call was aborted, or the client went away mid-stream.
       } finally {
-        if (watch) clearInterval(watch);
+        clearInterval(watch);
         // A revocation always ends the stream with permission_revoked, however the aborted provider call ended:
         // with an event, with none, or by throwing.
-        if (!settled && revoked.length) {
+        const lost = revoked as { categories: string[]; guardian: boolean } | null;
+        if (!settled && lost) {
           settled = true;
           try {
-            send({ type: "error", code: "permission_revoked", message: REVOKED_MESSAGE, action: "none", partial: false, categories: revoked });
+            send({ type: "error", code: "permission_revoked", message: lost.guardian ? GUARDIAN_MESSAGE : REVOKED_MESSAGE, action: "none", partial: false, categories: lost.categories, guardian: lost.guardian });
           } catch {
             // the client is gone
           }
@@ -115,7 +120,7 @@ export async function POST(request: Request) {
       }
     },
     cancel() {
-      if (watch) clearInterval(watch);
+      clearInterval(watch);
       abort.abort();
     },
   });
