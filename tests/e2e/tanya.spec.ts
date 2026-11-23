@@ -138,16 +138,21 @@ test.describe("Tanya Ata", () => {
     await page.getByRole("button", { name: "Sambungkan AI" }).click();
     const sheet = page.getByRole("dialog", { name: "Sambungkan AI-mu" });
     await expect(sheet.getByRole("radio")).toHaveCount(5);
-    await expect(sheet.getByRole("button", { name: "Simpan & uji koneksi" })).toBeDisabled();
+    await expect(sheet.getByRole("button", { name: "Uji koneksi & simpan" })).toBeDisabled();
+    // Uji Koneksi is explained before it can run, and opening the sheet or typing a key calls nothing.
+    await expect(sheet.locator("#infoUji")).toContainText("hanya berjalan saat kamu menekan tombolnya");
+    await expect(sheet.locator("#infoUji")).toContainText("bisa memakai sedikit kuotamu");
+    await expect(sheet.locator("#infoUji")).toContainText("Maksimal 5 uji per 10 menit");
+    expect(kirim.filter((k) => k.url === "models" || k.url === "sambung")).toEqual([]);
     await sheet.getByLabel("API key").fill("sk-salah-12345");
     await sheet.getByRole("button", { name: "Cek key" }).click();
     await expect(sheet.getByRole("alert")).toHaveText("Key ditolak provider. Periksa atau ganti key-mu.");
     await sheet.getByLabel("API key").fill(KEY);
     await sheet.getByRole("button", { name: "Cek key" }).click();
     await expect(sheet.getByLabel("Model")).toHaveValue("model-uji");
-    await expect(sheet).toContainText("2 model tersedia");
+    await expect(sheet).toContainText("2 model chat tersedia");
     expect(await axe(page)).toEqual([]);
-    await sheet.getByRole("button", { name: "Simpan & uji koneksi" }).click();
+    await sheet.getByRole("button", { name: "Uji koneksi & simpan" }).click();
     await expect(sheet).toBeHidden();
     await expect(page.locator("#aiStatus")).toContainText("Tersambung ke OpenAI · model-uji");
     expect(kirim.at(-1)).toEqual({ url: "sambung", body: { provider_id: "openai", api_key: KEY, model: "model-uji" } });
@@ -169,7 +174,7 @@ test.describe("Tanya Ata", () => {
     await sheet.getByLabel("Alamat API (https)").fill("https://ai.contoh.id/v1");
     await sheet.getByLabel("API key").fill(KEY);
     await sheet.getByRole("button", { name: "Cek key" }).click();
-    await expect(sheet).toContainText("2 model tersedia");
+    await expect(sheet).toContainText("2 model chat tersedia");
     expect(kirim[0].body).toEqual({ provider_id: "custom", api_key: KEY, base_url: "https://ai.contoh.id/v1" });
   });
 
@@ -195,7 +200,87 @@ test.describe("Tanya Ata", () => {
     expect(kirim[1].body).toEqual({ question: "Lanjut", history: [
       { role: "user", content: "Tolong review ideku soal sampah plastik" },
       { role: "assistant", content: "Idemu **kuat** karena dekat dengan tema [S1].\n\n- Perjelas data\n- Tambah contoh" },
-    ] });
+    ], context_categories: ["lomba"] });
+  });
+
+  test("the conversation is memory only: the screen says so, nothing is put in browser storage, and a reload empties it", async ({ page }) => {
+    const beacons: string[] = [];
+    page.on("request", (r) => { if (!/\/api\/v1\/|\/_next\/|\/prototype\/|\/mascot\/|\/ata$|\.(css|js|svg|woff2?|png|ico)(\?|$)/.test(r.url())) beacons.push(r.url()); });
+    await tanya(page, { tersambung: true, izin: ["lomba"] });
+    await page.goto("/ata");
+    await expect(page.locator("#catatanMemori")).toContainText("hilang saat halaman dimuat ulang");
+    await page.locator("#tulis").fill("Tolong review ideku PERTANYAAN-UNIK");
+    await page.locator("#kirim").click();
+    await expect(page.locator(".msg--ata .msg__bubble--md")).toContainText("Idemu kuat");
+    const simpanan = await page.evaluate(async () => JSON.stringify({
+      local: { ...localStorage }, session: { ...sessionStorage }, cookie: document.cookie,
+      idb: "databases" in indexedDB ? (await indexedDB.databases()).map((d) => d.name) : [],
+    }));
+    expect(simpanan).not.toMatch(/PERTANYAAN-UNIK|Idemu|review ideku/);
+    expect(beacons).toEqual([]);
+    await page.reload();
+    await expect(page.locator(".empty h2")).toHaveText("Mau tanya apa?");
+    await expect(page.locator(".msg")).toHaveCount(0);
+  });
+
+  test("revoking a permission clears the conversation, and the next question is sent without the old turns", async ({ page }) => {
+    const o: Parameters<typeof tanya>[1] = { tersambung: true, izin: ["lomba"] };
+    const { kirim } = await tanya(page, o);
+    await page.goto("/ata");
+    await page.locator("#tulis").fill("Tolong review ideku");
+    await page.locator("#kirim").click();
+    await expect(page.locator(".msg--ata .msg__bubble--md")).toContainText("Idemu kuat");
+    await expect(page.locator(".ctxline")).toContainText("1 dari 8");
+
+    // The permission is switched off elsewhere (another tab, or /profil); the screen learns of it when it regains focus.
+    o.izin = [];
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.locator("#izinDicabut")).toContainText("Izin Lomba dicabut");
+    await expect(page.locator(".msg")).toHaveCount(0);
+    await expect(page.locator(".ctxline")).toContainText("tidak memakai data akunmu");
+
+    o.chat = () => ({ body: [{ type: "meta", provider: "OpenAI", model: "model-uji", provenance: { ...asal, sources: [], blocked: [{ category: "lomba", reason: "permission_off" }] }, cleared: [] }, { type: "delta", text: "Jawaban tanpa data akun." }, { type: "done", warnings: [] }] });
+    await page.locator("#tulis").fill("Pertanyaan berikutnya");
+    await page.locator("#kirim").click();
+    await expect(page.locator(".msg--ata .msg__bubble--md")).toContainText("Jawaban tanpa data akun.");
+    expect(kirim.filter((k) => k.url === "chat").at(-1)?.body).toEqual({ question: "Pertanyaan berikutnya", history: [], context_categories: [] });
+    await expect(page.locator(".tanya__sumber summary").last()).toContainText("Tanpa data akun");
+  });
+
+  test("a revocation the server reports: earlier turns are dropped, and a running answer is discarded", async ({ page }) => {
+    let langkah = 0;
+    const o: Parameters<typeof tanya>[1] = { tersambung: true, izin: ["lomba"] };
+    o.chat = () => {
+      langkah += 1;
+      if (langkah === 1) return { body: jawaban };
+      if (langkah === 2) {
+        o.izin = [];
+        return { body: [{ type: "meta", provider: "OpenAI", model: "model-uji", provenance: { ...asal, sources: [], blocked: [{ category: "lomba", reason: "permission_off" }] }, cleared: ["lomba"] }, { type: "delta", text: "Jawaban kedua." }, { type: "done", warnings: [] }] };
+      }
+      return { body: [jawaban[0], { type: "delta", text: "Setengah jawa" }, { type: "error", code: "permission_revoked", message: "Izin data dicabut.", action: "none", partial: false, categories: ["lomba"] }] };
+    };
+    const { kirim } = await tanya(page, o);
+    await page.goto("/ata");
+    await page.locator("#tulis").fill("Tolong review ideku");
+    await page.locator("#kirim").click();
+    await expect(page.locator(".msg--ata .msg__bubble--md")).toContainText("Idemu kuat");
+
+    await page.locator("#tulis").fill("Lanjutkan");
+    await page.locator("#kirim").click();
+    await expect(page.locator(".msg--ata .msg__bubble--md")).toHaveText("Jawaban kedua.");
+    expect(kirim.filter((k) => k.url === "chat").at(-1)?.body).toMatchObject({ context_categories: ["lomba"], history: [{ role: "user" }, { role: "assistant" }] });
+    await expect(page.locator("#izinDicabut")).toContainText("percakapan sebelumnya dibersihkan");
+    await expect(page.locator(".msg--me")).toHaveCount(1);
+    await expect(page.locator("#pesanBox")).not.toContainText("Idemu kuat");
+
+    o.izin = ["lomba"];
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await page.locator("#tulis").fill("Sekali lagi");
+    await page.locator("#kirim").click();
+    await expect(page.locator("#izinDicabut")).toContainText("dicabut saat Ata menjawab");
+    await expect(page.locator(".msg")).toHaveCount(0);
+    await expect(page.locator("#pesanBox")).not.toContainText("Setengah jawa");
+    await expect(page.locator("#kirim")).toBeEnabled();
   });
 
   test("provider output is shown as text, never run as markup", async ({ page }) => {
