@@ -540,7 +540,7 @@ begin
     'consents', coalesce((select jsonb_agg(to_jsonb(c) - 'guardian_contact_hash' order by accepted_at)
       from public.consents c where c.user_id = account_id), '[]'::jsonb),
     'guardian_consents', coalesce((select jsonb_agg(
-        to_jsonb(g) - 'guardian_contact_hash' - 'token_hash' - 'revoke_token_hash' - 'delivery_ref' order by requested_at)
+        to_jsonb(g) - 'guardian_contact_hash' - 'token_hash' - 'revoke_token_hash' - 'delivery_ref' - 'verifier_name' order by requested_at)
       from public.guardian_consents g where g.user_id = account_id), '[]'::jsonb),
     'entitlements', coalesce((select jsonb_agg(to_jsonb(e) - 'created_by' - 'reason' - 'source_ref' order by created_at)
       from public.entitlements e where e.user_id = account_id), '[]'::jsonb),

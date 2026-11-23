@@ -263,7 +263,8 @@ describe("0008 guardian consent and the AI gate (FR-AUTH-07)", () => {
       await as(a);
       const exported = await call("public.export_account_data()") as { guardian_consents: Record<string, unknown>[] };
       expect(exported.guardian_consents).toHaveLength(1);
-      expect(exported.guardian_consents[0]).toMatchObject({ status: "verified", verifier_name: "Sari Wulandari" });
+      expect(exported.guardian_consents[0]).toMatchObject({ status: "verified", guardian_name: "Bu Sari" });
+      expect(exported.guardian_consents[0]).not.toHaveProperty("verifier_name");
       expect(JSON.stringify(exported.guardian_consents)).not.toMatch(/[0-9a-f]{64}/);
       expect(await call("public.revoke_guardian_consent()")).toEqual({ status: "revoked" });
       await superuser();
