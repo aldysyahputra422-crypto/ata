@@ -64,15 +64,26 @@ export async function revokedAmong(gate: CanProcessAi, userId: string, categorie
   return decisions.filter(([, decision]) => !decision.allowed).map(([category]) => category);
 }
 
+export type AiAccess = "ok" | "guardian" | "unknown";
 /**
- * True when the account may not use AI at all yet: under 18 without verified guardian consent, or age unknown
- * (FR-AUTH-07). The gate reports this before it looks at the category, so one question answers it.
+ * Whether this account may send anything to an AI provider right now (FR-AUTH-07). The gate reports guardian
+ * consent before it looks at the category, so one question answers it.
+ * - `guardian`: under 18 without verified guardian consent, or age unknown.
+ * - `unknown`: the gate gave no usable answer (it failed, or the session ended). Treated as "no".
  */
-export async function needsGuardian(gate: CanProcessAi, userId: string): Promise<boolean> {
-  return (await gate(userId, "profil")).reason === "guardian_consent_required";
+export async function aiAccess(gate: CanProcessAi, userId: string): Promise<AiAccess> {
+  const decision = await gate(userId, "profil").catch(() => ({ allowed: false }) as GateDecision);
+  if (decision.allowed || decision.reason === "permission_off") return "ok";
+  return decision.reason === "guardian_consent_required" ? "guardian" : "unknown";
 }
 export const GUARDIAN_MESSAGE = "Akunmu butuh persetujuan orang tua atau wali sebelum memakai AI. Selesaikan dulu di Profil.";
-export const guardianRequired = () => accountError(403, "guardian_consent_required", GUARDIAN_MESSAGE);
+export const UNSURE_MESSAGE = "Izin akunmu tidak bisa dipastikan, jadi jawaban dihentikan dan percakapan dibersihkan. Coba lagi nanti.";
+/** The refusal for an account without access. Losing guardian consent also removes the stored key. */
+export async function refuseAccess(client: SupabaseClient, access: Exclude<AiAccess, "ok">) {
+  if (access === "unknown") return accountError(503, "unavailable", "Layanan akun belum tersedia. Coba lagi nanti.");
+  await client.rpc("ai_credential_delete").then(() => {}, () => {});
+  return accountError(403, "guardian_consent_required", GUARDIAN_MESSAGE);
+}
 
 export const REVOKED_MESSAGE = "Izin data yang dipakai percakapan ini dicabut. Jawaban dihentikan dan percakapan dibersihkan.";
 /** How often a running answer re-checks the permissions it depends on. */

@@ -1,7 +1,7 @@
 import { accountError, accountSession, accountUnavailable, checkOrigin, needsSignIn, parseJsonBody } from "@/lib/account/http";
 import { execute, prepare, provenance, provenanceRecord, type TanyaEvent } from "@/lib/tanya/orchestrator";
 import { findProvider } from "@/lib/tanya/providers";
-import { gateFor, GUARDIAN_MESSAGE, guardianRequired, loadCredential, needsGuardian, parseTanya, readerFor, revokedAmong, REVOCATION_POLL_MS, REVOKED_MESSAGE, takeRequest, TANYA_BODY_BYTES } from "@/lib/tanya/server";
+import { aiAccess, type AiAccess, gateFor, GUARDIAN_MESSAGE, loadCredential, parseTanya, refuseAccess, readerFor, revokedAmong, REVOCATION_POLL_MS, REVOKED_MESSAGE, UNSURE_MESSAGE, takeRequest, TANYA_BODY_BYTES } from "@/lib/tanya/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,7 +29,9 @@ export async function POST(request: Request) {
   // Asked again on every request, and again while the answer streams: nothing about consent is remembered.
   const gate = gateFor(client);
   // A minor without verified guardian consent sends nothing to an AI provider, not even the question (FR-AUTH-07).
-  if (await needsGuardian(gate, user.id)) return guardianRequired();
+  // A gate that gives no answer is a no as well.
+  const access = await aiAccess(gate, user.id);
+  if (access !== "ok") return refuseAccess(client, access);
 
   const limited = await takeRequest(session.client);
   if (limited) return limited;
@@ -43,6 +45,11 @@ export async function POST(request: Request) {
   if (!prepared.quality.pass) {
     return accountError(422, "prompt_quality", "Pertanyaanmu belum cukup jelas untuk dikirim ke AI. Tulis lebih spesifik.");
   }
+
+  // Asked once more right before anything leaves for the provider: consent withdrawn while the prompt was being
+  // prepared stops the request here.
+  const still = await aiAccess(gate, user.id);
+  if (still !== "ok") return refuseAccess(client, still);
 
   const record = provenanceRecord(prepared);
   const started = await client.rpc("tanya_run_start", {
@@ -65,14 +72,14 @@ export async function POST(request: Request) {
   // While the answer streams, guardian consent and the categories it depends on are checked again; losing either
   // stops the provider call.
   const dependsOn = [...new Set([...record.categories, ...(cleared.length ? [] : input.contextCategories)])];
-  let revoked: { categories: string[]; guardian: boolean } | null = null;
+  let revoked: { categories: string[]; access: AiAccess } | null = null;
   let checking = false;
   const watch = setInterval(() => {
     if (checking || abort.signal.aborted) return;
     checking = true;
-    Promise.all([revokedAmong(gate, user.id, dependsOn), needsGuardian(gate, user.id)]).then(([gone, guardian]) => {
-      if (gone.length || guardian) {
-        revoked = { categories: gone, guardian };
+    Promise.all([revokedAmong(gate, user.id, dependsOn), aiAccess(gate, user.id)]).then(([gone, now]) => {
+      if (gone.length || now !== "ok") {
+        revoked = { categories: gone, access: now };
         abort.abort();
       }
     }, () => {}).finally(() => { checking = false; });
@@ -101,11 +108,12 @@ export async function POST(request: Request) {
         clearInterval(watch);
         // A revocation always ends the stream with permission_revoked, however the aborted provider call ended:
         // with an event, with none, or by throwing.
-        const lost = revoked as { categories: string[]; guardian: boolean } | null;
+        const lost = revoked as { categories: string[]; access: AiAccess } | null;
         if (!settled && lost) {
           settled = true;
           try {
-            send({ type: "error", code: "permission_revoked", message: lost.guardian ? GUARDIAN_MESSAGE : REVOKED_MESSAGE, action: "none", partial: false, categories: lost.categories, guardian: lost.guardian });
+            send({ type: "error", code: "permission_revoked", message: lost.access === "guardian" ? GUARDIAN_MESSAGE : lost.access === "unknown" ? UNSURE_MESSAGE : REVOKED_MESSAGE,
+              action: "none", partial: false, categories: lost.categories, guardian: lost.access === "guardian" });
           } catch {
             // the client is gone
           }

@@ -287,6 +287,8 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
       expect(db.tables).toEqual([]);
       expect(db.runs).toEqual([]);
       expect(db.taken).toBe(taken);
+      // The key connected earlier is deleted, not kept for later.
+      expect(db.credential).toBeNull();
 
       const connectAgain = await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }));
       expect(connectAgain.status).toBe(403);
@@ -294,6 +296,7 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
       expect(fetchMock).not.toHaveBeenCalled();
       const state = await (await status()).json();
       expect(Object.values(state.permissions)).toEqual(Array(8).fill({ allowed: false, reason: "guardian_consent_required" }));
+      expect(state).toMatchObject({ connection: null, byok_available: false });
 
       // A prompt to copy calls no AI and carries no account data.
       const handoff = await (await prompt(request("/api/v1/tanya/prompt", "POST", { question: "Tolong review ideku" }, cookie))).json();
@@ -306,7 +309,6 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
   for (const [reason, who, setup] of [
     ["permission_off", "an adult with the category off", () => { db.categories = {}; }],
     ["permission_off", "a minor with verified consent and the category off", () => { db.age = "minor"; db.consent = "verified"; db.categories = {}; }],
-    ["permission_off", "a gate that fails", () => { db.gateError = true; db.categories = { lomba: true, profil: true }; }],
   ] as const) {
     it(`sends no account data for ${who} (${reason})`, async () => {
       const cookie = await connected();
@@ -320,6 +322,66 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
       expect(out.at(-1).type).toBe("done");
     });
   }
+
+  it("fails closed when the gate gives no answer: no provider call, no key connected, and the stored key is kept", async () => {
+    const cookie = await connected();
+    db.categories = { lomba: true, profil: true };
+    db.gateError = true;
+    db.tables.length = 0;
+    const response = await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie));
+    expect(response.status).toBe(503);
+    expect((await connect(request("/api/v1/connections", "POST", { provider_id: "openai", api_key: KEY, model: "model-x" }))).status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(db.tables).toEqual([]);
+    expect(db.credential).not.toBeNull();
+    const state = await (await status()).json();
+    expect(Object.values(state.permissions)).toEqual(Array(8).fill({ allowed: false }));
+    // A prompt to copy still works, with no account data.
+    const handoff = await (await prompt(request("/api/v1/tanya/prompt", "POST", { question: "Tolong review ideku" }, cookie))).json();
+    expect(handoff.provenance.sources).toEqual([]);
+    expect(handoff.prompt).not.toContain(NOTE);
+  });
+
+  it("refuses when consent is withdrawn while the prompt is being prepared: the question is not dispatched", async () => {
+    db.age = "minor"; db.consent = "verified"; db.categories = { lomba: true };
+    const cookie = await connected();
+    // The guardian withdraws right after the account's data was read for this request.
+    const original = from.getMockImplementation()!;
+    from.mockReset();
+    from.mockImplementation((name: string) => {
+      if (name === "user_competitions") db.consent = "revoked";
+      return original(name);
+    });
+    const response = await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie));
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe("guardian_consent_required");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(db.runs).toEqual([]);
+  });
+
+  it("stops a running answer when the gate stops answering", async () => {
+    const cookie = await connected();
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "Awal" } }] })}\n\n`));
+        init.signal?.addEventListener("abort", () => controller.close());
+      },
+    })));
+    const response = await chat(request("/api/v1/tanya/chat", "POST", { question: "Halo Ata" }, cookie));
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    while (!text.includes("Awal")) text += decoder.decode((await reader.read()).value);
+    db.gateError = true;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value);
+    }
+    const out = text.split("\n\n").filter(Boolean).map((line) => JSON.parse(line.replace(/^data: /, "")));
+    expect(out.at(-1)).toMatchObject({ type: "error", code: "permission_revoked", guardian: false, categories: [] });
+    expect(out.at(-1).message).toContain("tidak bisa dipastikan");
+  }, 15000);
 
   it("re-reads permissions on every request: a category switched off between two questions is not sent the second time", async () => {
     const cookie = await connected();
@@ -390,10 +452,14 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
       expect(db.tables).toEqual([]);
       expect((await (await status()).json()).permissions.lomba).toEqual({ allowed: false, reason: "guardian_consent_required" });
     }
-    // Consent given again: allowed again, with nothing remembered in between.
+    // Consent given again: the key went with the consent, so the provider has to be connected again.
     db.consent = "verified";
+    const again = await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie));
+    expect(again.status).toBe(409);
+    expect((await again.json()).error.code).toBe("no_connection");
+    const fresh = await connected();
     fetchMock.mockResolvedValueOnce(answer("Tiga [S1]."));
-    expect((await events(await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie)))).at(-1).type).toBe("done");
+    expect((await events(await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, fresh)))).at(-1).type).toBe("done");
   });
 
   it("guardian consent withdrawn while an answer that uses no account data streams: the answer still stops", async () => {

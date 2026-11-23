@@ -19,7 +19,10 @@ export async function GET() {
   }
   const [stored, permissions] = await Promise.all([readConnection(session.client), gateSummary(gateFor(session.client), session.user.id)]);
   if (!stored) return accountUnavailable();
+  // An account that needs guardian consent cannot use a provider: a key left from before goes, and none can be added.
+  const guardian = permissions.profil?.reason === "guardian_consent_required";
+  if (guardian && stored.connection) await session.client.rpc("ai_credential_delete").then(() => {}, () => {});
   return NextResponse.json({
-    signed_in: true, byok_available: credentialsAvailable(), connection: stored.connection, providers, permissions,
+    signed_in: true, byok_available: credentialsAvailable() && !guardian, connection: guardian ? null : stored.connection, providers, permissions,
   }, { headers: privateHeaders });
 }

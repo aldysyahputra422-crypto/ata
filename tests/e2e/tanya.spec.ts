@@ -38,8 +38,10 @@ async function tanya(page: Page, o: Opsi = {}) {
   await page.route("**/api/v1/tanya/status", (route) => {
     const gagal = o.status?.();
     if (gagal) return route.fulfill({ status: gagal, json: { error: { code: "unavailable", message: "Layanan akun belum tersedia. Coba lagi nanti." } } });
+    // As on the server: an account that needs guardian consent has no AI connection and cannot add one.
+    const wali = o.alasan === "guardian_consent_required";
     return route.fulfill({ json: {
-      signed_in: masuk, byok_available: masuk, connection: masuk && st.tersambung ? connection : null, providers,
+      signed_in: masuk, byok_available: masuk && !wali, connection: masuk && st.tersambung && !wali ? connection : null, providers,
       permissions: Object.fromEntries(KATEGORI.map((k) => [k, o.izin?.includes(k) ? { allowed: true } : { allowed: false, reason: masuk ? o.alasan ?? "permission_off" : "signed_out" }])),
     } });
   });
@@ -340,7 +342,7 @@ test.describe("Tanya Ata", () => {
     await expect(galat).toHaveCount(0);
   });
 
-  test("guardian consent: a refused question says why, and consent lost mid-answer clears the conversation", async ({ page }) => {
+  test("guardian consent: lost mid-answer clears the conversation; after that only a prompt to copy, and a refused question says why", async ({ page }) => {
     let langkah = 0;
     const o: Parameters<typeof tanya>[1] = { tersambung: true, izin: ["lomba"] };
     o.chat = () => (++langkah === 1
@@ -356,11 +358,24 @@ test.describe("Tanya Ata", () => {
     await expect(page.locator(".msg")).toHaveCount(0);
     await expect(page.locator("#pesanBox")).not.toContainText("Setengah jawa");
 
+    // The screen read the account again: no connection, no way to add one, and the composer prepares a prompt.
+    await expect(page.locator(".tanya")).toContainText("Sambungan AI baru bisa dipakai setelah orang tua atau walimu menyetujui");
+    await expect(page.getByRole("button", { name: "Sambungkan AI" })).toHaveCount(0);
+    await expect(page.locator("#kirim")).toHaveText("Siapkan prompt");
+    expect(await axe(page)).toEqual([]);
     await page.locator("#tulis").fill("Coba lagi");
+    await page.locator("#kirim").click();
+    await expect(page.locator("#promptSalin")).toContainText("Coba lagi");
+    await expect(page.locator(".msg--ata")).toHaveCount(0);
+  });
+
+  test("guardian consent: a question the server refuses is reported, not answered", async ({ page }) => {
+    await tanya(page, { tersambung: true, izin: ["lomba"], chat: () => ({ status: 403, body: { error: { code: "guardian_consent_required", message: "Akunmu butuh persetujuan orang tua atau wali sebelum memakai AI. Selesaikan dulu di Profil." } } }) });
+    await page.goto("/ata");
+    await page.locator("#tulis").fill("Tolong review ideku");
     await page.locator("#kirim").click();
     await expect(page.locator(".tanya [role=alert]")).toContainText("butuh persetujuan orang tua atau wali sebelum memakai AI");
     await expect(page.locator(".msg--ata")).toHaveCount(0);
-    expect(await axe(page)).toEqual([]);
   });
 
   test("a rate limit and a lost connection are reported before any answer", async ({ page }) => {

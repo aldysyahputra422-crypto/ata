@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { accountError, accountSession, accountUnavailable, checkOrigin, needsSignIn, parseJsonBody, privateHeaders } from "@/lib/account/http";
 import { cookieName, cookieOptions, credentialsAvailable, expiryFrom, newSalt, seal } from "@/lib/tanya/credentials";
 import { AiError, chatCapable, publicProviders } from "@/lib/tanya/providers";
-import { gateFor, guardianRequired, needsGuardian, publicConnection, readConnection, secureRequest, takeRequest, takeTest } from "@/lib/tanya/server";
+import { aiAccess, gateFor, refuseAccess, publicConnection, readConnection, secureRequest, takeRequest, takeTest } from "@/lib/tanya/server";
 import { CONNECTION_BODY_BYTES, connectionInput, providerFailure, resolveTarget, verifyConnection } from "./shared";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,8 @@ export async function POST(request: Request) {
   if (!parsed.success) return accountError(400, "validation", "Periksa provider, key, dan model-mu.");
   const { api_key: apiKey, model } = parsed.data;
   // A minor without verified guardian consent cannot connect an AI provider (FR-AUTH-07).
-  if (await needsGuardian(gateFor(session.client), session.user.id)) return guardianRequired();
+  const access = await aiAccess(gateFor(session.client), session.user.id);
+  if (access !== "ok") return refuseAccess(session.client, access);
   // Refused before any provider call and before the test counter: this costs the user nothing.
   if (!chatCapable(model)) return providerFailure(new AiError("model_not_chat"));
   const limited = (await takeRequest(session.client)) ?? (await takeTest(session.client));

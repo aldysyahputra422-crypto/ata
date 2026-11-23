@@ -326,8 +326,9 @@ export function TanyaAta() {
       else if (e.code === "permission_revoked") {
         dicabut.current = true;
         setPesan([]);
-        setDibersihkan(e.guardian || !e.categories?.length
+        setDibersihkan(e.guardian
           ? "Persetujuan orang tua atau wali tidak lagi berlaku. Jawaban dihentikan dan percakapan dibersihkan."
+          : !e.categories?.length ? e.message
           : `Izin ${namaKategori(e.categories)} dicabut saat Ata menjawab. Jawaban dihentikan dan percakapan dibersihkan.`);
         void muat(true);
       }
@@ -468,7 +469,13 @@ export function TanyaAta() {
               </>
             )}
           </div>
-          {data.signed_in && !data.byok_available && <p className="small muted">Penyimpanan key belum disiapkan di server ini, jadi sambungan AI belum bisa dipakai.</p>}
+          {data.signed_in && !data.byok_available && (
+            <p className="small muted">
+              {data.permissions.profil?.reason === "guardian_consent_required"
+                ? "Sambungan AI baru bisa dipakai setelah orang tua atau walimu menyetujui. Sementara itu Ata tetap bisa menyusun prompt untuk kamu salin."
+                : "Penyimpanan key belum disiapkan di server ini, jadi sambungan AI belum bisa dipakai."}
+            </p>
+          )}
           <div className="composer">
             <label className="sr-only" htmlFor="tulis">Tulis pesan untuk Ata</label>
             <textarea
