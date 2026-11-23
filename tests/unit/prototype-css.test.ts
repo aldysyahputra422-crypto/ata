@@ -27,9 +27,11 @@ describe("prototype CSS move", () => {
     }
   });
 
-  it("the migrated root layout loads the prototype design system, not the old foundation", () => {
-    const layout = readFileSync("src/app/(ata)/layout.tsx", "utf8");
-    expect(layout).toMatch(/styles\/prototype\/shared\/ds\.css/);
-    expect(layout).not.toMatch(/globals\.css|MeshBackground|DemoBanner/);
+  it("every migrated root layout loads the prototype design system, not the old foundation", () => {
+    for (const dir of ["(apl)", "(layar)", "styleguide", "uji-visual"]) {
+      const layout = readFileSync(`src/app/(ata)/${dir}/layout.tsx`, "utf8");
+      expect(layout).toMatch(/styles\/prototype\/shared\/ds\.css/);
+      expect(layout).not.toMatch(/globals\.css|MeshBackground|DemoBanner/);
+    }
   });
 });
