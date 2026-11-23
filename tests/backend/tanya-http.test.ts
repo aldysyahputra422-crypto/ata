@@ -47,7 +47,7 @@ function signedIn() {
     if (name === "ai_credential_begin") return ok({ user_id: "user-a", session_id: "sess-a", connection_id: "conn-1" });
     if (name === "ai_credential_put") {
       db.credential = { user_id: "user-a", session_id: "sess-a", connection_id: args.p_connection_id, provider_id: args.p_provider_id, base_url: args.p_base_url,
-        model: args.p_model, last4: args.p_last4, kek_version: args.p_kek_version, iv: args.p_iv, ciphertext: args.p_ciphertext, tag: args.p_tag, expires_at: "2026-11-23T07:00:00Z" };
+        model: args.p_model, last4: args.p_last4, kek_version: args.p_kek_version, iv: args.p_iv, ciphertext: args.p_ciphertext, tag: args.p_tag, wrapped_key: args.p_wrapped_key, expires_epoch: args.p_expires_epoch, expires_at: "2026-11-23T07:00:00Z" };
       return ok(db.credential);
     }
     if (name === "ai_credential_get") {

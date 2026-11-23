@@ -17,6 +17,8 @@ create table public.ai_credentials (
   iv text not null check (char_length(iv) <= 32),
   ciphertext text not null check (char_length(ciphertext) <= 4096),
   tag text not null check (char_length(tag) <= 64),
+  -- The data key, wrapped under the KEK-derived key: base64(iv | wrapped key | tag).
+  wrapped_key text not null check (char_length(wrapped_key) <= 128),
   created_at timestamptz not null default now(),
   last_used_at timestamptz not null default now(),
   idle_expires_at timestamptz not null,
@@ -80,20 +82,45 @@ end;
 $$;
 revoke all on function public.ai_credential_session() from public, anon, authenticated, service_role;
 
+-- Real cleanup, not a filter on read: removes every stored key that is past its idle or absolute expiry, or whose
+-- login session has ended. Runs on every AI call of any account, and on a schedule where pg_cron is installed.
+create function public.ai_credentials_purge()
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  removed integer;
+begin
+  delete from public.ai_credentials c
+    where c.absolute_expires_at <= now() or c.idle_expires_at <= now()
+      or not exists (select 1 from auth.sessions s where s.id = c.session_id and (s.not_after is null or s.not_after > now()));
+  get diagnostics removed = row_count;
+  return removed;
+end;
+$$;
+revoke all on function public.ai_credentials_purge() from public, anon, authenticated, service_role;
+grant execute on function public.ai_credentials_purge() to service_role;
+
 -- The ids a new credential will be bound to. The server derives the encryption key from them before it stores anything.
 create function public.ai_credential_begin()
 returns jsonb
-language sql
+language plpgsql
 security definer set search_path = ''
 as $$
-  select jsonb_build_object('user_id', auth.uid(), 'session_id', public.ai_credential_session(), 'connection_id', gen_random_uuid());
+declare
+  session uuid := public.ai_credential_session();
+begin
+  perform public.ai_credentials_purge();
+  return jsonb_build_object('user_id', auth.uid(), 'session_id', session, 'connection_id', gen_random_uuid());
+end;
 $$;
 revoke all on function public.ai_credential_begin() from public, anon, authenticated, service_role;
 grant execute on function public.ai_credential_begin() to authenticated;
 
 create function public.ai_credential_put(
   p_connection_id uuid, p_provider_id text, p_base_url text, p_model text, p_last4 text,
-  p_kek_version integer, p_iv text, p_ciphertext text, p_tag text
+  p_kek_version integer, p_iv text, p_ciphertext text, p_tag text, p_wrapped_key text, p_expires_epoch bigint
 )
 returns jsonb
 language plpgsql
@@ -103,17 +130,24 @@ declare
   account_id uuid := auth.uid();
   session uuid := public.ai_credential_session();
   row public.ai_credentials;
+  expires timestamptz;
 begin
   if p_connection_id is null or p_provider_id is null or p_model is null or p_last4 is null
-    or p_kek_version is null or p_iv is null or p_ciphertext is null or p_tag is null then
+    or p_kek_version is null or p_iv is null or p_ciphertext is null or p_tag is null or p_wrapped_key is null
+    or p_expires_epoch is null then
+    return jsonb_build_object('error', 'validation');
+  end if;
+  -- The expiry is part of what the ciphertext authenticates, so the server chooses it and the row must carry the same value.
+  expires := to_timestamp(p_expires_epoch);
+  if expires <= now() or expires > now() + interval '12 hours 1 minute' then
     return jsonb_build_object('error', 'validation');
   end if;
   delete from public.ai_credentials where user_id = account_id and session_id = session;
-  delete from public.ai_credentials where absolute_expires_at <= now() or idle_expires_at <= now();
+  perform public.ai_credentials_purge();
   insert into public.ai_credentials (user_id, session_id, connection_id, provider_id, base_url, model, last4,
-      kek_version, iv, ciphertext, tag, idle_expires_at, absolute_expires_at)
+      kek_version, iv, ciphertext, tag, wrapped_key, idle_expires_at, absolute_expires_at)
     values (account_id, session, p_connection_id, p_provider_id, p_base_url, p_model, p_last4,
-      p_kek_version, p_iv, p_ciphertext, p_tag, now() + interval '2 hours', now() + interval '12 hours')
+      p_kek_version, p_iv, p_ciphertext, p_tag, p_wrapped_key, least(now() + interval '2 hours', expires), expires)
     returning * into row;
   insert into public.audit_log (actor_id, action, target_type, meta)
     values (account_id, 'ai_connection_create', 'ai_credentials', jsonb_build_object('provider', p_provider_id));
@@ -121,8 +155,8 @@ begin
     'last4', row.last4, 'expires_at', least(row.idle_expires_at, row.absolute_expires_at));
 end;
 $$;
-revoke all on function public.ai_credential_put(uuid, text, text, text, text, integer, text, text, text) from public, anon, authenticated, service_role;
-grant execute on function public.ai_credential_put(uuid, text, text, text, text, integer, text, text, text) to authenticated;
+revoke all on function public.ai_credential_put(uuid, text, text, text, text, integer, text, text, text, text, bigint) from public, anon, authenticated, service_role;
+grant execute on function public.ai_credential_put(uuid, text, text, text, text, integer, text, text, text, text, bigint) to authenticated;
 
 -- p_secret false: what the screen may show. true: also the ciphertext, for the server to decrypt; it extends the idle window.
 create function public.ai_credential_get(p_secret boolean default false)
@@ -136,8 +170,7 @@ declare
   row public.ai_credentials;
   result jsonb;
 begin
-  delete from public.ai_credentials
-    where user_id = account_id and session_id = session and (absolute_expires_at <= now() or idle_expires_at <= now());
+  perform public.ai_credentials_purge();
   if coalesce(p_secret, false) then
     update public.ai_credentials
       set last_used_at = now(), idle_expires_at = least(now() + interval '2 hours', absolute_expires_at)
@@ -150,7 +183,8 @@ begin
     'model', row.model, 'last4', row.last4, 'expires_at', least(row.idle_expires_at, row.absolute_expires_at));
   if coalesce(p_secret, false) then
     result := result || jsonb_build_object('user_id', row.user_id, 'session_id', row.session_id,
-      'kek_version', row.kek_version, 'iv', row.iv, 'ciphertext', row.ciphertext, 'tag', row.tag);
+      'kek_version', row.kek_version, 'iv', row.iv, 'ciphertext', row.ciphertext, 'tag', row.tag,
+      'wrapped_key', row.wrapped_key, 'expires_epoch', extract(epoch from row.absolute_expires_at)::bigint);
   end if;
   return result;
 end;
@@ -191,6 +225,7 @@ declare
   used integer;
 begin
   perform public.ai_credential_session();
+  perform public.ai_credentials_purge();
   delete from public.ai_request_counters where user_id = account_id and window_start < minute;
   insert into public.ai_request_counters (user_id, window_start, count) values (account_id, minute, 1)
     on conflict (user_id, window_start) do update set count = public.ai_request_counters.count + 1
@@ -251,3 +286,15 @@ end;
 $$;
 revoke all on function public.tanya_run_finish(uuid, text, text, integer, integer) from public, anon, authenticated, service_role;
 grant execute on function public.tanya_run_finish(uuid, text, text, integer, integer) to authenticated;
+
+-- Scheduled purge every 10 minutes where pg_cron is installed (Supabase). Skipped silently elsewhere; the purge
+-- also runs on every AI call, so the schedule only covers the case where nobody uses the feature.
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('ai-credentials-purge', '*/10 * * * *', 'select public.ai_credentials_purge()');
+  end if;
+exception when others then
+  raise notice 'ai-credentials-purge was not scheduled: %', sqlerrm;
+end;
+$$;

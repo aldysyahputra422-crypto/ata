@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { accountError, accountSession, accountUnavailable, checkOrigin, needsSignIn, parseJsonBody, privateHeaders } from "@/lib/account/http";
-import { cookieName, cookieOptions, credentialsAvailable, newSalt, seal } from "@/lib/tanya/credentials";
+import { cookieName, cookieOptions, credentialsAvailable, expiryFrom, newSalt, seal } from "@/lib/tanya/credentials";
 import { publicProviders } from "@/lib/tanya/providers";
 import { publicConnection, readConnection, secureRequest, takeRequest } from "@/lib/tanya/server";
 import { CONNECTION_BODY_BYTES, connectionInput, providerFailure, resolveTarget, verifyConnection } from "./shared";
@@ -44,11 +44,12 @@ export async function POST(request: Request) {
   const ids = begun.data as { user_id?: string; session_id?: string; connection_id?: string } | null;
   if (begun.error || !ids?.user_id || !ids.session_id || !ids.connection_id) return accountUnavailable();
   const salt = newSalt();
-  const sealed = seal(apiKey, salt, { userId: ids.user_id, sessionId: ids.session_id, connectionId: ids.connection_id, providerId: target.provider.id });
+  const sealed = seal(apiKey, salt, { userId: ids.user_id, sessionId: ids.session_id, connectionId: ids.connection_id, providerId: target.provider.id }, expiryFrom());
   if (!sealed) return noByok();
   const saved = await session.client.rpc("ai_credential_put", {
     p_connection_id: ids.connection_id, p_provider_id: target.provider.id, p_base_url: target.storedUrl, p_model: model,
     p_last4: apiKey.slice(-4), p_kek_version: sealed.kekVersion, p_iv: sealed.iv, p_ciphertext: sealed.ciphertext, p_tag: sealed.tag,
+    p_wrapped_key: sealed.wrappedKey, p_expires_epoch: sealed.expiresAt,
   });
   const connection = saved.error ? null : publicConnection(saved.data);
   if (!connection) return accountUnavailable();

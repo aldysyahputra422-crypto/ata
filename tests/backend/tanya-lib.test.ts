@@ -1,8 +1,9 @@
+import { readFileSync } from "node:fs";
 import { createServer, type AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AI_CATEGORIES, type AiCategory } from "@/lib/account/profile";
 import { accountReader, retrieveContext, type CategoryReader } from "@/lib/tanya/context";
-import { open, seal, newSalt, credentialsAvailable } from "@/lib/tanya/credentials";
+import { open, seal, newSalt, credentialsAvailable, expiryFrom } from "@/lib/tanya/credentials";
 import { defaultGate, mayBeMinor, type CanProcessAi, type GateReason } from "@/lib/tanya/gate";
 import { classify } from "@/lib/tanya/intent";
 import { execute, handoffPrompt, prepare, provenance, provenanceRecord, type TanyaEvent } from "@/lib/tanya/orchestrator";
@@ -481,9 +482,11 @@ describe("session-bound key encryption (FR-BYOK-02)", () => {
   beforeEach(() => vi.stubEnv("KEY_ENCRYPTION_SECRET", "k".repeat(40)));
   afterEach(() => vi.unstubAllEnvs());
 
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+
   it("opens only with the same cookie salt, KEK and binding", () => {
     const salt = newSalt();
-    const sealed = seal("sk-test-KEY-123456", salt, binding)!;
+    const sealed = seal("sk-test-KEY-123456", salt, binding, exp)!;
     expect(JSON.stringify(sealed)).not.toContain("sk-test");
     expect(open(sealed, salt, binding)).toBe("sk-test-KEY-123456");
     expect(open(sealed, newSalt(), binding)).toBeNull();
@@ -496,10 +499,53 @@ describe("session-bound key encryption (FR-BYOK-02)", () => {
     expect(open(sealed, salt, binding)).toBeNull();
   });
 
+  it("authenticates the key version and the expiry: changing either in the row makes the key unopenable", () => {
+    const salt = newSalt();
+    const sealed = seal("sk-test-KEY-123456", salt, binding, exp)!;
+    expect(sealed).toMatchObject({ kekVersion: 1, expiresAt: exp });
+    // A row whose expiry was pushed out, or pulled in, no longer authenticates.
+    expect(open({ ...sealed, expiresAt: exp + 1 }, salt, binding)).toBeNull();
+    expect(open({ ...sealed, expiresAt: exp - 1 }, salt, binding)).toBeNull();
+    // Same secret under another version label: the version is authenticated, not just used to pick the KEK.
+    vi.stubEnv("KEY_ENCRYPTION_SECRET_V2", "k".repeat(40));
+    expect(open({ ...sealed, kekVersion: 2 }, salt, binding)).toBeNull();
+    // Past the sealed expiry the key is refused even though the ciphertext is intact.
+    expect(open(sealed, salt, binding, () => new Date(exp * 1000 - 1000))).toBe("sk-test-KEY-123456");
+    expect(open(sealed, salt, binding, () => new Date(exp * 1000))).toBeNull();
+    expect(seal("sk-test-KEY-123456", salt, binding, 0)).toBeNull();
+    expect(expiryFrom(new Date(1_000_000_500))).toBe(1_000_000 + 12 * 3600);
+  });
+
+  it("is an envelope: a fresh data key per seal, wrapped under the KEK; both layers must be intact", () => {
+    const salt = newSalt();
+    const first = seal("sk-test-KEY-123456", salt, binding, exp)!;
+    const second = seal("sk-test-KEY-123456", salt, binding, exp)!;
+    expect(Buffer.from(first.wrappedKey, "base64")).toHaveLength(12 + 32 + 16);
+    expect(first.wrappedKey).not.toBe(second.wrappedKey);
+    expect(first.ciphertext).not.toBe(second.ciphertext);
+    // A data key from another seal, a flipped bit in the wrap or in the tag: all refused.
+    expect(open({ ...first, wrappedKey: second.wrappedKey }, salt, binding)).toBeNull();
+    const flipped = Buffer.from(first.wrappedKey, "base64");
+    flipped[20] ^= 1;
+    expect(open({ ...first, wrappedKey: flipped.toString("base64") }, salt, binding)).toBeNull();
+    const tag = Buffer.from(first.tag, "base64");
+    tag[0] ^= 1;
+    expect(open({ ...first, tag: tag.toString("base64") }, salt, binding)).toBeNull();
+    expect(open({ ...first, tag: tag.subarray(0, 4).toString("base64") }, salt, binding)).toBeNull();
+    expect(open({ ...first, wrappedKey: "AAAA" }, salt, binding)).toBeNull();
+  });
+
+  it("uses node:crypto only and never logs", () => {
+    const source = readFileSync("src/lib/tanya/credentials.ts", "utf8");
+    expect([...source.matchAll(/^import .*?"([^"]+)";$/gm)].map((m) => m[1])).toEqual(["server-only", "node:crypto"]);
+    expect(source).not.toMatch(/console\.|NEXT_PUBLIC/);
+    expect(source.match(/process\.env/g)).toHaveLength(2); // both on one line inside kek()
+  });
+
   it("has no fallback key: without a real env secret nothing is sealed", () => {
     vi.stubEnv("KEY_ENCRYPTION_SECRET", "");
     expect(credentialsAvailable()).toBe(false);
-    expect(seal("sk-test-KEY-123456", newSalt(), binding)).toBeNull();
+    expect(seal("sk-test-KEY-123456", newSalt(), binding, exp)).toBeNull();
     vi.stubEnv("KEY_ENCRYPTION_SECRET", "pendek");
     expect(credentialsAvailable()).toBe(false);
   });

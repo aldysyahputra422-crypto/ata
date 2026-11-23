@@ -18,8 +18,8 @@ const admin = () => db.exec("reset role");
 type Row = Record<string, unknown>;
 const one = async (sql: string, params: unknown[] = []) => (await db.query<{ r: unknown }>(sql, params)).rows[0].r;
 const begin = async () => (await one("select public.ai_credential_begin() as r")) as { user_id: string; session_id: string; connection_id: string };
-const put = async (connectionId: string, provider = "openai") =>
-  (await one("select public.ai_credential_put($1, $2, null, 'model-x', '1234', 1, 'aXY=', 'Y2lwaGVy', 'dGFn') as r", [connectionId, provider])) as Row;
+const put = async (connectionId: string, provider = "openai", expires?: number) =>
+  (await one("select public.ai_credential_put($1, $2, null, 'model-x', '1234', 1, 'aXY=', 'Y2lwaGVy', 'dGFn', 'd3JhcA==', $3) as r", [connectionId, provider, expires ?? Math.floor(Date.now() / 1000) + 12 * 3600])) as Row;
 const get = async (secret = false) => (await one("select public.ai_credential_get($1) as r", [secret])) as Row | null;
 
 describe("0009 Tanya Ata storage (FR-BYOK-02, FR-BYOK-10)", () => {
@@ -135,6 +135,41 @@ describe("0009 Tanya Ata storage (FR-BYOK-02, FR-BYOK-10)", () => {
     await db.query("delete from auth.sessions where id = $1", [sessions[a]]);
     expect((await db.query("select 1 from public.ai_credentials")).rows).toHaveLength(0);
     await db.query("insert into auth.sessions values ($1, $2, null)", [sessions[a], a]);
+  });
+
+  it("purges expired keys of every account for real, on any account's AI call (not only filtered on read)", async () => {
+    await as(a);
+    await put((await begin()).connection_id);
+    await as(b);
+    await put((await begin()).connection_id);
+    await admin();
+    await db.query("update public.ai_credentials set idle_expires_at = now() - interval '1 second' where user_id = $1", [a]);
+    // Account B makes a request; account A never comes back.
+    await as(b);
+    expect(await one("select public.ai_take_request() as r")).toBe(0);
+    await admin();
+    expect((await db.query("select user_id from public.ai_credentials")).rows).toEqual([{ user_id: b }]);
+
+    // A session that has ended without its row being deleted (not_after in the past) loses its key too.
+    await db.query("update auth.sessions set not_after = now() - interval '1 second' where id = $1", [sessions[b]]);
+    expect(await one("select public.ai_credentials_purge() as r")).toBe(1);
+    expect((await db.query("select 1 from public.ai_credentials")).rows).toHaveLength(0);
+    await db.query("update auth.sessions set not_after = null where id = $1", [sessions[b]]);
+
+    // The purge itself is not callable by signed-in users.
+    await as(a);
+    await expect(db.exec("select public.ai_credentials_purge()")).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("stores the expiry the server sealed into the ciphertext and refuses one outside the 12-hour limit", async () => {
+    await as(a);
+    const epoch = Math.floor(Date.now() / 1000) + 3600;
+    await put((await begin()).connection_id, "openai", epoch);
+    expect(await get(true)).toMatchObject({ expires_epoch: epoch, wrapped_key: "d3JhcA==" });
+    expect(await get()).not.toHaveProperty("wrapped_key");
+    expect(await get()).not.toHaveProperty("ciphertext");
+    for (const bad of [epoch - 7200, epoch + 13 * 3600])
+      expect(await put((await begin()).connection_id, "openai", bad)).toEqual({ error: "validation" });
   });
 
   it("refuses every function for a revoked session", async () => {

@@ -58,7 +58,7 @@ export function readSalt(request: Request): string | undefined {
 export type PublicConnection = { provider_id: string; provider_name: string; model: string; last4: string; expires_at: string };
 type StoredRow = {
   connection_id: string; provider_id: string; base_url: string | null; model: string; last4: string; expires_at: string;
-  user_id?: string; session_id?: string; kek_version?: number; iv?: string; ciphertext?: string; tag?: string;
+  user_id?: string; session_id?: string; kek_version?: number; iv?: string; ciphertext?: string; tag?: string; wrapped_key?: string; expires_epoch?: number;
 };
 
 export function publicConnection(row: unknown): PublicConnection | null {
@@ -84,8 +84,8 @@ export async function loadCredential(client: SupabaseClient, request: Request): 
   const row = data as StoredRow | null;
   if (!row) return { state: "none" };
   const provider = findProvider(row.provider_id);
-  const apiKey = provider && row.user_id && row.session_id && row.iv && row.ciphertext && row.tag && row.kek_version
-    ? open({ kekVersion: row.kek_version, iv: row.iv, ciphertext: row.ciphertext, tag: row.tag } satisfies Sealed, readSalt(request),
+  const apiKey = provider && row.user_id && row.session_id && row.iv && row.ciphertext && row.tag && row.kek_version && row.wrapped_key && row.expires_epoch
+    ? open({ kekVersion: row.kek_version, expiresAt: row.expires_epoch, iv: row.iv, ciphertext: row.ciphertext, tag: row.tag, wrappedKey: row.wrapped_key } satisfies Sealed, readSalt(request),
         { userId: row.user_id, sessionId: row.session_id, connectionId: row.connection_id, providerId: row.provider_id })
     : null;
   if (!provider || !apiKey) {
