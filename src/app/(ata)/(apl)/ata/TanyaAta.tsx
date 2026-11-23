@@ -216,16 +216,19 @@ export function TanyaAta() {
     };
   }, [muat]);
   // A category this conversation used is no longer allowed: stop the running answer and clear the conversation.
+  // Runs when permissions are read again, not on every message: the server decides what an answer may use.
+  const pesanKini = useRef(pesan);
+  useEffect(() => { pesanKini.current = pesan; }, [pesan]);
   useEffect(() => {
     if (muatan.status !== "siap") return;
-    const hilang = kategoriDipakai(pesan).filter((c) => !muatan.data.permissions[c]?.allowed);
+    const hilang = kategoriDipakai(pesanKini.current).filter((c) => !muatan.data.permissions[c]?.allowed);
     if (!hilang.length) return;
     dicabut.current = true;
     batal.current?.abort();
     setPesan([]);
     setPrompt(null);
     setDibersihkan(`Izin ${namaKategori(hilang)} dicabut, jadi percakapan dan data yang memakainya dibersihkan.`);
-  }, [muatan, pesan]);
+  }, [muatan]);
   useEffect(() => {
     const el = kotak.current;
     if (el) el.scrollTop = el.scrollHeight;

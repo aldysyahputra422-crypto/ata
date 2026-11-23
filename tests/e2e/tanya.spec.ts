@@ -204,8 +204,11 @@ test.describe("Tanya Ata", () => {
   });
 
   test("the conversation is memory only: the screen says so, nothing is put in browser storage, and a reload empties it", async ({ page }) => {
+    // Any request that carries the conversation, other than the chat call itself, would be a leak (analytics, logging).
     const beacons: string[] = [];
-    page.on("request", (r) => { if (!/\/api\/v1\/|\/_next\/|\/prototype\/|\/mascot\/|\/ata$|\.(css|js|svg|woff2?|png|ico)(\?|$)/.test(r.url())) beacons.push(r.url()); });
+    page.on("request", (r) => {
+      if (/PERTANYAAN-UNIK|Idemu/.test(r.url() + (r.postData() ?? "")) && !r.url().endsWith("/api/v1/tanya/chat")) beacons.push(r.url());
+    });
     await tanya(page, { tersambung: true, izin: ["lomba"] });
     await page.goto("/ata");
     await expect(page.locator("#catatanMemori")).toContainText("hilang saat halaman dimuat ulang");
