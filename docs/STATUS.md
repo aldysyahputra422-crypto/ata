@@ -280,6 +280,14 @@ Dikerjakan langsung di folder iCloud (tanpa mirror), 0 berkas `dataless`.
 Uji akhir: `node --test` 187/187, harness aplikasi 29/29, Lomba 16/16, Portofolio 17/17, Masuk 26/26.
 | C11 | Overhaul gerak & visual: detail Lomba gaya travel (hero parallax, lembar bergrip, bilah aksi menempel), kartu → detail via View Transitions, folder condong, penanda tab berpegas, tema memudar, tekan taktil | selesai, `gerak.test.mjs`; `node --test` 191/191, harness 29/16/26/17 |
 
+## Countdown tenggat dari tanggal tersimpan (23 November 2026)
+
+FR-PRG-01, FR-SLT-01. Satu aturan di `shared/logic/tenggat.js` dipakai Lomba, Slot, Hari Ini, Progres, saran, dan prioritas tugas: sisa hari = tanggal tenggat tersimpan − hari ini. Akun: tanggal dan hari dari server (`deadline_on`, `days_left`, `today`, `timezone`). Tanpa migrasi (ASSUMPTIONS S32–S34). Uji: `tenggat.test.mjs`, `account-deadline.test.ts`, `hari-ini.spec.ts`.
+
+## Antrean Radar mengikuti hari akun (23 November 2026)
+
+FR-SCN-07, FR-PRG-01. Antrean Radar disusun dari hari yang sama dengan countdown: zona waktu akun saat masuk, tanggal perangkat saat belum masuk / DATA DEMO (S35). Disusun ulang saat zona akun diketahui dan saat hari berganti tanpa muat ulang. Tutup hari ini tetap di antrean; tenggat lewat keluar. Tertunda: tidak ada.
+
 ## Fase B: Tanya Ata (irisan vertikal pertama)
 
 Selesai dengan uji (provider tiruan, tanpa panggilan ke provider AI sungguhan):
@@ -291,4 +299,5 @@ Selesai dengan uji (provider tiruan, tanpa panggilan ke provider AI sungguhan):
 - Provider: OpenAI, Anthropic, Gemini, xAI, DeepSeek, OpenRouter, Groq, Mistral, dan endpoint kustom OpenAI-compatible lewat tiga format kawat.
 - Keputusan PO 23 November 2026: enkripsi amplop dengan AAD berisi versi key dan expiry, pembersihan key sungguhan (logout, sesi berakhir, kedaluwarsa), percakapan hanya di memori, pencabutan izin mengosongkan percakapan dan membatalkan jawaban yang berjalan, Uji Koneksi hanya lewat tombol (16 token, 5 kali per 10 menit), model non-chat ditolak. Ringkasan migrasi dan rollback: `docs/MIGRASI-0009.md`.
 
-Belum: Resep, Ingatan, riwayat percakapan tersimpan (FR-CCH-09), unggah berkas, pencarian web, embedding/rerank, persetujuan wali (menunggu FR-AUTH-07), uji terhadap provider sungguhan dan `ata-dev` (migrasi 0009 belum diterapkan di sana). Asumsi S32–S36.
+Belum: Resep, Ingatan, riwayat percakapan tersimpan (FR-CCH-09), unggah berkas, pencarian web, embedding/rerank, persetujuan wali (menunggu FR-AUTH-07), uji terhadap provider sungguhan dan `ata-dev` (migrasi 0009 belum diterapkan di sana). Asumsi S42–S46.
+||||||| 0650e59

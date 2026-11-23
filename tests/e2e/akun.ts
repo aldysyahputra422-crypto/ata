@@ -13,7 +13,7 @@ export const peta = (langkah = 3, disetujui = true) => ({
   langkah: Array.from({ length: langkah }, (_, i) => ({ id: "s" + (i + 1), nama: "Langkah akun " + (i + 1), tanggal: lusa(i + 2) })),
 });
 
-export async function progresAkun(page: Page, opts: { slot?: string[]; limit?: number; plan?: string; fail?: () => number | undefined; today?: () => string } = {}) {
+export async function progresAkun(page: Page, opts: { slot?: string[]; limit?: number; plan?: string; fail?: () => number | undefined; today?: () => string; deadline?: Record<string, string>; timezone?: string } = {}) {
   const slot = opts.slot ?? ["interval-2027"];
   const rencana = Object.fromEntries(slot.map((k) => [k, peta()]));
   const status = new Map<string, { status: Status; pada: string }>();
@@ -31,9 +31,9 @@ export async function progresAkun(page: Page, opts: { slot?: string[]; limit?: n
     return out;
   };
   const body = () => ({
-    today: today(), timezone: "Asia/Jakarta", plan: opts.plan ?? "free", slot_limit: opts.limit ?? 1, summary: summary(), activity: activity(),
+    today: today(), timezone: opts.timezone ?? "Asia/Jakarta", plan: opts.plan ?? "free", slot_limit: opts.limit ?? 1, summary: summary(), activity: activity(),
     competitions: slot.map((k) => ({
-      competition_key: k, source: "catalog", state: "slot", card: null,
+      competition_key: k, source: "catalog", state: "slot", card: null, deadline_on: opts.deadline?.[k] ?? null,
       roadmap: { ...rencana[k], langkah: rencana[k].langkah.map((l) => {
         const s = status.get(k + "/" + l.id);
         return { ...l, selesai: s?.status === "done", status: STATUS[s?.status ?? "todo"], selesaiPada: s?.status === "done" ? s.pada : "" };

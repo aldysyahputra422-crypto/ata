@@ -3,6 +3,7 @@
    Murni: tanpa DOM, tanpa localStorage, tanpa jam. Katalog lomba (`cari`) dan pembuat usulan (`usul`) disuntik pemanggil. */
 
 import { HAK, batasSlotPaket } from './hak.js';
+import { sisaHari, tanggalSah, tenggatLomba } from './tenggat.js';
 
 export const KUNCI_BERSAMA = 'ata-bersama';
 export const VERSI_BERSAMA = 2; /* v2: Slot awal pindah ke lomba nyata; simpanan v1 berisi lomba fiktif → mulai ulang */
@@ -57,7 +58,7 @@ function rapikanLangkah(l) {
 function rapikanKartu(k) {
   if (!objek(k) || !teks(k.nama)) return null;
   return { nama: k.nama, penyelenggara: teks(k.penyelenggara), kategori: teks(k.kategori) || 'karya-tulis',
-    hariLagi: Number.isFinite(k.hariLagi) ? k.hariLagi : null, gem: teks(k.gem) || 'lemon', perluCek: k.perluCek === true };
+    tenggatIso: tanggalSah(k.tenggatIso), gem: teks(k.gem) || 'lemon', perluCek: k.perluCek === true };
 }
 
 /* Simpanan apa pun → bentuk yang aman. Versi lain/rusak → awal. `ada(id)` memberi tahu lomba yang dikenal katalog. */
@@ -107,12 +108,14 @@ export function lengkapiPeta(b, cari, usul, { hariIni, tambahHari }, denganConto
 const hitung = (langkah = []) => ({ wajib: langkah.length, selesai: langkah.filter((s) => s.selesai).length });
 
 /* Satu baris per Slot aktif: nama, tenggat (ISO), kemajuan dari Peta Jalan. */
-export function ringkasSlot(b, cari, { hariIni, tambahHari }) {
+export function ringkasSlot(b, cari, { hariIni }) {
   return b.slot.map((id) => {
-    const l = cari(id) || { nama: id, hariLagi: 0, kategori: '' };
+    const l = cari(id) || { nama: id, kategori: '' };
     const p = b.peta[id];
+    /* days left always follow from the deadline date and hariIni, so the two can never disagree */
+    const tenggat = tenggatLomba(l, hariIni);
     return { id, nama: l.nama, penyelenggara: l.penyelenggara || '', kategori: l.kategori, gem: l.gem,
-      tenggat: Number.isFinite(l.hariLagi) ? tambahHari(hariIni, l.hariLagi) : null, hariLagi: l.hariLagi ?? null, disetujui: !!p?.disetujui, ...hitung(p?.langkah) };
+      tenggat, hariLagi: sisaHari(tenggat, hariIni), disetujui: !!p?.disetujui, ...hitung(p?.langkah) };
   });
 }
 

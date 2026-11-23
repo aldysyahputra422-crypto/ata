@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { accountSession, accountUnavailable, needsSignIn, privateHeaders } from "@/lib/account/http";
-import { competitionColumns } from "@/lib/account/competitions";
+import { competitionColumns, withDeadline } from "@/lib/account/competitions";
 import { currentPlan } from "@/lib/account/plan";
 import { readProgress, withProgress } from "@/lib/account/progress";
 
@@ -20,6 +20,7 @@ export async function GET() {
   const limit = plan?.features.activeSlots.limit;
   if (rows.error || !plan || !progress || typeof limit !== "number") return accountUnavailable();
   // step status comes from task_progress, never from what a client wrote into the roadmap document
-  const items = rows.data.map((row) => ({ ...row, roadmap: withProgress(row.competition_key, row.roadmap, progress.tasks) }));
-  return NextResponse.json({ items, plan: plan.plan, slot_limit: limit }, { headers: privateHeaders });
+  // deadline_on/days_left are derived from the stored deadline date on the account's day, never from a saved offset
+  const items = rows.data.map((row) => withDeadline({ ...row, roadmap: withProgress(row.competition_key, row.roadmap, progress.tasks) }, progress.today));
+  return NextResponse.json({ items, plan: plan.plan, slot_limit: limit, today: progress.today, timezone: progress.timezone }, { headers: privateHeaders });
 }

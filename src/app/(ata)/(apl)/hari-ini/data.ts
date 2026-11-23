@@ -3,20 +3,20 @@
 // /api/v1/progress; the device store is not consulted and XP, level and streak are the server's (FR-PRG-03).
 import { cincin, tugasTelat } from "@/lib/prototype/masuk/logic/progres.js";
 import { aktivitasHarian, hitungXP, prioritasTugas, ATURAN_XP, XP } from "@/lib/prototype/shared/logic/xp.js";
-import { bacaBersama, batasKini, dengarBersama, resetBersama, slotRingkas, tugasBersama, ubahStatusTugas, slotLebih, adaDataContoh, segarkanHari, HARI_INI } from "@/lib/prototype/shared/bersama.js";
+import { bacaBersama, batasKini, dengarBersama, resetBersama, slotRingkas, tugasBersama, ubahStatusTugas, slotLebih, adaDataContoh, segarkanHari, aturZonaHari, HARI_INI } from "@/lib/prototype/shared/bersama.js";
 import { saranBerikut } from "@/lib/prototype/app/logic/saran.js";
 import { LOMBA_NYATA } from "@/lib/prototype/lomba/data/lomba.js";
 import { isiKertas } from "@/lib/prototype/shared/folder.js";
 import { PROFIL } from "@/lib/prototype/tanya/data/profil.js";
 import { daftarTugas, pesanSlotLebih, ringkasSlot } from "@/lib/prototype/shared/logic/bersama.js";
 import { LOMBA } from "@/lib/prototype/lomba/data/lomba.js";
-import { tambahHari } from "@/lib/prototype/lomba/logic/peta.js";
+import { denganSisaHari, sisaHari } from "@/lib/prototype/shared/logic/tenggat.js";
 import { lupakanDasar } from "../lomba/sinkron";
 
 export type StatusTugas = "belum" | "dikerjakan" | "selesai";
 export type Tugas = { id: string; judul: string; tenggat: string; selesai: boolean; selesaiPada?: string; status: StatusTugas; slotNama: string };
 export type Cincin = { label: string; persen: number; selesai: number; wajib: number; sisaHari: number | null; lewat: boolean };
-export type Slot = { id: string; nama: string; disetujui: boolean; gambar?: string; c: Cincin; kertas: Kertas };
+export type Slot = { id: string; nama: string; disetujui: boolean; tenggat: string | null; gambar?: string; c: Cincin; kertas: Kertas };
 export type Kertas = { judul: string; isi: string; meta: string; telat: boolean };
 export type Saran = {
   id: string;
@@ -49,7 +49,7 @@ export type DataHariIni = {
 export type SlotLebih = { jumlah: number; batas: number; ringkas: string; rinci: string; arahan: string };
 export type Paket = "gratis" | "pro";
 
-type SlotMentah = { id: string; nama: string; disetujui: boolean; wajib: number; selesai: number; tenggat: string };
+type SlotMentah = { id: string; nama: string; disetujui: boolean; wajib: number; selesai: number; tenggat: string | null };
 type Peta = Record<string, { langkah?: unknown[] }>;
 
 /** Reads the store and derives everything the screen shows; `batas` is the server's Slot limit when known. */
@@ -82,6 +82,8 @@ export function bacaHariIni(batas?: number, paket?: Paket): DataHariIni {
   };
 }
 
+/** Days from hariIni to a task's due date; the same rule as every countdown. */
+export const sisaTugas = (t: Tugas, hariIni: string) => (sisaHari(t.tenggat, hariIni) ?? 0) as number;
 export const prioritas = (t: Tugas, hariIni: string) => prioritasTugas(t, hariIni) as Prioritas;
 
 export type HasilStatus = { ditolak?: string; baruSelesai?: boolean; xp: number };
@@ -93,8 +95,8 @@ export function aturStatus(id: string, status: StatusTugas): HasilStatus {
   return { baruSelesai: r.baruSelesai, xp: (hitungXP(r.b.peta, HARI_INI) as Progres).xp - sebelum };
 }
 
-type BarisAkun = { competition_key: string; source: string; state: string; card: Record<string, unknown> | null; roadmap: { langkah?: unknown[]; disetujui?: boolean } | null };
-type ProgresAkun = { today: string; plan: string; slot_limit: number; competitions: BarisAkun[]; summary: Progres; activity: Record<string, number> };
+type BarisAkun = { competition_key: string; source: string; state: string; deadline_on?: string | null; card: Record<string, unknown> | null; roadmap: { langkah?: unknown[]; disetujui?: boolean } | null };
+type ProgresAkun = { today: string; timezone?: string; plan: string; slot_limit: number; competitions: BarisAkun[]; summary: Progres; activity: Record<string, number> };
 const STATUS_SERVER = { belum: "todo", dikerjakan: "doing", selesai: "done" } as const;
 
 /** The same screen data as bacaHariIni, built from the account's rows only. Pure. */
@@ -105,10 +107,18 @@ export function dataAkun(r: ProgresAkun): DataHariIni {
     slot: aktif.map((c) => c.competition_key),
     peta: Object.fromEntries(aktif.filter((c) => Array.isArray(c.roadmap?.langkah)).map((c) => [c.competition_key, c.roadmap])) as Peta,
   };
-  const kartu = new Map(aktif.filter((c) => c.card).map((c) => [c.competition_key, c.card]));
-  const cari = (id: string) => (LOMBA as { id: string }[]).find((l) => l.id === id) ?? (kartu.has(id) ? { id, ...kartu.get(id) } : null);
+  // Countdowns: the server's stored deadline date against the account's day. Neither a days-left number saved in a
+  // card nor the device's clock is read (FR-PRG-01).
+  const baris = new Map(aktif.map((c) => [c.competition_key, c]));
+  const padaHariAkun = (l: { id: string }, tenggatIso: unknown) => denganSisaHari({ ...l, tenggatIso }, hariIni) as { id: string };
+  const cari = (id: string) => {
+    const c = baris.get(id);
+    const l = c?.card ? { id, ...c.card } : (LOMBA as { id: string }[]).find((x) => x.id === id);
+    return c && l ? padaHariAkun(l, c.deadline_on) : null;
+  };
+  const lombaNyata = (LOMBA_NYATA as { id: string; tenggatIso?: string | null }[]).map((l) => padaHariAkun(l, l.tenggatIso));
   const tugas = daftarTugas(b, cari) as Tugas[];
-  const slot = (ringkasSlot(b, cari, { hariIni, tambahHari }) as SlotMentah[]).map((s) => ({
+  const slot = (ringkasSlot(b, cari, { hariIni }) as SlotMentah[]).map((s) => ({
     ...s,
     gambar: (LOMBA_NYATA as { id: string; gambar?: string }[]).find((l) => l.id === s.id)?.gambar,
     c: (cincin as (a: object) => unknown)({ wajib: s.wajib, selesai: s.selesai, tenggat: s.tenggat, hariIni }) as Cincin,
@@ -120,7 +130,7 @@ export function dataAkun(r: ProgresAkun): DataHariIni {
     tugas,
     slot,
     telat: tugasTelat(tugas, hariIni).length,
-    saran: saranBerikut({ slot, tugas, lombaNyata: LOMBA_NYATA, batas: r.slot_limit, hariIni }) as Saran[],
+    saran: saranBerikut({ slot, tugas, lombaNyata, batas: r.slot_limit, hariIni }) as Saran[],
     progres: r.summary,
     aktivitas: r.activity,
     batasLokal: r.slot_limit,
@@ -134,7 +144,10 @@ export async function bacaHariIniAkun(): Promise<DataHariIni | null> {
   try {
     const res = await fetch("/api/v1/progress", { cache: "no-store", credentials: "same-origin" });
     if (!res.ok) return null;
-    return dataAkun((await res.json()) as ProgresAkun);
+    const r = (await res.json()) as ProgresAkun;
+    // the day now changes at the account's midnight: dengarHari reloads this data then, so "today" never goes stale
+    aturZonaHari(r.timezone ?? null);
+    return dataAkun(r);
   } catch {
     return null;
   }
@@ -161,7 +174,7 @@ export async function aturStatusAkun(id: string, status: StatusTugas, xpSebelum:
 }
 
 export const dengar = (cb: () => void): (() => void) => dengarBersama(cb);
-/** Calls back when the local calendar day changes while the page stays open. */
+/** Calls back when the calendar day changes while the page stays open: the device's day, or the account's once its zone is known. */
 export function dengarHari(cb: () => void): () => void {
   const periksa = () => {
     if (segarkanHari()) cb();

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Ikon } from "../../_layar/Ikon";
 import { Sheet } from "../../_layar/Lapisan";
 import { TAB, useDemo } from "../Cangkang";
-import { ATURAN_XP, XP, aturStatus, aturStatusAkun, prioritas, resetDemo, type StatusTugas, type Tugas } from "./data";
+import { ATURAN_XP, XP, aturStatus, aturStatusAkun, prioritas, resetDemo, sisaTugas, type StatusTugas, type Tugas } from "./data";
 import { useDataHari } from "./pakaiData";
 // prototype modules, copied verbatim (mascot, folder tilt)
 import { buatMaskot, reaksiSemua } from "@/lib/prototype/shared/maskot.js";
@@ -90,7 +90,7 @@ export function HariIni() {
   const { data } = muatan;
   const { hariIni, tugas, slot, saran, progres } = data;
   const batasSlot = batas ?? data.batasLokal;
-  const sisa = (t: Tugas) => Math.round((Date.parse(`${t.tenggat}T00:00:00Z`) - Date.parse(`${hariIni}T00:00:00Z`)) / 864e5);
+  const sisa = (t: Tugas) => sisaTugas(t, hariIni);
   const belum = tugas.filter((t) => !t.selesai).sort((a, b) => a.tenggat.localeCompare(b.tenggat));
   const selesai = tugas.filter((t) => t.selesai).length;
   const selesaiHariIni = tugas.filter((t) => t.selesai && t.selesaiPada === hariIni).length;
