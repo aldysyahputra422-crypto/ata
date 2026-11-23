@@ -102,3 +102,26 @@ test('the real catalogue read on the account day: the queue matches that day, no
     assert.ok(!segarkanAntrean(akun.state, LOMBA, akun.dilihat).state.antrean.includes(l.id), 'gone after the account midnight');
   } finally { aturZonaHari(null); vi.useRealTimers(); aturZonaHari(null); }
 });
+
+test('competitions the user added follow the same day: closed leaves the queue, and comes back on an earlier day', () => {
+  const manual = (hari) => [denganSisaHari({ id: 'manual-1', tenggatIso: '2026-11-23' }, hari), denganSisaHari({ id: 'manual-2', tenggatIso: null }, hari)];
+  const d = { ...deck('2026-11-23'), antrean: ['manual-1', 'manual-2', ...deck('2026-11-23').antrean] };
+  const hariIni = segarkanAntrean(d, pada('2026-11-23'), d.antrean, { lain: manual('2026-11-23') });
+  assert.equal(hariIni.berubah, false, 'closing today stays');
+  assert.deepEqual(hariIni.ditutup, []);
+  const besok = segarkanAntrean(d, pada('2026-11-24'), d.antrean, { lain: manual('2026-11-24') });
+  assert.ok(!besok.state.antrean.includes('manual-1'));
+  assert.ok(besok.state.antrean.includes('manual-2'), 'no date: stays');
+  assert.deepEqual(besok.ditutup, ['manual-1']);
+  // the account's day is still the 23rd: offered again, once
+  const akun = segarkanAntrean(besok.state, pada('2026-11-23'), besok.dilihat, { lain: manual('2026-11-23'), ditutup: besok.ditutup });
+  assert.equal(akun.state.antrean.filter((id) => id === 'manual-1').length, 1);
+  assert.deepEqual(akun.ditutup, []);
+  // one the user never had in the queue (a released Slot) is not inserted
+  const lepas = segarkanAntrean(deck('2026-11-23'), pada('2026-11-23'), undefined, { lain: manual('2026-11-23') });
+  assert.ok(!lepas.state.antrean.includes('manual-1'));
+  // a closed one the user saved is not remembered for the queue
+  const simpan = putuskan(d, 'manual-1', 'simpan').state;
+  const r = segarkanAntrean(simpan, pada('2026-11-24'), d.antrean, { lain: manual('2026-11-24'), ditutup: ['manual-1'] });
+  assert.deepEqual([r.state.tersimpan, r.ditutup], [['manual-1'], []]);
+});
