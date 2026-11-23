@@ -199,6 +199,7 @@ test.describe("Tanya Ata", () => {
     await page.getByLabel("Tulis pesan untuk Ata").fill("Lanjut");
     await page.getByRole("button", { name: "Kirim" }).click();
     await expect(page.locator(".msg--ata")).toHaveCount(2);
+    await expect.poll(() => kirim.length).toBe(2);
     expect(kirim[1].body).toEqual({ question: "Lanjut", history: [
       { role: "user", content: "Tolong review ideku soal sampah plastik" },
       { role: "assistant", content: "Idemu **kuat** karena dekat dengan tema [S1].\n\n- Perjelas data\n- Tambah contoh" },
@@ -331,6 +332,7 @@ test.describe("Tanya Ata", () => {
     await galat.getByRole("button", { name: "Atur sambungan AI" }).click();
     await expect(page.getByRole("dialog", { name: "Sambungkan AI-mu" })).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Sambungkan AI-mu" })).toBeHidden();
 
     await page.getByLabel("Tulis pesan untuk Ata").fill("hai");
     await page.getByRole("button", { name: "Kirim" }).click();
