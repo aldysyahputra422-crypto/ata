@@ -11,7 +11,7 @@ Berkas: `supabase/migrations/0009_tanya_ata.sql`. Diterapkan setelah 0008 (perse
 | Tabel `tanya_runs` | Jejak satu kali tanya: mode, niat, provider, model, kategori dan ID sumber yang dikirim, kategori yang ditahan, status, kode galat, jumlah token. Tidak ada kolom untuk pertanyaan, jawaban, prompt, atau key. Pemilik hanya bisa membaca barisnya sendiri. |
 | `ai_credential_begin/put/get/delete` | Satu-satunya jalan menulis dan membaca key. Akun dan sesi diambil dari JWT, bukan dari argumen. `put` menolak batas waktu di luar 12 jam. `get(false)` tidak pernah mengembalikan ciphertext. |
 | `ai_credentials_purge` | Menghapus sungguhan semua key yang kedaluwarsa, sesinya berakhir, atau akunnya butuh persetujuan wali (memakai `ai_processing_gate` dari 0008), untuk semua akun. Dipanggil di setiap panggilan AI dan, bila `pg_cron` terpasang, tiap 10 menit. |
-| `ai_credentials_drop_on_consent_end` + trigger `ai_credentials_consent_end` pada `guardian_consents` | Saat persetujuan wali berhenti terverifikasi (dicabut pelajar, ditarik wali, diganti), semua key akun itu di semua sesi langsung dihapus. |
+| `ai_credentials_drop_on_consent_end` + trigger `ai_credentials_consent_end` pada `guardian_consents` | Saat persetujuan wali berhenti terverifikasi (dicabut pelajar, ditarik wali, diganti), semua key akun itu di semua sesi langsung dihapus, bila akun itu memang masih butuh persetujuan wali (key akun yang sudah dewasa tidak disentuh). |
 | `ai_take_request`, `ai_take_test` | Batas laju; mengembalikan detik tunggu. |
 | `tanya_run_start/finish` | Menulis jejak `tanya_runs`. |
 

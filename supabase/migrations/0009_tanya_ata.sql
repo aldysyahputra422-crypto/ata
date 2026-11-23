@@ -318,14 +318,17 @@ revoke all on function public.tanya_run_finish(uuid, text, text, integer, intege
 grant execute on function public.tanya_run_finish(uuid, text, text, integer, integer) to authenticated;
 
 -- Guardian consent that stops being verified (revoked by the student, withdrawn by the guardian, replaced) takes
--- the account's stored keys with it at once, in every session, so a key never outlives the consent it was used under.
+-- the stored keys of an account that needs it at once, in every session, so a key never outlives the consent it
+-- was used under.
 create function public.ai_credentials_drop_on_consent_end()
 returns trigger
 language plpgsql
 security definer set search_path = ''
 as $$
 begin
-  if old.status = 'verified' and new.status <> 'verified' then
+  -- Only where the account now needs that consent: an adult's keys are not a former guardian's to remove.
+  if old.status = 'verified' and new.status <> 'verified'
+    and public.ai_processing_gate(new.user_id, 'profil') ->> 'reason' = 'guardian_consent_required' then
     delete from public.ai_credentials where user_id = new.user_id;
   end if;
   return null;

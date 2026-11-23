@@ -184,6 +184,20 @@ describe("Tanya Ata on the guardian-consent gate (FR-AUTH-07, FR-AUTH-09; migrat
     expect(await keys(b)).toBe(0);
   });
 
+  it("leaves an adult's key alone when a former guardian withdraws the consent given while they were a minor", async () => {
+    await minor(a, "verified");
+    // The student has since turned 18 and connected a key as an adult.
+    await superuser();
+    await db.query("update public.profiles set birth_date = $2 where user_id = $1", [a, born(18)]);
+    await storeKey(a);
+    await server();
+    expect(await call("public.withdraw_guardian_consent($1)", [sha("cabut-tok-" + a)])).toMatchObject({ status: "revoked" });
+    expect(await keys(a)).toBe(1);
+    await server();
+    expect(await call("public.ai_credentials_purge()")).toBe(0);
+    expect(await keys(a)).toBe(1);
+  });
+
   it("purges the key of an account that came to need guardian consent another way, and leaves an adult's key alone", async () => {
     await as(a);
     await patch(profile(born(21)));
