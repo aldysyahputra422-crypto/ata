@@ -17,7 +17,7 @@ export type Akun = {
   };
 };
 
-export type Hasil<T> = { ok: true; data: T } | { ok: false; pesan: string };
+export type Hasil<T> = { ok: true; data: T } | { ok: false; pesan: string; status?: number; bidang?: string };
 
 const OFFLINE = "Server akun tidak bisa dihubungi. Periksa koneksi lalu coba lagi.";
 
@@ -27,7 +27,8 @@ async function panggil<T>(path: string, init?: RequestInit): Promise<Hasil<T>> {
     const body = res.status === 204 ? null : await res.json().catch(() => null);
     if (res.ok) return { ok: true, data: body as T };
     const pesan = body?.error?.message;
-    return { ok: false, pesan: typeof pesan === "string" ? pesan : OFFLINE };
+    const bidang = body?.error?.field;
+    return { ok: false, pesan: typeof pesan === "string" ? pesan : OFFLINE, status: res.status, ...(typeof bidang === "string" ? { bidang } : {}) };
   } catch {
     return { ok: false, pesan: OFFLINE };
   }
@@ -42,6 +43,52 @@ export const hapusAkun = () =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ confirm: "HAPUS" }),
   });
+const json = (method: string, body?: unknown): RequestInit => ({
+  method,
+  headers: { "Content-Type": "application/json" },
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+});
+
+/** The account's profile as /api/v1/profile returns it (FR-AUTH-04). The server is the only copy. */
+export type Profil = {
+  display_name: string | null;
+  jenjang: string | null;
+  birth_year: number | null;
+  institution: string | null;
+  major: string | null;
+  timezone: string | null;
+  interests: string[];
+  targets: string[];
+  skills: string[];
+  goals_text: string | null;
+  weekly_hours: number | null;
+  onboarding_done: boolean;
+  updated_at: string;
+};
+export type UbahProfil = Partial<Omit<Profil, "onboarding_done" | "updated_at">>;
+export const bacaProfil = () => panggil<{ profile: Profil }>("/api/v1/profile");
+export const simpanProfil = (ubah: UbahProfil) => panggil<{ profile: Profil }>("/api/v1/profile", json("PATCH", ubah));
+export const selesaikanOnboarding = () => panggil<{ done: true }>("/api/v1/profile/onboarding/complete", json("POST"));
+
+/** Data categories AI features may read (FR-AUTH-09). All off until the account turns one on. */
+export const KATEGORI_IZIN = [
+  { id: "profil", nama: "Profil", isi: "Nama panggilan, jenjang, dan sekolah atau kampus." },
+  { id: "akademik", nama: "Akademik", isi: "Jurusan, minat lomba, kemampuan, dan target." },
+  { id: "lomba", nama: "Lomba", isi: "Lomba yang kamu simpan dan Slot aktif." },
+  { id: "tugas", nama: "Tugas", isi: "Langkah Peta Jalan dan statusnya." },
+  { id: "progres", nama: "Progres", isi: "XP, level, streak, dan pencapaian." },
+  { id: "evaluasi", nama: "Evaluasi", isi: "Hasil simulasi juri dan catatan revisi." },
+  { id: "ingatan", nama: "Ingatan Ata", isi: "Hal yang Ata ingat dari percakapan." },
+  { id: "dokumen", nama: "Dokumen", isi: "Berkas karya yang kamu unggah." },
+] as const;
+export type Izin = Record<(typeof KATEGORI_IZIN)[number]["id"], boolean>;
+export const bacaIzin = () => panggil<{ categories: Izin }>("/api/v1/permissions");
+export const ubahIzin = (category: keyof Izin, allowed: boolean) =>
+  panggil<{ categories: Izin }>("/api/v1/permissions", json("PATCH", { category, allowed }));
+
+export const TAHUN_LAHIR_MIN = 1940;
+export const tahunLahirMaks = () => new Date().getFullYear() - 5;
+
 export const ekspor = () => panggil<unknown>("/api/v1/account/export");
 export const tukarKode = (code: string) =>
   panggil<{ days: number }>("/api/v1/redeem", {

@@ -2,6 +2,13 @@
 
 Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 3 (Tanya Ata) selesai dibangun.
 
+## Fase A: Kenalan, Profil, dan izin data per akun (23 November 2026)
+
+- Selesai (FR-ONB-01, FR-ONB-02, FR-AUTH-01, FR-AUTH-08): onboarding `/kenalan` menyimpan tiap jawaban ke `profiles` akun dan bisa dilanjutkan di perangkat lain; login Google pertama diarahkan ke sana. `/profil` di shell aplikasi membaca dan menyimpan profil akun, mengatur izin data AI per kategori (semua mati sejak awal), ekspor, keluar, dan hapus akun.
+- API: `GET/PATCH /api/v1/profile`, `POST /api/v1/profile/onboarding/complete`, `GET/PATCH /api/v1/permissions`. Input divalidasi zod; tulis hanya lewat fungsi database (`update_profile`, `complete_onboarding`, `set_ai_permission`), tabel tetap tidak bisa ditulis langsung oleh client.
+- Migrasi 0007 (kolom `display_name`, `targets`, `skills` di `profiles` + tiga fungsi). Diuji di PGlite saja; **belum diterapkan di `ata-dev`** dan menunggu persetujuan PO.
+- Tertunda: FR-AUTH-07 (persetujuan wali di bawah 18 tahun), FR-ONB-04 di luar meter bawaan prototipe, FR-ONB-05/07/08, pengaturan tampilan prototipe (tema, gerak), dan layar Progres (dikerjakan terpisah). Izin data AI baru tersimpan; belum ada fitur AI yang membacanya.
+
 ## Atribut dokumen dari server (23 November 2026)
 
 - Hydration mismatch `<body>` di `/hari-ini` dan `/lomba` diperbaiki: `badan-aplikasi` kini dirender server lewat root layout per jenis halaman prototipe (FR-PRG-03). Rincian di `docs/MIGRASI-UI.md`.
