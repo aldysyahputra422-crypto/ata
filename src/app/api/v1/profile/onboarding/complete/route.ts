@@ -14,6 +14,9 @@ export async function POST(request: Request) {
   const data = result.data as { error?: string; done?: boolean } | null;
   if (result.error || !data) return accountUnavailable();
   if (data.error === "incomplete") return accountError(409, "incomplete", "Isi nama, jenjang, dan tahun lahir dulu.");
+  if (data.error === "guardian_consent_required") {
+    return accountError(403, "guardian_consent_required", "Persetujuan orang tua/wali belum terverifikasi.");
+  }
   if (data.done !== true) return accountUnavailable();
   return NextResponse.json({ done: true }, { headers: privateHeaders });
 }

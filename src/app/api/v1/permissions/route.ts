@@ -32,6 +32,10 @@ export async function PATCH(request: Request) {
   if (result.error?.code === "42501") return needsSignIn();
   const data = result.data as { error?: string; categories?: unknown; updated_at?: string } | null;
   if (result.error || !data) return accountUnavailable();
+  if (data.error === "guardian_consent_required") {
+    return accountError(403, "guardian_consent_required", "Izin AI baru bisa dinyalakan setelah orang tua/wali menyetujui.");
+  }
+  if (data.error === "age_required") return accountError(409, "age_required", "Isi tahun lahir dulu sebelum menyalakan izin AI.");
   if (data.error) return accountError(422, "validation", "Kategori izin tidak valid.");
   return NextResponse.json(
     { categories: publicPermissions(data.categories), updated_at: data.updated_at ?? null },

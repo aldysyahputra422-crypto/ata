@@ -40,6 +40,12 @@ export async function PATCH(request: Request) {
       { status: 422, headers: privateHeaders },
     );
   }
+  if (data.error === "age_locked") {
+    return NextResponse.json(
+      { error: { code: "age_locked", message: "Tahun lahir ini tidak bisa diubah sendiri karena menentukan persetujuan wali.", field: "birth_year" } },
+      { status: 409, headers: privateHeaders },
+    );
+  }
   if (data.error || !data.profile) return accountUnavailable();
   return NextResponse.json({ profile: publicProfile(data.profile) }, { headers: privateHeaders });
 }

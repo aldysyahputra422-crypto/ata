@@ -13,7 +13,8 @@ const kosong: P = {
   display_name: null, jenjang: null, birth_year: null, institution: null, major: null, timezone: null, interests: [], targets: [], skills: [],
   goals_text: null, weekly_hours: null, onboarding_done: false, updated_at: "2026-11-23T00:00:00Z",
 };
-const lengkap: P = { ...kosong, display_name: "Raka", jenjang: "SMA/SMK", birth_year: 2009, interests: ["KTI"], onboarding_done: true };
+// an adult account: guardian consent (FR-AUTH-07) has its own spec, tests/e2e/persetujuan-wali.spec.ts
+const lengkap: P = { ...kosong, display_name: "Raka", jenjang: "SMA/SMK", birth_year: 2000, interests: ["KTI"], onboarding_done: true };
 const KATEGORI = ["profil", "akademik", "lomba", "tugas", "progres", "evaluasi", "ingatan", "dokumen"];
 
 async function akun(page: Page, opts: { masuk?: boolean; profil?: P; gagal?: () => number | undefined; jeda?: number } = {}) {
@@ -41,6 +42,10 @@ async function akun(page: Page, opts: { masuk?: boolean; profil?: P; gagal?: () 
     profil.onboarding_done = true;
     return route.fulfill({ json: { done: true } });
   });
+  await page.route("**/api/v1/consent", (route) => route.fulfill({ json: { consent: {
+    status: profil.birth_year === null ? "age_unknown" : "not_required", required: false, delivery_available: false, guardian_name: null,
+    contact_masked: null, version: null, scope: [], expires_at: null, verified_at: null, revoked_by: null,
+  } } }));
   await page.route("**/api/v1/permissions", async (route) => {
     const req = route.request();
     if (req.method() === "PATCH") {
@@ -82,7 +87,7 @@ test.describe("kenalan (onboarding)", () => {
     await page.locator("#jawab").fill("1900");
     await page.getByRole("button", { name: "Lanjut" }).click();
     await expect(page.locator("#galatLangkah")).toContainText("Tahun lahir harus");
-    await page.locator("#jawab").fill("2009");
+    await page.locator("#jawab").fill("2000");
     await page.getByRole("button", { name: "Lanjut" }).click();
     await page.getByRole("button", { name: "Lewati" }).click(); // sekolah
     await page.getByRole("button", { name: "KTI" }).click();
@@ -96,7 +101,7 @@ test.describe("kenalan (onboarding)", () => {
 
     await expect(page.getByRole("heading", { name: "Selesai, Raka" })).toBeVisible();
     expect(s.kirim.map((k) => k.body ?? k.url)).toEqual([
-      { display_name: "Raka" }, { jenjang: "SMA/SMK" }, { birth_year: 2009 }, { interests: ["KTI", "Esai"] }, { targets: ["Beasiswa"] },
+      { display_name: "Raka" }, { jenjang: "SMA/SMK" }, { birth_year: 2000 }, { interests: ["KTI", "Esai"] }, { targets: ["Beasiswa"] },
       { weekly_hours: 6 }, "complete",
     ]);
     expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => /onboard|profil/i.test(k)))).toEqual([]);

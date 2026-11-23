@@ -9,6 +9,14 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 - Migrasi 0007 (kolom `display_name`, `targets`, `skills` di `profiles` + tiga fungsi). Diuji di PGlite saja; **belum diterapkan di `ata-dev`** dan menunggu persetujuan PO.
 - Tertunda: FR-AUTH-07 (persetujuan wali di bawah 18 tahun), FR-ONB-04 di luar meter bawaan prototipe, FR-ONB-05/07/08, pengaturan tampilan prototipe (tema, gerak). Layar Progres: lihat "M1 Layar Progres". Izin data AI baru tersimpan; belum ada fitur AI yang membacanya.
 
+## FR-AUTH-07: persetujuan wali di bawah 18 tahun (23 November 2026)
+
+- Ditegakkan di database (migrasi 0008, diuji di PGlite saja; **belum diterapkan di `ata-dev`**): akun anak tidak bisa menyelesaikan onboarding atau menyalakan izin AI tanpa persetujuan wali terverifikasi. Trigger di `ai_permissions` menolak penulis mana pun; tahun lahir anak tidak bisa diubah menjadi dewasa.
+- Gate tunggal untuk semua pemrosesan AI atas data akun: `canProcessAi(userId, category)` di `src/lib/account/ai-gate.ts` → fungsi database `can_process_ai`. Alasan tolak: `signed_out`, `guardian_consent_required`, `permission_off`. Belum ada fitur AI yang memanggilnya di cabang ini.
+- Alur: `POST /api/v1/consent/request` (tautan sekali pakai, 72 jam, hanya hash tersimpan) → wali membuka `/wali/persetujuan` → `POST /api/v1/consent/guardian/confirm`. Pencabutan: `POST /api/v1/consent/revoke` (pelajar) atau `/api/v1/consent/guardian/withdraw` (wali). Tersimpan: status, waktu, versi, cakupan, nama yang diketik wali, metode, hash kontak, status pengiriman.
+- **Belum tersambung:** pengiriman email ke wali. Adapter Resend ada tetapi `RESEND_API_KEY` dan `GUARDIAN_CONSENT_EMAIL_FROM` belum diisi di lingkungan mana pun, jadi permintaan ditolak `503 delivery_unavailable`, UI mengatakannya, dan akun anak tetap terkunci. Pengiriman email sungguhan belum pernah diuji. Tidak ada jalur centang.
+- Asumsi dan pertanyaan terbuka untuk PO: `docs/ASSUMPTIONS.md` W1–W10.
+
 ## Atribut dokumen dari server (23 November 2026)
 
 - Hydration mismatch `<body>` di `/hari-ini` dan `/lomba` diperbaiki: `badan-aplikasi` kini dirender server lewat root layout per jenis halaman prototipe (FR-PRG-03). Rincian di `docs/MIGRASI-UI.md`.

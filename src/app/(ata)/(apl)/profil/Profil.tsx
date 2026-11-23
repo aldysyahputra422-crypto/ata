@@ -8,9 +8,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Ikon } from "../../_layar/Ikon";
 import { Sheet, Toast } from "../../_layar/Lapisan";
+import { PersetujuanWali } from "../../_layar/PersetujuanWali";
 import {
-  bacaAkun, bacaIzin, bacaProfil, ekspor, hapusAkun, KATEGORI_IZIN, keluar, simpanProfil, tanggal, TAHUN_LAHIR_MIN, tahunLahirMaks, ubahIzin,
-  type Akun, type Izin, type Profil as DataProfil,
+  bacaAkun, bacaIzin, bacaPersetujuan, bacaProfil, ekspor, hapusAkun, KATEGORI_IZIN, keluar, simpanProfil, tanggal, TAHUN_LAHIR_MIN, tahunLahirMaks, ubahIzin,
+  type Akun, type Izin, type Persetujuan, type Profil as DataProfil,
 } from "../../_layar/akun";
 import { keIsian, periksaIsian, selisih, type Isian } from "../../_layar/profil";
 import { pakaiLingkup } from "../../_layar/lingkup";
@@ -31,7 +32,7 @@ type Muatan =
   | { status: "memuat" }
   | { status: "galat"; pesan: string }
   | { status: "keluar" }
-  | { status: "siap"; akun: Akun; profil: DataProfil; izin: Izin | null };
+  | { status: "siap"; akun: Akun; profil: DataProfil; izin: Izin | null; wali: Persetujuan | null };
 
 /**
  * Profil tab: the account's profile, AI data permissions, export, sign-out and deletion. Layout follows the
@@ -56,11 +57,11 @@ export function Profil() {
     const akun = await bacaAkun();
     if (!akun.ok) return setMuatan({ status: "galat", pesan: akun.pesan });
     if (!akun.data.signed_in || !akun.data.user) return setMuatan({ status: "keluar" });
-    const [profil, izin] = await Promise.all([bacaProfil(), bacaIzin()]);
+    const [profil, izin, wali] = await Promise.all([bacaProfil(), bacaIzin(), bacaPersetujuan()]);
     if (!profil.ok) return setMuatan(profil.status === 401 ? { status: "keluar" } : { status: "galat", pesan: profil.pesan });
     setF(keIsian(profil.data.profile));
     setGalat(null);
-    setMuatan({ status: "siap", akun: akun.data, profil: profil.data.profile, izin: izin.ok ? izin.data.categories : null });
+    setMuatan({ status: "siap", akun: akun.data, profil: profil.data.profile, izin: izin.ok ? izin.data.categories : null, wali: wali.ok ? wali.data.consent : null });
   }, []);
   useEffect(() => { void muat(); }, [muat]);
 
@@ -107,7 +108,17 @@ export function Profil() {
   }
   if (!f) return null;
 
-  const { akun, profil, izin } = muatan;
+  const { akun, profil, izin, wali } = muatan;
+  // FR-AUTH-07: the server refuses these switches anyway; this keeps the screen honest about it
+  const izinTerkunci = !wali || wali.status === "age_unknown" || (wali.required && wali.status !== "verified");
+  // consent, permissions and onboarding move together on the server
+  const segarkanWali = async () => {
+    const [p, i, w] = await Promise.all([bacaProfil(), bacaIzin(), bacaPersetujuan()]);
+    if ([p, i, w].some((r) => !r.ok && r.status === 401)) return setMuatan({ status: "keluar" });
+    setMuatan((m) => (m.status === "siap" ? {
+      ...m, profil: p.ok ? p.data.profile : m.profil, izin: i.ok ? i.data.categories : null, wali: w.ok ? w.data.consent : null,
+    } : m));
+  };
   const user = akun.user!;
   const pro = akun.plan.plan === "pro";
   const ubah = selisih(profil, f);
@@ -135,12 +146,14 @@ export function Profil() {
     setMenyimpan(false);
     if (!r.ok) {
       if (r.status === 401) return setMuatan({ status: "keluar" });
-      return setGalat({ bidang: r.bidang, pesan: r.bidang && NAMA_BIDANG[r.bidang] ? `${NAMA_BIDANG[r.bidang]} belum valid. Periksa lalu simpan lagi.` : r.pesan });
+      return setGalat({ bidang: r.bidang, pesan: r.status !== 409 && r.bidang && NAMA_BIDANG[r.bidang] ? `${NAMA_BIDANG[r.bidang]} belum valid. Periksa lalu simpan lagi.` : r.pesan });
     }
     setMuatan({ ...muatan, profil: r.data.profile });
     setF(keIsian(r.data.profile));
     setGalat(null);
     setToast("Profil tersimpan di akunmu.");
+    // a new birth year can change whether guardian consent is needed, and with it the permissions
+    if ("birth_year" in ubah) await segarkanWali();
   };
 
   const saklar = async (id: keyof Izin, boleh: boolean) => {
@@ -148,7 +161,10 @@ export function Profil() {
     setIzinSibuk((s) => [...s, id]);
     const r = await ubahIzin(id, boleh);
     setIzinSibuk((s) => s.filter((x) => x !== id));
-    if (!r.ok) return setToast(r.pesan);
+    if (!r.ok) {
+      if (r.status === 403) await segarkanWali();
+      return setToast(r.pesan);
+    }
     // only this category is taken from the reply: another toggle may still be in flight
     setMuatan((m) => (m.status === "siap" && m.izin ? { ...m, izin: { ...m.izin, [id]: r.data.categories[id] } } : m));
     setToast(boleh ? "Kategori ini boleh dipakai fitur AI." : "Kategori ini tidak lagi dipakai fitur AI.");
@@ -281,9 +297,24 @@ export function Profil() {
           </div>
         </form>
 
+        {wali?.required ? (
+          <section className="card" id="kartuWali" aria-labelledby="judulWali">
+            <h2 id="judulWali">Persetujuan orang tua/wali</h2>
+            {wali.status === "verified" ? null : <p className="small">Kamu belum 18 tahun, jadi izin data untuk AI baru bisa dinyalakan setelah orang tua atau walimu menyetujui lewat tautan yang dikirim ke emailnya.</p>}
+            <PersetujuanWali p={wali} kecil onUbah={segarkanWali} onKeluar={() => setMuatan({ status: "keluar" })} />
+          </section>
+        ) : null}
+
         <section className="card data-progres" aria-labelledby="judulIzin">
           <h2 id="judulIzin">Izin data untuk AI</h2>
           <p className="small">Tentukan kategori data yang boleh dibaca fitur AI. Semua mati sampai kamu menyalakannya. Fitur AI Ata belum aktif; izin ini berlaku begitu fitur itu tersedia, dan tidak mengubah rekomendasi berbasis aturan.</p>
+          {izin && izinTerkunci ? (
+            <p className="small" id="izinTerkunci" role="status">
+              {!wali ? "Status persetujuan wali belum bisa dimuat, jadi izin belum bisa dinyalakan. Muat ulang untuk mencoba lagi."
+                : wali.status === "age_unknown" ? "Isi tahun lahir di profil dulu. Izin baru bisa dinyalakan setelah usiamu diketahui."
+                : "Izin terkunci sampai orang tua/walimu menyetujui. Semua kategori mati."}
+            </p>
+          ) : null}
           {izin ? (
             <ul className="data-progres__daftar">
               {KATEGORI_IZIN.map((k) => (
@@ -291,7 +322,7 @@ export function Profil() {
                   <div className="data-progres__kepala">
                     <strong id={"izin-" + k.id}>{k.nama}</strong>
                     <label className="saklar">
-                      <input type="checkbox" role="switch" aria-labelledby={"izin-" + k.id} checked={izin[k.id]} disabled={izinSibuk.includes(k.id)} onChange={(e) => void saklar(k.id, e.target.checked)} />
+                      <input type="checkbox" role="switch" aria-labelledby={"izin-" + k.id} checked={izin[k.id]} disabled={izinSibuk.includes(k.id) || (izinTerkunci && !izin[k.id])} onChange={(e) => void saklar(k.id, e.target.checked)} />
                       <span>{izin[k.id] ? "Boleh dipakai AI" : "Tidak dipakai AI"}</span>
                     </label>
                   </div>

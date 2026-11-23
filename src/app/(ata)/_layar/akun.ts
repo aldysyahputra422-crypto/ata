@@ -86,6 +86,40 @@ export const bacaIzin = () => panggil<{ categories: Izin }>("/api/v1/permissions
 export const ubahIzin = (category: keyof Izin, allowed: boolean) =>
   panggil<{ categories: Izin }>("/api/v1/permissions", json("PATCH", { category, allowed }));
 
+/** Guardian consent of an account under 18 (FR-AUTH-07), as /api/v1/consent returns it. */
+export type Persetujuan = {
+  status: "age_unknown" | "not_required" | "none" | "pending" | "expired" | "verified" | "declined" | "revoked";
+  required: boolean;
+  /** false while no channel to the guardian is wired on this deployment: no request can be sent */
+  delivery_available: boolean;
+  guardian_name: string | null;
+  contact_masked: string | null;
+  version: string | null;
+  scope: string[];
+  expires_at: string | null;
+  verified_at: string | null;
+  revoked_by: string | null;
+};
+export const bacaPersetujuan = () => panggil<{ consent: Persetujuan }>("/api/v1/consent");
+export const mintaPersetujuan = (guardian_name: string, guardian_email: string) =>
+  panggil<{ status: "pending" }>("/api/v1/consent/request", json("POST", { guardian_name, guardian_email }));
+export const cabutPersetujuan = () => panggil<{ status: "revoked" }>("/api/v1/consent/revoke", json("POST"));
+
+/** What a guardian's link opens (no account involved): the token is the only credential. */
+export type TautanWali = {
+  kind: "confirm" | "withdraw";
+  student_name: string | null;
+  guardian_name: string | null;
+  version: string | null;
+  scope: string[];
+  expires_at: string | null;
+  verified_at: string | null;
+};
+export const lihatTautanWali = (token: string) => panggil<TautanWali>("/api/v1/consent/guardian/lookup", json("POST", { token }));
+export const jawabWali = (token: string, jawaban: { approve: true; verifier_name: string; is_guardian: true } | { approve: false }) =>
+  panggil<{ status: "verified"; withdraw_token: string } | { status: "declined" }>("/api/v1/consent/guardian/confirm", json("POST", { token, ...jawaban }));
+export const tarikWali = (token: string) => panggil<{ status: "revoked" }>("/api/v1/consent/guardian/withdraw", json("POST", { token }));
+
 export const TAHUN_LAHIR_MIN = 1940;
 export const tahunLahirMaks = () => new Date().getFullYear() - 5;
 

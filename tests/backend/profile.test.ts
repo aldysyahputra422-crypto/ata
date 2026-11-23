@@ -133,6 +133,9 @@ describe("0007 profile, onboarding and AI permissions (FR-AUTH-04, FR-AUTH-09)",
   it("starts every AI category off, changes one at a time and audits each change", async () => {
     const start = await db.query<{ c: Record<string, boolean> }>("select categories as c from public.ai_permissions");
     expect(Object.values(start.rows[0].c)).toEqual(Array(8).fill(false));
+    // 0008: no category can be turned on while the account's age is unknown
+    expect((await allow("tugas", true)).error).toBe("age_required");
+    await patch(required);
     const on = await allow("tugas", true);
     expect(on.changed).toBe(true);
     expect(on.categories).toMatchObject({ tugas: true, profil: false, dokumen: false });
