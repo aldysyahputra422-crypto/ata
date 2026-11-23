@@ -23,6 +23,8 @@ export function Kenalan() {
   const [selesai, setSelesai] = useState(false);
   // FR-AUTH-07: set while an account under 18 waits for its guardian; the server decides, this only shows it
   const [wali, setWali] = useState<Persetujuan | null>(null);
+  // whether the consent step was reached from the last question: only then may it finish onboarding by itself
+  const waliDariAkhir = useRef(false);
   const [galat, setGalat] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
   // a second tap while a save is in flight must not send a second request
@@ -43,6 +45,7 @@ export function Kenalan() {
     setSelesai(p.onboarding_done);
     jamTersimpan.current = p.weekly_hours;
     setI(p.onboarding_done ? 0 : langkahAwal(awal));
+    waliDariAkhir.current = langkahAwal(awal) === SEMUA.length - 1;
     // a request already sent (or answered) brings the student straight back to the consent step
     const persetujuan = p.onboarding_done ? null : await bacaPersetujuan();
     const c = persetujuan?.ok ? persetujuan.data.consent : null;
@@ -106,7 +109,7 @@ export function Kenalan() {
     );
   }
 
-  const bukaWali = async (selesaikan = false): Promise<string | null> => {
+  const bukaWali = async (): Promise<string | null> => {
     const r = await bacaPersetujuan();
     if (!r.ok) return r.status === 401 ? (setMuatan({ status: "keluar" }), null) : r.pesan;
     if (!r.data.consent.required) {
@@ -119,7 +122,7 @@ export function Kenalan() {
       jamTersimpan.current = profil.data.profile.weekly_hours;
       setWali(null);
       // only a student who had already reached the end is finished here; otherwise the questions go on
-      const tutup = profil.data.profile.onboarding_done ? null : selesaikan ? await selesaikanOnboarding() : undefined;
+      const tutup = profil.data.profile.onboarding_done ? null : waliDariAkhir.current ? await selesaikanOnboarding() : undefined;
       if (tutup === undefined || (tutup && !tutup.ok)) setI(langkahAwal(awal));
       else setSelesai(true);
       requestAnimationFrame(() => judul.current?.focus());
@@ -139,7 +142,7 @@ export function Kenalan() {
       const r = await selesaikanOnboarding();
       kunci.current = false;
       setSibuk(false);
-      if (!r.ok) return r.status === 403 ? void (await bukaWali(true)) : setGalat(r.pesan);
+      if (!r.ok) return r.status === 403 ? void (await bukaWali()) : setGalat(r.pesan);
       setWali(null);
       setSelesai(true);
       requestAnimationFrame(() => judul.current?.focus());
@@ -152,7 +155,7 @@ export function Kenalan() {
         </div>
         <h1 ref={judul} tabIndex={-1}>Persetujuan orang tua/wali</h1>
         <p className="lede">Kamu belum 18 tahun, jadi Ata perlu persetujuan orang tua atau walimu sebelum kamu lanjut dan sebelum fitur AI boleh memakai datamu.</p>
-        <PersetujuanWali p={wali} onUbah={async () => { await bukaWali(true); }} onKeluar={() => setMuatan({ status: "keluar" })} />
+        <PersetujuanWali p={wali} onUbah={async () => { await bukaWali(); }} onKeluar={() => setMuatan({ status: "keluar" })} />
         <span className="galat" role="alert" hidden={!galat}>{galat}</span>
         <div className="btn-row">
           <button type="button" className="btn btn--ghost" id="ubahJawaban" disabled={sibuk} onClick={() => { setWali(null); langkahKe(0); }}>Ubah jawaban</button>
@@ -185,7 +188,8 @@ export function Kenalan() {
     // 403: the server wants verified guardian consent first (FR-AUTH-07). A birth date correction towards
     // adult is refused too: it is asked for in the guardian step, where the guardian confirms it by email.
     const keWali = tutup && !tutup.ok && (tutup.status === 403 || tutup.kode === "guardian_verification_required");
-    const pesanWali = keWali ? await bukaWali(akhir) : undefined;
+    if (keWali) waliDariAkhir.current = akhir;
+    const pesanWali = keWali ? await bukaWali() : undefined;
     kunci.current = false;
     setSibuk(false);
     if (pesanWali !== undefined) return pesanWali ? setGalat(pesanWali) : undefined;
