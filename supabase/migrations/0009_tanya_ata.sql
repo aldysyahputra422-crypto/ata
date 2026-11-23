@@ -84,8 +84,9 @@ end;
 $$;
 revoke all on function public.ai_credential_session() from public, anon, authenticated, service_role;
 
--- Real cleanup, not a filter on read: removes every stored key that is past its idle or absolute expiry, or whose
--- login session has ended. Runs on every AI call of any account, and on a schedule where pg_cron is installed.
+-- Real cleanup, not a filter on read: removes every stored key that is past its idle or absolute expiry, whose
+-- login session has ended, or whose account may not use AI without guardian consent (FR-AUTH-07, migration 0008).
+-- Runs on every AI call of any account, and on a schedule where pg_cron is installed.
 create function public.ai_credentials_purge()
 returns integer
 language plpgsql
@@ -96,7 +97,8 @@ declare
 begin
   delete from public.ai_credentials c
     where c.absolute_expires_at <= now() or c.idle_expires_at <= now()
-      or not exists (select 1 from auth.sessions s where s.id = c.session_id and (s.not_after is null or s.not_after > now()));
+      or not exists (select 1 from auth.sessions s where s.id = c.session_id and (s.not_after is null or s.not_after > now()))
+      or public.ai_processing_gate(c.user_id, 'profil') ->> 'reason' = 'guardian_consent_required';
   get diagnostics removed = row_count;
   return removed;
 end;
@@ -314,6 +316,24 @@ end;
 $$;
 revoke all on function public.tanya_run_finish(uuid, text, text, integer, integer) from public, anon, authenticated, service_role;
 grant execute on function public.tanya_run_finish(uuid, text, text, integer, integer) to authenticated;
+
+-- Guardian consent that stops being verified (revoked by the student, withdrawn by the guardian, replaced) takes
+-- the account's stored keys with it at once, in every session, so a key never outlives the consent it was used under.
+create function public.ai_credentials_drop_on_consent_end()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if old.status = 'verified' and new.status <> 'verified' then
+    delete from public.ai_credentials where user_id = new.user_id;
+  end if;
+  return null;
+end;
+$$;
+revoke all on function public.ai_credentials_drop_on_consent_end() from public, anon, authenticated, service_role;
+create trigger ai_credentials_consent_end after update of status on public.guardian_consents
+  for each row execute function public.ai_credentials_drop_on_consent_end();
 
 -- Scheduled purge every 10 minutes where pg_cron is installed (Supabase). Skipped silently elsewhere; the purge
 -- also runs on every AI call, so the schedule only covers the case where nobody uses the feature.

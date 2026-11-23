@@ -1,6 +1,7 @@
 -- Rollback of 0009_tanya_ata.sql. Not a migration: run by hand only when 0009 has to be undone.
 -- Removes every object 0009 created and nothing else. Data lost: stored (encrypted) AI keys, request counters and
--- the Tanya Ata run records. No table from migrations 0001-0007 is changed. Rows that 0009's functions wrote to
+-- the Tanya Ata run records. No table from migrations 0001-0008 is changed; the one trigger
+-- 0009 put on public.guardian_consents (0008) is removed again. Rows that 0009's functions wrote to
 -- public.audit_log (ai_connection_create / ai_connection_delete) are kept: they are audit history.
 begin;
 
@@ -14,6 +15,8 @@ exception when others then
 end;
 $$;
 
+drop trigger if exists ai_credentials_consent_end on public.guardian_consents;
+drop function if exists public.ai_credentials_drop_on_consent_end();
 drop function if exists public.tanya_run_finish(uuid, text, text, integer, integer);
 drop function if exists public.tanya_run_start(text, text, text, text, text[], jsonb, jsonb);
 drop function if exists public.ai_take_test();

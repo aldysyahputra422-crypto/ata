@@ -40,6 +40,8 @@ describe("0009 Tanya Ata storage (FR-BYOK-02, FR-BYOK-10)", () => {
     }
     await db.query("insert into auth.users (id) values ($1), ($2)", [a, b]);
     await db.query("insert into auth.sessions values ($1, $2, null), ($3, $4, null), ($5, $2, null)", [sessions[a], a, sessions[b], b, otherSession]);
+    // Adults: an account that needs guardian consent cannot keep a stored key (see tanya-gate.test.ts).
+    await db.exec("update public.profiles set birth_date = '1990-01-01'");
   }, 20000);
 
   beforeEach(async () => {

@@ -18,6 +18,20 @@ async function as(userId: string) {
   await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub: userId, session_id: sessions[userId] })]);
   await db.exec("set role authenticated");
 }
+const secondSession = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaa0009";
+/** Stores a (fake) encrypted key for `userId` in `sessionId`, as the connect route does. */
+async function storeKey(userId: string, sessionId = sessions[userId]) {
+  await db.exec("reset role");
+  await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub: userId, session_id: sessionId })]);
+  await db.exec("set role authenticated");
+  const ids = await call("public.ai_credential_begin()");
+  const put = await call("public.ai_credential_put($1, 'openai', null, 'model-x', '1234', 1, 'aXY=', 'Y2lwaGVy', 'dGFn', 'd3JhcA==', $2)", [ids.connection_id, Math.floor(Date.now() / 1000) + 3600]);
+  expect(put).toMatchObject({ provider_id: "openai" });
+}
+const keys = async (userId: string) => {
+  await superuser();
+  return (await db.query<{ c: number }>("select count(*)::int as c from public.ai_credentials where user_id = $1", [userId])).rows[0].c;
+};
 const superuser = () => db.exec("reset role");
 const server = async () => { await db.exec("reset role"); await db.exec("set role service_role"); };
 type Result = Record<string, unknown>;
@@ -93,13 +107,13 @@ describe("Tanya Ata on the guardian-consent gate (FR-AUTH-07, FR-AUTH-09; migrat
     expect(files.map((name) => name.slice(0, 4)).slice(-2)).toEqual(["0008", "0009"]);
     for (const file of files) await db.exec(readFileSync(new URL(file, migrations), "utf8"));
     await db.query("insert into auth.users (id) values ($1), ($2)", [a, b]);
-    await db.query("insert into auth.sessions values ($1, $2, null), ($3, $4, null)", [sessions[a], a, sessions[b], b]);
+    await db.query("insert into auth.sessions values ($1, $2, null), ($3, $4, null), ($5, $2, null)", [sessions[a], a, sessions[b], b, secondSession]);
   }, 30000);
 
   beforeEach(async () => {
     await superuser();
     await db.exec(`
-      delete from public.guardian_consents; delete from public.birth_date_corrections; delete from public.profiles; delete from public.ai_permissions; delete from public.audit_log;
+      delete from public.ai_credentials; delete from public.guardian_consents; delete from public.birth_date_corrections; delete from public.profiles; delete from public.ai_permissions; delete from public.audit_log;
       insert into public.profiles (user_id) select id from auth.users;
       insert into public.ai_permissions (user_id) select id from auth.users;
     `);
@@ -152,6 +166,37 @@ describe("Tanya Ata on the guardian-consent gate (FR-AUTH-07, FR-AUTH-09; migrat
     expect(await call("public.withdraw_guardian_consent($1)", [sha("cabut-tok-" + b)])).toMatchObject({ status: "revoked" });
     expect(await revokedAmong(gate(), b, ["lomba"])).toEqual(["lomba"]);
     expect(await gate()(b, "lomba")).toEqual(REQUIRED);
+  });
+
+  it("deletes the account's stored keys in every session the moment guardian consent ends", async () => {
+    await minor(a, "verified");
+    await storeKey(a);
+    await storeKey(a, secondSession);
+    await minor(b, "verified");
+    await storeKey(b);
+    expect([await keys(a), await keys(b)]).toEqual([2, 1]);
+
+    await as(a);
+    expect(await call("public.revoke_guardian_consent()")).toEqual({ status: "revoked" });
+    expect([await keys(a), await keys(b)]).toEqual([0, 1]);
+    await server();
+    expect(await call("public.withdraw_guardian_consent($1)", [sha("cabut-tok-" + b)])).toMatchObject({ status: "revoked" });
+    expect(await keys(b)).toBe(0);
+  });
+
+  it("purges the key of an account that came to need guardian consent another way, and leaves an adult's key alone", async () => {
+    await as(a);
+    await patch(profile(born(21)));
+    await storeKey(a);
+    await as(b);
+    await patch(profile(born(21)));
+    await storeKey(b);
+    // The account's recorded age changes without a consent row changing (for example a corrected birth date).
+    await superuser();
+    await db.query("update public.profiles set birth_date = $2 where user_id = $1", [a, born(16)]);
+    await server();
+    expect(await call("public.ai_credentials_purge()")).toBe(1);
+    expect([await keys(a), await keys(b)]).toEqual([0, 1]);
   });
 
   it("refuses a minor whose guardian said no", async () => {

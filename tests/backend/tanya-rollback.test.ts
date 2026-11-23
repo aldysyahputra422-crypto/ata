@@ -14,6 +14,8 @@ const objects = async () => ({
   tables: (await db.query<{ n: string }>("select tablename as n from pg_tables where schemaname = 'public' order by 1")).rows.map((r) => r.n),
   functions: (await db.query<{ n: string }>(
     "select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as n from pg_proc p join pg_namespace s on s.oid = p.pronamespace where s.nspname = 'public' order by 1")).rows.map((r) => r.n),
+  triggers: (await db.query<{ n: string }>(
+    "select c.relname || '.' || t.tgname as n from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace s on s.oid = c.relnamespace where s.nspname = 'public' and not t.tgisinternal order by 1")).rows.map((r) => r.n),
   policies: (await db.query<{ n: string }>("select tablename || '.' || policyname as n from pg_policies where schemaname = 'public' order by 1")).rows.map((r) => r.n),
 });
 const files = () => readdirSync(migrations).filter((name) => name.endsWith(".sql")).sort();
@@ -40,20 +42,25 @@ describe("0009 rollback (down SQL)", () => {
     for (const file of files().filter((name) => name < "0009")) await apply(file);
     await db.query("insert into auth.users (id) values ($1)", [user]);
     await db.query("insert into auth.sessions values ($1, $2, null)", [session, user]);
+    // Adults: an account that needs guardian consent cannot keep a stored key (see tanya-gate.test.ts).
+    await db.exec("update public.profiles set birth_date = '1990-01-01'");
     before = await objects();
     await apply(files().find((name) => name.startsWith("0009"))!);
     after = await objects();
   }, 30000);
   afterAll(() => db.close());
 
-  it("0009 only adds objects: three tables, their functions and one policy; nothing earlier is altered or dropped", () => {
+  it("0009 only adds objects: three tables, their functions, one policy and one trigger; nothing earlier is altered or dropped", () => {
     expect(after.tables.filter((t) => !before.tables.includes(t))).toEqual(["ai_credentials", "ai_request_counters", "tanya_runs"]);
     expect(before.tables.filter((t) => !after.tables.includes(t))).toEqual([]);
     expect(before.functions.filter((f) => !after.functions.includes(f))).toEqual([]);
     expect(after.functions.filter((f) => !before.functions.includes(f)).map((f) => f.split("(")[0])).toEqual([
       "ai_credential_begin", "ai_credential_delete", "ai_credential_get", "ai_credential_put", "ai_credential_session",
-      "ai_credentials_purge", "ai_take_request", "ai_take_test", "tanya_run_finish", "tanya_run_start"]);
+      "ai_credentials_drop_on_consent_end", "ai_credentials_purge", "ai_take_request", "ai_take_test", "tanya_run_finish", "tanya_run_start"]);
     expect(after.policies.filter((p) => !before.policies.includes(p))).toEqual(["tanya_runs.tanya_runs_read_own"]);
+    // The only thing 0009 attaches to an earlier table: a trigger on guardian_consents (0008) that deletes stored keys.
+    expect(after.triggers.filter((t) => !before.triggers.includes(t))).toEqual(["guardian_consents.ai_credentials_consent_end"]);
+    expect(before.triggers.filter((t) => !after.triggers.includes(t))).toEqual([]);
   });
 
   it("the down script removes exactly what 0009 added, keeps existing rows, and 0009 applies again afterwards", async () => {
