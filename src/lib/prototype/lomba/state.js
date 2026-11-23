@@ -2,8 +2,7 @@
    Slot aktif, Peta Jalan, dan paket TIDAK disimpan di sini lagi, melainkan di store bersama (`shared/bersama.js`,
    kunci `ata-bersama`), supaya Hari Ini, Progres, Tanya, dan Profil melihat angka yang sama. */
 import { LOMBA, PROFIL } from './data/lomba.js';
-import { buatDeck, samakanSlot, sisipkanBaru } from './logic/radar.js';
-import { masihBuka } from './logic/label.js';
+import { buatDeck, samakanSlot, segarkanAntrean as antreanHariIni } from './logic/radar.js';
 import { rapikan } from './logic/simpanan.js';
 import { bersihkanSimulasiLama } from './logic/manual.js';
 import { denganSisaHari } from '../shared/logic/tenggat.js';
@@ -25,7 +24,7 @@ function deckAwal() {
   const nyata = new Set(LOMBA.filter((l) => l.nyata).map((l) => l.id));
   return { ...d, antrean: [...sisa.filter((id) => nyata.has(id)), ...sisa.filter((id) => !nyata.has(id))], tersimpan, dilewati };
 }
-const awal = () => ({ v: 3, deck: deckAwal(), peta: {}, dipilih: 'essay-unesa-2026', unggahHariIni: 0, unggahan: [], cariTambahan: false, dilihat: LOMBA.map((l) => l.id) });
+const awal = () => ({ v: 3, deck: deckAwal(), peta: {}, dipilih: 'essay-unesa-2026', unggahHariIni: 0, unggahan: [], cariTambahan: false, dilihat: undefined, ditutup: [] }); /* dilihat: filled by segarkanAntrean from what the deck holds */
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } };
 
 const saved = read();
@@ -33,10 +32,14 @@ const ids = new Set([...LOMBA.map((l) => l.id), ...((saved && Array.isArray(save
 export const state = rapikan(saved, awal(), (id) => ids.has(id));
 /* buang data contoh dari simulasi "Ata membaca poster" yang lama (bukan data pengguna), kecuali sudah jadi Slot */
 state.unggahan = bersihkanSimulasiLama(state.unggahan, state.deck.slot);
-{
-  const r = sisipkanBaru(state.deck, LOMBA.filter(masihBuka).map((l) => l.id), saved ? saved.dilihat : state.dilihat);
-  state.deck = r.state; state.dilihat = r.dilihat;
+/* Radar queue for "today". At load today is the device's day (signed out / DATA DEMO: the documented fallback);
+   the app calls this again once the account's time zone is known and whenever the day changes. True when the queue changed. */
+export function segarkanAntrean() {
+  const r = antreanHariIni(state.deck, LOMBA, state.dilihat, { lain: state.unggahan.map((u) => denganSisaHari(u, HARI)), ditutup: Array.isArray(state.ditutup) ? state.ditutup : [] });
+  state.deck = r.state; state.dilihat = r.dilihat; state.ditutup = r.ditutup;
+  return r.berubah;
 }
+segarkanAntrean();
 
 /* sekali saja: store bersama belum ada → pindahkan Slot & Peta Jalan lama milik Lomba ke sana */
 const kartuUnggahan = (slotIds) => Object.fromEntries(state.unggahan.filter((u) => slotIds.includes(u.id)).map((u) => [u.id, u]));
@@ -58,6 +61,7 @@ export function simpan() {
 }
 export function reset() {
   Object.assign(state, awal());
+  segarkanAntrean();
   resetBersama({ simpanPaket: true });
   sinkronDariBersama();
   simpan();

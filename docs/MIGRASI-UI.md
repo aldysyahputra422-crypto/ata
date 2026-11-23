@@ -354,4 +354,8 @@ Berkas di `src/lib/prototype/` berikut tidak lagi sama dengan `ata-prototype` sa
 | `src/lib/prototype/lomba/data/lomba.js` | `hariLagi` katalog dihitung terhadap `HARI_INI` bersama (zona akun saat masuk), bukan jam perangkat langsung |
 | `src/lib/prototype/lomba/logic/manual.js` | Validasi tanggal dan `hariLagiDari` memakai `tenggat.js` (tanggal tidak nyata seperti 30 Februari kini ditolak) |
 | `src/lib/prototype/lomba/state.js` | `semuaLomba` menghitung ulang sisa hari semua isian pengguna dari `tenggatIso`; `cari` memakai `cariLomba` bersama |
+| `src/lib/prototype/lomba/logic/radar.js` | Tambahan `segarkanAntrean` (murni): menyusun antrean Radar untuk "hari ini"; tenggat lewat keluar dari antrean dan dari `dilihat`, tutup hari ini tetap. Prototipe hanya menyaring sekali saat dimuat, dengan tanggal perangkat |
+| `src/lib/prototype/lomba/state.js` (antrean) | Penyaringan saat muat diganti `segarkanAntrean()` yang diekspor; `Lomba.tsx` memanggilnya lagi saat zona waktu akun diketahui dan saat hari berganti. `dilihat` awal tidak lagi berisi seluruh katalog. Lomba isian pengguna ikut diperiksa; yang dikeluarkan karena tutup diingat di `state.ditutup` supaya bisa kembali bila hari akun lebih awal |
+| `src/lib/prototype/lomba/ui/tersimpan.js` | "Kembalikan" pada lomba Dilewati yang tenggatnya sudah lewat tidak memindahkannya ke Radar (tetap di Dilewati, dengan toast), karena Radar akan mengeluarkannya lagi |
+| `src/lib/prototype/lomba/logic/manual.js` (tenggat lewat) | `buatLombaManual` menolak tanggal tenggat yang sudah lewat dengan pesan galat di kolom tanggal; prototipe menerimanya dan menaruhnya di Radar |
 | `src/lib/prototype/masuk/logic/progres.js` | `selisihHari` memakai `sisaHari` bersama (hasil sama) |

@@ -5,6 +5,7 @@ import { state, simpan, cari, esc } from '../state.js';
 import { NAMA_KATEGORI } from '../data/lomba.js';
 import { saringLomba, kategoriDi } from '../logic/cari.js';
 import { sisaLabel } from './poster.js';
+import { masihBuka } from '../logic/label.js';
 import { chipHtml } from './chip.js';
 import { mountIcons } from '../../shared/ds.js';
 import { tandaiSumber } from '../../shared/gerak.js';
@@ -84,7 +85,10 @@ export function view(ctx) {
     const ikat = (el) => {
       el.querySelectorAll('[data-buka]').forEach((a) => a.addEventListener('click', () => { tandaiSumber(a.closest('.lb-row')?.querySelector('.lb-row__swatch')); state.dipilih = a.dataset.buka; simpan(); }));
       el.querySelectorAll('[data-pulih]').forEach((b) => b.addEventListener('click', () => {
-        const id = b.dataset.pulih; state.deck = { ...state.deck, dilewati: state.deck.dilewati.filter((x) => x !== id), antrean: [id, ...state.deck.antrean.filter((x) => x !== id)] }; simpan();
+        const id = b.dataset.pulih;
+        /* a competition whose deadline has passed stays in Dilewati: Radar would drop it again */
+        if (!masihBuka(cari(id))) { ctx.toast('Lomba ini sudah tutup, jadi tetap di Dilewati'); return; }
+        state.deck = { ...state.deck, dilewati: state.deck.dilewati.filter((x) => x !== id), antrean: [id, ...state.deck.antrean.filter((x) => x !== id)] }; simpan();
         perbarui({ chips: true }); ctx.toast('Dikembalikan ke Radar');
       }));
       el.querySelectorAll('[data-bersihkan]').forEach((b) => b.addEventListener('click', bersihkan));
