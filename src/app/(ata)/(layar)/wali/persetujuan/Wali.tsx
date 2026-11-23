@@ -31,6 +31,8 @@ export function Wali() {
 
   const muat = useCallback(async () => {
     const token = TOKEN.exec(window.location.hash)?.[1];
+    // every link starts from a clean answer: nothing typed or ticked for one link carries over to the next
+    setNama(""); setBenar(false); setMenolak(false); setHapus(false); setGalat(null);
     if (!token) return setMuatan({ status: "kosong" });
     setMuatan({ status: "memuat" });
     const r = await lihatTautanWali(token);

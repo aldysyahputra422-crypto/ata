@@ -282,7 +282,7 @@ Pendampingan mentor adalah layanan Sobat Ambis (les privat). Ata adalah **pintu 
 | FR-AUTH-04 | Sesi memakai `@supabase/ssr` (cookie), middleware melindungi seluruh rute aplikasi kecuali `/`, `/masuk`, `/m/*` (mentor), `/verifikasi/*` | P0 | Akses `/hari-ini` tanpa login → redirect ke `/masuk` |
 | FR-AUTH-05 | Penautan identitas: email yang sama via Google dan OTP → satu akun | P0 | Masuk Google lalu OTP dengan email sama tidak membuat akun ganda (verifikasi perilaku Supabase di Sprint 0) |
 | FR-AUTH-06 | Persetujuan **Syarat & Privasi** dengan versi dokumen tercatat | P0 | Tabel `consents` berisi `user_id, doc, version, accepted_at` |
-| FR-AUTH-07 | Gerbang usia: tahun lahir wajib di onboarding. Jika < 18 → langkah "Persetujuan orang tua/wali" (centang + nama wali) | P1 | Pengguna < 18 tidak bisa lanjut tanpa persetujuan tercatat. **[Asumsi]** perlu tinjauan hukum UU PDP |
+| FR-AUTH-07 | Gerbang usia: **tanggal lahir lengkap** wajib di onboarding; usia dihitung dari tanggal aktual di zona waktu akun. Jika < 18 → akun berstatus menunggu dan masuk langkah "Persetujuan orang tua/wali": server mengirim tautan sekali pakai (kedaluwarsa, hanya hash tersimpan) ke email wali; persetujuan sah hanya bila wali membuka tautan itu, mengetik namanya, dan menyatakan dirinya orang tua/wali. Centang atau nama yang diisi pelajar tidak pernah dianggap persetujuan. Ditegakkan di server dan database. Bukti tersimpan: status, waktu, versi dokumen, cakupan, metode, nama pemberi pernyataan. Wali dan pelajar bisa mencabut. Koreksi tanggal lahir dibatasi dan tercatat; koreksi anak→dewasa butuh konfirmasi wali. Bila wali menolak: pemrosesan diblokir dan tersedia prosedur penghapusan data anak | P0 | Pengguna < 18 tidak bisa menyelesaikan onboarding, menyalakan izin data AI, atau diproses AI (`canProcessAi`) tanpa persetujuan wali terverifikasi; uji bypass API, manipulasi request, perubahan usia, dan lintas akun lulus. Verifikasi email hanya membuktikan akses ke kotak masuk, bukan identitas atau hubungan hukum. **[Asumsi]** hanya untuk demo terbatas; peluncuran ke pengguna anak butuh validasi hukum (`docs/RISIKO-PENGGUNA-ANAK.md`) |
 | FR-AUTH-08 | Hapus akun: ekspor JSON data pribadi → konfirmasi → hapus permanen (cascade) | P1 | Setelah hapus, `auth.users` dan seluruh tabel terkait kosong untuk pengguna itu; mentor grant otomatis tercabut |
 | FR-AUTH-09 | Peran admin lewat `app_metadata.role = 'admin'` (hanya diubah lewat service role) | P0 | Pengguna biasa tidak bisa membuka `/admin` meski menebak URL |
 | FR-AUTH-10 | Rate limit percobaan OTP (maks 5 per 10 menit per email/IP) | P1 | Percobaan ke-6 ditolak dengan pesan ramah |
@@ -297,7 +297,7 @@ Pendampingan mentor adalah layanan Sobat Ambis (les privat). Ata adalah **pintu 
 
 | Level | Waktu | Wajib untuk | Isi |
 |---|---|---|---|
-| **L0** Masuk | 30 dtk | Membuka app | Nama panggilan, jenjang (SMP/SMA-SMK/Kuliah D3-S1/lainnya), tahun lahir |
+| **L0** Masuk | 30 dtk | Membuka app | Nama panggilan, jenjang (SMP/SMA-SMK/Kuliah D3-S1/lainnya), tanggal lahir |
 | **L1 "Kenalan"** | ± 3 mnt | Mengaktifkan Radar & Peta Jalan | Kelas/semester, institusi, jurusan/peminatan, provinsi (zona waktu otomatis), target utama (boleh banyak), minat kategori lomba (maks 5), pengalaman lomba tertinggi, jam tersedia per minggu, status Sobat Ambis (ya/tidak) |
 | **L2 "Kenal Lebih Dalam"** | ± 5 mnt, dicicil | Menajamkan Coach | Skill 1–5 (menulis, riset, coding, desain, public speaking, analisis data, bisnis/keuangan), kekuatan & kelemahan (chip + teks bebas), preferensi tim/solo, batas biaya pendaftaran, level bahasa Inggris, perangkat & akses (laptop? kuota?), gaya kerja, hambatan terbesar, ambition statement, daftar pencapaian/organisasi |
 
@@ -882,7 +882,7 @@ flowchart TD
   A[Buka ata.sobatambis.id] --> B{Sudah punya akun?}
   B -->|Belum| C[Masuk Google atau kode email]
   B -->|Sudah| H[Hari Ini]
-  C --> D[L0: nama panggilan, jenjang, tahun lahir]
+  C --> D[L0: nama panggilan, jenjang, tanggal lahir]
   D -->|Di bawah 18| E[Persetujuan orang tua/wali]
   D -->|18 ke atas| F
   E --> F[L1 Kenalan: 6-8 layar]
@@ -1109,7 +1109,7 @@ Semua tabel: `id uuid pk default gen_random_uuid()`, `created_at timestamptz def
 
 | Tabel | Kolom penting |
 |---|---|
-| `profiles` | `id (=auth.users.id)`, `display_name`, `birth_year`, `jenjang`, `institution`, `grade_or_semester`, `major`, `province`, `timezone`, `onboarding_level`, `completeness`, `radar_enabled`, `consent_guardian` |
+| `profiles` | `id (=auth.users.id)`, `display_name`, `birth_date`, `birth_year` (turunan), `jenjang`, `institution`, `grade_or_semester`, `major`, `province`, `timezone`, `onboarding_level`, `completeness`, `radar_enabled`, `consent_guardian` |
 | `ambition_profiles` | `user_id`, `interests text[]`, `goals text[]`, `experience_level`, `weekly_hours`, `skills jsonb`, `strengths text[]`, `weaknesses text[]`, `team_pref`, `fee_max_idr`, `english_level`, `devices jsonb`, `work_style`, `biggest_blocker`, `ambition_statement`, `achievements jsonb` |
 | `profile_snapshots` | `user_id`, `snapshot jsonb`, `created_at` |
 | `memberships` | `user_id`, `plan` (`none/trial/monthly/yearly/sobat_ambis`), `status` (`pending/active/grace/expired`), `current_period_end`, `source`, `verified_by`, `verified_at` |

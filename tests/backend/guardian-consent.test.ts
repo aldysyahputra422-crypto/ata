@@ -174,6 +174,8 @@ describe("0008 guardian consent and the AI gate (FR-AUTH-07)", () => {
       const done = await patch(profile(born(18)));
       expect(done.profile).toMatchObject({ birth_date: born(18), birth_year: year - 18, birth_date_corrections: 0 });
       expect(await call("public.complete_onboarding()")).toEqual({ done: true });
+      // the account reads its own date through RLS, as the profile API does
+      expect((await db.query("select birth_date::text as d from public.profiles")).rows).toEqual([{ d: born(18) }]);
       // a year that is certainly adult stays adult without a date
       await legacyYear(b, year - 19);
       expect((await allow("profil")).changed).toBe(true);
