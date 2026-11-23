@@ -289,5 +289,6 @@ Selesai dengan uji (provider tiruan, tanpa panggilan ke provider AI sungguhan):
 - FR-BYOK-01, 02, 04, 05, 08, 10: uji key sebelum disimpan, AES-256-GCM terikat sesi, URL kustom wajib https dan bukan alamat privat, daftar model, hapus key, 30 permintaan per menit.
 - Mode Tanpa Key: `/api/v1/tanya/prompt` menyusun prompt untuk disalin, tanpa memanggil AI.
 - Provider: OpenAI, Anthropic, Gemini, xAI, DeepSeek, OpenRouter, Groq, Mistral, dan endpoint kustom OpenAI-compatible lewat tiga format kawat.
+- Keputusan PO 23 November 2026: enkripsi amplop dengan AAD berisi versi key dan expiry, pembersihan key sungguhan (logout, sesi berakhir, kedaluwarsa), percakapan hanya di memori, pencabutan izin mengosongkan percakapan dan membatalkan jawaban yang berjalan, Uji Koneksi hanya lewat tombol (16 token, 5 kali per 10 menit), model non-chat ditolak. Ringkasan migrasi dan rollback: `docs/MIGRASI-0009.md`.
 
 Belum: Resep, Ingatan, riwayat percakapan tersimpan (FR-CCH-09), unggah berkas, pencarian web, embedding/rerank, persetujuan wali (menunggu FR-AUTH-07), uji terhadap provider sungguhan dan `ata-dev` (migrasi 0009 belum diterapkan di sana). Asumsi S32–S36.
