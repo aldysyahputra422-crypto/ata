@@ -642,6 +642,42 @@ describe("0008 guardian consent and the AI gate (FR-AUTH-07)", () => {
       await db.query("insert into auth.sessions values ($1, $2, null)", [sessions[a], a]);
     });
 
+    it("does not let a timezone change bring the 18th birthday forward, alone or with a new date", async () => {
+      // UTC-12 and UTC+14 are never on the same date: the birthday that is tomorrow in the west has come in the east
+      const west = new Date(Date.now() - 12 * 3600e3).toISOString().slice(0, 10);
+      const eve = born(18, 1, west);
+      await patch(profile(born(16, 0, west)));
+      await superuser();
+      await db.query("update public.profiles set timezone = 'Etc/GMT+12' where user_id = $1", [a]);
+      await as(a);
+      // a correction that is still a minor's date in the old timezone, sent together with the timezone that makes it adult
+      expect(await patch({ birth_date: eve, timezone: "Pacific/Kiritimati" })).toEqual({ error: "guardian_verification_required", field: "birth_date" });
+      expect((await patch({ birth_date: eve })).profile).toMatchObject({ birth_date: eve }); // minor to minor: allowed
+      expect(await patch({ timezone: "Pacific/Kiritimati" })).toEqual({ error: "guardian_verification_required", field: "timezone" });
+      expect(await patch({ display_name: "Lain", timezone: "Pacific/Kiritimati" })).toEqual({ error: "guardian_verification_required", field: "timezone" });
+      expect(await call("public.guardian_consent_status()")).toMatchObject({ required: true, account_state: "pending" });
+      await superuser();
+      expect((await db.query("select timezone, display_name from public.profiles where user_id = $1", [a])).rows).toEqual([{ timezone: "Etc/GMT+12", display_name: "Raka" }]);
+      expect((await db.query("select count(*)::int as n from public.audit_log where action = 'timezone_change_refused'")).rows).toEqual([{ n: 2 }]);
+      // a timezone that does not change the answer is still free to choose
+      await as(a);
+      expect((await patch({ birth_date: born(16, 0, west), timezone: "Pacific/Kiritimati" })).profile).toMatchObject({ timezone: "Pacific/Kiritimati" });
+    });
+
+    it("ends a correction link when another guardian answers or the consent ends", async () => {
+      await patch(profile(MINOR));
+      await correction(a, ADULT, "kor-1", true, "lain@contoh.id"); // no guardian on record yet
+      await request(a, "tok-1");
+      expect(await confirm("tok-1")).toEqual({ status: "verified" });
+      expect(await confirmCorrection("kor-1")).toEqual({ error: "invalid_token" });
+      await correction(a, ADULT, "kor-2"); // to the verified guardian
+      await as(a);
+      expect(await call("public.revoke_guardian_consent()")).toEqual({ status: "revoked" });
+      expect(await confirmCorrection("kor-2")).toEqual({ error: "invalid_token" });
+      await superuser();
+      expect((await db.query("select birth_date::text as d from public.profiles where user_id = $1", [a])).rows).toEqual([{ d: MINOR }]);
+    });
+
     it("keeps a guardian who answered ahead of an address the account names afterwards", async () => {
       await patch(profile(MINOR));
       await request(a, "tok-1");

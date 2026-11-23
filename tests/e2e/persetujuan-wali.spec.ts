@@ -17,14 +17,17 @@ type Status = "none" | "pending" | "verified" | "declined" | "revoked" | "expire
 const butuhWali = { status: 403, json: { error: { code: "guardian_consent_required", message: "Perlu persetujuan orang tua/wali dulu." } } };
 
 async function akun(page: Page, opts: { status?: Status; kirimEmail?: boolean; selesai?: boolean; hampir?: boolean; masuk?: boolean; hapus?: string; sisaKoreksi?: number } = {}) {
-  const s = { status: opts.status ?? "none" as Status, kirim: [] as { url: string; body: unknown }[], revokedBy: null as string | null, koreksi: null as string | null };
+  const s = { status: opts.status ?? "none" as Status, kirim: [] as { url: string; body: unknown }[], revokedBy: null as string | null, koreksi: null as string | null, dewasa: false };
   const profil: Record<string, unknown> = {
     display_name: "Raka", jenjang: "SMA/SMK", birth_date: LAHIR_ANAK, birth_year: TAHUN_ANAK, institution: "SMAN 1", major: null, timezone: null, interests: ["KTI"], targets: ["Beasiswa"],
     skills: [], goals_text: null, weekly_hours: opts.hampir ? null : 6, onboarding_done: opts.selesai ?? false, updated_at: "2026-11-23T00:00:00Z",
   };
   const izin = Object.fromEntries(KATEGORI.map((k) => [k, false]));
   const adaWali = () => s.status !== "none";
-  const consent = () => ({
+  const consent = () => s.dewasa ? {
+    status: "not_required", account_state: "not_required", required: false, delivery: "configured", birth_date: LAHIR_DEWASA,
+    birth_date_known: true, corrections_left: 1, deletion_due_at: null, correction: null,
+  } : ({
     status: s.status, account_state: s.status === "verified" ? "granted" : "pending", required: true,
     delivery: (opts.kirimEmail ?? true) ? "configured" : "not_configured", birth_date: LAHIR_ANAK, birth_date_known: true,
     corrections_left: opts.sisaKoreksi ?? 2, deletion_due_at: s.status === "declined" ? opts.hapus ?? null : null,
@@ -45,6 +48,7 @@ async function akun(page: Page, opts: { status?: Status; kirimEmail?: boolean; s
       }
       Object.assign(profil, ubah);
     }
+    if (s.dewasa) profil.birth_date = LAHIR_DEWASA;
     return route.fulfill({ json: { profile: profil } });
   });
   await page.route("**/api/v1/consent/birth-date", (route) => {
@@ -57,7 +61,7 @@ async function akun(page: Page, opts: { status?: Status; kirimEmail?: boolean; s
   });
   await page.route("**/api/v1/profile/onboarding/complete", (route) => {
     s.kirim.push({ url: "complete", body: null });
-    if (s.status !== "verified") return route.fulfill(butuhWali);
+    if (s.status !== "verified" && !s.dewasa) return route.fulfill(butuhWali);
     profil.onboarding_done = true;
     return route.fulfill({ json: { done: true } });
   });
@@ -144,6 +148,21 @@ test.describe("kenalan: an account under 18 needs its guardian", () => {
     await expect(page.getByRole("heading", { name: /Selesai, Raka/ })).toBeVisible();
     expect(s.kirim.filter((k) => k.url === "complete")).toHaveLength(2);
     expect(galat).toEqual([]);
+  });
+
+  test("once the guardian confirms an adult birth date, the consent step ends and the old date is not saved back", async ({ page }) => {
+    const s = await akun(page, { status: "pending" });
+    await page.goto("/kenalan");
+    await expect(page.locator('.wali[data-status="pending"]')).toBeVisible();
+    s.dewasa = true; // the guardian confirmed the correction elsewhere
+    await page.locator("#periksaWali").click();
+    await expect(page.getByRole("heading", { name: /Selesai, Raka/ })).toBeVisible();
+    await expect(page.locator("#langkahWali")).toHaveCount(0);
+    expect(s.kirim.filter((k) => k.url === "profile")).toEqual([]);
+    // going back through the answers shows the confirmed date, not the one typed before
+    await page.locator("#ulangOnboard").click();
+    for (let n = 0; n < 2; n++) await page.getByRole("button", { name: "Lanjut" }).click();
+    await expect(page.locator("#jawab")).toHaveValue(LAHIR_DEWASA);
   });
 
   test("says so when no email channel is wired, and offers no way around it", async ({ page }) => {

@@ -319,6 +319,7 @@ declare
   old_age text;
   new_age text;
   new_date date;
+  new_zone text;
   correction boolean := false;
   result jsonb;
   row public.profiles;
@@ -331,6 +332,8 @@ begin
   if not found then return jsonb_build_object('error', 'not_found'); end if;
   if p_patch ? 'birth_year' then return jsonb_build_object('error', 'validation', 'field', 'birth_year'); end if;
   old_age := public.age_status(cur.birth_date, cur.birth_year, cur.timezone);
+  -- the timezone this call leaves the account with: it decides today's date, so it decides the new age too
+  new_zone := case when p_patch ? 'timezone' then p_patch ->> 'timezone' else cur.timezone end;
 
   if p_patch ? 'birth_date' then
     patch := p_patch - 'birth_date';
@@ -348,7 +351,7 @@ begin
     if new_date is not distinct from cur.birth_date then
       new_date := null;
     else
-      new_age := public.age_status(new_date, null, cur.timezone);
+      new_age := public.age_status(new_date, null, new_zone);
       correction := cur.birth_date is not null
         or (cur.birth_year is not null and cur.birth_year <> extract(year from new_date));
       if correction and old_age = 'minor' and new_age = 'adult' then
@@ -359,6 +362,17 @@ begin
         return jsonb_build_object('error', 'correction_limit', 'field', 'birth_date');
       end if;
     end if;
+  end if;
+
+  -- A timezone further east reaches the 18th birthday up to a day earlier. A minor does not become an adult by
+  -- moving the clock, with or without a new date in the same call: the change waits for the birthday.
+  if old_age = 'minor' and new_zone is distinct from cur.timezone
+    and public.age_status(coalesce(new_date, cur.birth_date),
+      case when coalesce(new_date, cur.birth_date) is null then cur.birth_year end, new_zone) = 'adult'
+    and public.age_status(coalesce(new_date, cur.birth_date),
+      case when coalesce(new_date, cur.birth_date) is null then cur.birth_year end, cur.timezone) <> 'adult' then
+    insert into public.audit_log (actor_id, action, target_type) values (account_id, 'timezone_change_refused', 'profile');
+    return jsonb_build_object('error', 'guardian_verification_required', 'field', 'timezone');
   end if;
 
   if patch <> '{}'::jsonb then
@@ -598,6 +612,9 @@ begin
     return jsonb_build_object('error', 'invalid_token');
   end if;
 
+  -- a correction link sent to another inbox ends once this guardian has answered
+  update public.birth_date_corrections set status = 'superseded', token_hash = null
+    where user_id = c.user_id and status = 'pending' and guardian_contact_hash <> c.guardian_contact_hash;
   if p_approve then
     update public.guardian_consents set status = 'verified', verified_at = now(), verification_method = 'guardian_email_link',
       verifier_name = btrim(p_verifier_name), verifier_declaration = 'parent_or_legal_guardian',
@@ -672,6 +689,8 @@ as $$
 begin
   update public.guardian_consents set status = 'revoked', revoked_at = now(), revoked_by = p_by,
     token_hash = null, revoke_token_hash = null where id = p_id;
+  -- a correction link sent while that consent stood does not outlive it
+  update public.birth_date_corrections set status = 'superseded', token_hash = null where user_id = p_user_id and status = 'pending';
   perform public.reset_ai_permissions(p_user_id, 'guardian_consent_revoked');
   update public.profiles set onboarding_done = false, updated_at = now()
     where user_id = p_user_id and onboarding_done and public.age_status(birth_date, birth_year, timezone) = 'minor';

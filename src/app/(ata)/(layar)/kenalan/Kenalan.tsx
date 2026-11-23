@@ -109,6 +109,21 @@ export function Kenalan() {
   const bukaWali = async (): Promise<string | null> => {
     const r = await bacaPersetujuan();
     if (!r.ok) return r.status === 401 ? (setMuatan({ status: "keluar" }), null) : r.pesan;
+    if (!r.data.consent.required) {
+      // the guardian confirmed a birth date that makes the account an adult (or the age is no longer known):
+      // the answers on screen are stale, so they are read again before anything can be saved over the new date
+      const profil = await bacaProfil();
+      if (!profil.ok) return profil.status === 401 ? (setMuatan({ status: "keluar" }), null) : profil.pesan;
+      const awal = dariProfil(profil.data.profile);
+      setD(awal);
+      jamTersimpan.current = profil.data.profile.weekly_hours;
+      setWali(null);
+      const tutup = profil.data.profile.onboarding_done ? null : await selesaikanOnboarding();
+      if (tutup && !tutup.ok) setI(langkahAwal(awal));
+      else setSelesai(true);
+      requestAnimationFrame(() => judul.current?.focus());
+      return null;
+    }
     setWali(r.data.consent);
     requestAnimationFrame(() => judul.current?.focus());
     return null;
