@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GUARDIAN_CONSENT_VERSION, GUARDIAN_LINK_HOURS, consentRequestInput, guardianLink, maskEmail, newToken, sha256 } from "@/lib/account/consent";
+import { GUARDIAN_CONSENT_VERSION, GUARDIAN_LINK_HOURS, consentRequestInput, guardianLink, mailbox, maskEmail, newToken, sha256 } from "@/lib/account/consent";
 import { guardianDelivery } from "@/lib/account/consent-delivery";
 import { accountError, accountSession, accountUnavailable, appOrigin, checkOrigin, needsSignIn, parseJsonBody, privateHeaders } from "@/lib/account/http";
 import { readProfile } from "@/lib/account/profile";
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       { status: 422, headers: privateHeaders },
     );
   }
-  if (body.data.guardian_email === session.user.email?.toLowerCase()) {
+  if (session.user.email && mailbox(body.data.guardian_email) === mailbox(session.user.email)) {
     return NextResponse.json(
       { error: { code: "validation", message: "Email wali tidak boleh sama dengan email akunmu.", field: "guardian_email" } },
       { status: 422, headers: privateHeaders },

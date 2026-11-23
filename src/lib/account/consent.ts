@@ -30,6 +30,18 @@ export function maskEmail(email: string): string {
   return `${email.slice(0, 1)}***${email.slice(at)}`;
 }
 
+/**
+ * One mailbox behind several spellings: plus tags everywhere, dots and googlemail.com at Gmail.
+ * It only stops the obvious alias of the account's own inbox; a second inbox the student owns cannot be told apart.
+ */
+export function mailbox(email: string): string {
+  const lower = email.trim().toLowerCase();
+  const at = lower.lastIndexOf("@");
+  const domain = lower.slice(at + 1).replace(/^googlemail\.com$/, "gmail.com");
+  const local = lower.slice(0, at).split("+")[0] ?? "";
+  return `${domain === "gmail.com" ? local.replaceAll(".", "") : local}@${domain}`;
+}
+
 /** The link carries the token in the fragment, so it is not sent to servers in the URL or kept in access logs. */
 export const guardianLink = (origin: string, kind: "t" | "c", value: string) => `${origin}${GUARDIAN_PAGE}#${kind}=${value}`;
 

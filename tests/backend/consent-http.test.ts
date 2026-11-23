@@ -10,6 +10,7 @@ import { POST as complete } from "@/app/api/v1/profile/onboarding/complete/route
 import { PATCH as patchPermission } from "@/app/api/v1/permissions/route";
 import { PATCH as patchProfile } from "@/app/api/v1/profile/route";
 import { canProcessAi } from "@/lib/account/ai-gate";
+import { mailbox } from "@/lib/account/consent";
 
 vi.mock("server-only", () => ({}));
 const { auth, rpc, from, adminRpc } = vi.hoisted(() => ({ auth: { getUser: vi.fn() }, rpc: vi.fn(), from: vi.fn(), adminRpc: vi.fn() }));
@@ -135,9 +136,13 @@ describe("/api/v1/consent (FR-AUTH-07)", () => {
 
   it("refuses the student's own email as the guardian's", async () => {
     signedIn();
-    const response = await requestConsent(post("/api/v1/consent/request", { guardian_name: "Bu Sari", guardian_email: " RAKA@contoh.id " }));
-    expect(response.status).toBe(422);
-    expect((await response.json()).error.field).toBe("guardian_email");
+    for (const guardian_email of [" RAKA@contoh.id ", "raka+wali@contoh.id"]) {
+      const response = await requestConsent(post("/api/v1/consent/request", { guardian_name: "Bu Sari", guardian_email }));
+      expect(response.status, guardian_email).toBe(422);
+      expect((await response.json()).error.field).toBe("guardian_email");
+    }
+    expect(mailbox("R.a.ka+x@GoogleMail.com")).toBe("raka@gmail.com");
+    expect(mailbox("r.aka@contoh.id")).toBe("r.aka@contoh.id");
     expect(adminRpc).not.toHaveBeenCalled();
   });
 
