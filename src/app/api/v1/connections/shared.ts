@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { accountError } from "@/lib/account/http";
-import { AI_ERROR_TEXT, AiError, createAdapter, findProvider, mapError, type Credential, type ProviderAdapter } from "@/lib/tanya/providers";
+import { AI_ERROR_TEXT, AiError, createAdapter, findProvider, mapError, type Credential, type ProviderAdapter, type ProviderEntry } from "@/lib/tanya/providers";
 import { checkBaseUrl } from "@/lib/tanya/ssrf";
 
 const apiKey = z.string().min(8).max(400).regex(/^[\x21-\x7e]+$/);
@@ -21,7 +21,8 @@ const URL_TEXT = {
 } as const;
 
 /** Resolves the provider and its base URL from the registry; only the custom entry accepts a URL from the user. */
-export async function resolveTarget(input: { provider_id: string; base_url?: string }) {
+type Target = { provider: ProviderEntry; baseUrl: string; storedUrl: string | null; adapter: ProviderAdapter };
+export async function resolveTarget(input: { provider_id: string; base_url?: string }): Promise<{ error: Response } | Target> {
   const provider = findProvider(input.provider_id);
   if (!provider) return { error: accountError(400, "unknown_provider", "Provider ini tidak dikenal.") };
   if (provider.baseURL !== null) {
