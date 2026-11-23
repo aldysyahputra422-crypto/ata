@@ -225,6 +225,14 @@ test.describe("hari ini, account", () => {
     await expect(page.getByRole("button", { name: "Reset data demo" })).toHaveCount(0);
   });
 
+  test("the date in the header is the account's day, not the device clock's", async ({ page }) => {
+    await page.clock.install({ time: new Date(2026, 10, 21, 23, 58) });
+    await me(page, free);
+    await progresAkun(page, { today: () => "2026-11-22" }); // the account's timezone is already on the next day
+    await open(page);
+    await expect(page.locator(".judul-layar .hari")).toContainText("Minggu, 22 November 2026");
+  });
+
   test("an account without a Slot shows none, whatever the device holds", async ({ page }) => {
     await me(page, free);
     await progresAkun(page, { slot: [] });
