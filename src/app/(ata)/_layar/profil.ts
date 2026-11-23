@@ -76,11 +76,12 @@ export function selisih(p: Profil, f: Isian): UbahProfil {
   return Object.fromEntries(Object.entries(baru).filter(([k, v]) => !sama(v, p[k as keyof Profil]))) as UbahProfil;
 }
 
-export function periksaIsian(f: Isian): { bidang: string; pesan: string } | null {
+export function periksaIsian(f: Isian, tersimpan?: Profil): { bidang: string; pesan: string } | null {
   const nama = f.display_name.trim();
   if (nama.length < 2 || nama.length > 30) return { bidang: "display_name", pesan: "Nama panggilan dua sampai tiga puluh huruf." };
   if (!f.jenjang) return { bidang: "jenjang", pesan: "Pilih jenjangmu dulu." };
-  const lahir = periksaTanggalLahir(f.birth_date);
+  // an account from before the full date was asked for can still save its other fields
+  const lahir = f.birth_date === "" && tersimpan?.birth_date === null ? null : periksaTanggalLahir(f.birth_date);
   if (lahir) return { bidang: "birth_date", pesan: lahir };
   const jam = Number(f.weekly_hours);
   if (f.weekly_hours !== "" && (!Number.isInteger(jam) || jam < 0 || jam > 80)) return { bidang: "weekly_hours", pesan: "Jam belajar antara 0 dan 80 per minggu." };

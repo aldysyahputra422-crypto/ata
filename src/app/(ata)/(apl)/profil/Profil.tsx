@@ -115,6 +115,11 @@ export function Profil() {
   const segarkanWali = async () => {
     const [p, i, w] = await Promise.all([bacaProfil(), bacaIzin(), bacaPersetujuan()]);
     if ([p, i, w].some((r) => !r.ok && r.status === 401)) return setMuatan({ status: "keluar" });
+    // a date the guardian confirmed must not be undone by the draft that predates it
+    if (p.ok && p.data.profile.birth_date !== profil.birth_date) {
+      const lahir = p.data.profile.birth_date ?? "";
+      setF((d) => (d ? { ...d, birth_date: lahir } : d));
+    }
     setMuatan((m) => (m.status === "siap" ? {
       ...m, profil: p.ok ? p.data.profile : m.profil, izin: i.ok ? i.data.categories : null, wali: w.ok ? w.data.consent : null,
     } : m));
@@ -133,7 +138,7 @@ export function Profil() {
 
   const simpan = async () => {
     if (kunci.current || !berubah) return;
-    const keliru = periksaIsian(f);
+    const keliru = periksaIsian(f, profil);
     if (keliru) {
       setGalat(keliru);
       document.getElementById("p-" + keliru.bidang)?.focus();

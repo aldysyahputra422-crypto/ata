@@ -80,6 +80,9 @@ describe("profile form", () => {
     expect(periksaIsian({ ...f, display_name: "" })?.bidang).toBe("display_name");
     expect(periksaIsian({ ...f, birth_date: "1900-01-01" })?.bidang).toBe("birth_date");
     expect(periksaIsian({ ...f, birth_date: "" })?.bidang).toBe("birth_date");
+    // an account that only ever gave a year can save its other fields; a date it types is still checked
+    expect(periksaIsian({ ...f, birth_date: "" }, { birth_date: null } as never)).toBeNull();
+    expect(periksaIsian({ ...f, birth_date: "1900-01-01" }, { birth_date: null } as never)?.bidang).toBe("birth_date");
     expect(selisih(profil, { ...f, birth_date: "2009-04-18" })).toEqual({ birth_date: "2009-04-18" });
     // an account that only has a year sends nothing until the date is filled in
     expect(selisih({ ...profil, birth_date: null }, keIsian({ ...profil, birth_date: null }))).toEqual({});
