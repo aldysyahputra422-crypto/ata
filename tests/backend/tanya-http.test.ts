@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE as disconnect, GET as getConnection, POST as connect } from "@/app/api/v1/connections/route";
 import { POST as listModels } from "@/app/api/v1/connections/models/route";
@@ -33,6 +35,8 @@ const request = (path: string, method: string, body?: unknown, cookie = "", sour
 const sse = (lines: unknown[]) => new Response(lines.map((l) => `data: ${JSON.stringify(l)}\n\n`).join("") + "data: [DONE]\n\n");
 const answer = (text: string) => sse([{ choices: [{ delta: { content: text } }] }, { choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 40, completion_tokens: 6 } }]);
 const models = () => Response.json({ data: [{ id: "model-x" }, { id: "model-y" }] });
+const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true })
+  .flatMap((entry) => (entry.isDirectory() ? walk(join(dir, entry.name)) : /\.(ts|tsx)$/.test(entry.name) ? [join(dir, entry.name)] : []));
 async function events(response: Response) {
   return (await response.text()).split("\n\n").filter(Boolean).map((line) => JSON.parse(line.replace(/^data: /, "")));
 }
@@ -273,6 +277,104 @@ describe("POST /api/v1/tanya/chat (FR-CCH-01, FR-BYOK-03)", () => {
       expect(out.at(-1).type).toBe("done");
     });
   }
+
+  it("re-reads permissions on every request: a category switched off between two questions is not sent the second time", async () => {
+    const cookie = await connected();
+    db.categories = { lomba: true };
+    fetchMock.mockResolvedValueOnce(answer("Satu [S1]."));
+    const first = await events(await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie)));
+    expect(first[0].provenance.sources).toHaveLength(1);
+    const readsBefore = db.tables.filter((t) => t === "ai_permissions").length;
+
+    db.categories = {};
+    fetchMock.mockResolvedValueOnce(answer("Dua."));
+    const second = await events(await chat(request("/api/v1/tanya/chat", "POST", {
+      question: "Tolong review ideku lagi", context_categories: ["lomba"],
+      history: [{ role: "user", content: "Tolong review ideku" }, { role: "assistant", content: `Satu, tentang ${NOTE}-lomba` }],
+    }, cookie)));
+    expect(db.tables.filter((t) => t === "ai_permissions").length).toBeGreaterThan(readsBefore);
+    // The earlier turns were answered with the revoked category: they are dropped and the client is told to clear them.
+    expect(second[0]).toMatchObject({ cleared: ["lomba"], provenance: { sources: [], blocked: [{ category: "lomba", reason: "permission_off" }, { category: "profil", reason: "permission_off" }] } });
+    const sent = fetchMock.mock.calls[1][1].body as string;
+    expect(sent).not.toContain(NOTE);
+    expect(JSON.parse(sent).messages.map((m: { role: string }) => m.role)).toEqual(["system", "user"]);
+    expect(db.tables.filter((t) => t === "user_competitions")).toHaveLength(1);
+
+    // Still permitted: the history is kept.
+    db.categories = { lomba: true };
+    fetchMock.mockResolvedValueOnce(answer("Tiga [S1]."));
+    const third = await events(await chat(request("/api/v1/tanya/chat", "POST", {
+      question: "Tolong review ideku sekali lagi", context_categories: ["lomba"], history: [{ role: "user", content: "a" }, { role: "assistant", content: "b" }],
+    }, cookie)));
+    expect(third[0].cleared).toEqual([]);
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body as string).messages).toHaveLength(4);
+    expect((await chat(request("/api/v1/tanya/chat", "POST", { question: "x", context_categories: ["bukan-kategori"] }, cookie))).status).toBe(400);
+  });
+
+  it("stops a running answer when a category it uses is revoked: the provider call is aborted and the stream ends with permission_revoked", async () => {
+    const cookie = await connected();
+    db.categories = { lomba: true };
+    let providerSignal: AbortSignal | undefined;
+    fetchMock.mockImplementationOnce(async (_url: string, init: RequestInit) => {
+      providerSignal = init.signal ?? undefined;
+      const encoder = new TextEncoder();
+      return new Response(new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "Awal jawaban" } }] })}\n\n`));
+          // The provider keeps the stream open; only an abort ends it.
+          init.signal?.addEventListener("abort", () => controller.error(init.signal?.reason ?? new DOMException("aborted", "AbortError")));
+        },
+      }));
+    });
+    const response = await chat(request("/api/v1/tanya/chat", "POST", { question: "Tolong review ideku" }, cookie));
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    while (!text.includes("Awal jawaban")) text += decoder.decode((await reader.read()).value);
+    db.categories = {};
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value);
+    }
+    const out = text.split("\n\n").filter(Boolean).map((line) => JSON.parse(line.replace(/^data: /, "")));
+    expect(out.map((e) => e.type)).toEqual(["meta", "delta", "error"]);
+    expect(out[2]).toMatchObject({ code: "permission_revoked", categories: ["lomba"] });
+    expect(providerSignal?.aborted).toBe(true);
+    expect(db.runs.at(-1)).toMatchObject({ status: "stopped", error: "permission_revoked" });
+  }, 15000);
+
+  it("keeps no chat anywhere on the server: nothing logged, nothing stored, and the client code has no storage or analytics", async () => {
+    const cookie = await connected();
+    db.categories = { lomba: true };
+    fetchMock.mockResolvedValueOnce(answer("JAWABAN-UNIK-123 [S1]."));
+    await events(await chat(request("/api/v1/tanya/chat", "POST", {
+      question: "PERTANYAAN-UNIK-456 review ideku", history: [{ role: "user", content: "RIWAYAT-UNIK-789" }, { role: "assistant", content: "balasan" }],
+    }, cookie)));
+    fetchMock.mockResolvedValueOnce(new Response("no", { status: 500 }));
+    await events(await chat(request("/api/v1/tanya/chat", "POST", { question: "PERTANYAAN-UNIK-456 gagal" }, cookie)));
+    await prompt(request("/api/v1/tanya/prompt", "POST", { question: "PERTANYAAN-UNIK-456 prompt" }, cookie));
+    const unique = /UNIK-(123|456|789)/;
+    // Everything written to the database goes through rpc(); every console level is captured in `logs`.
+    expect(JSON.stringify(rpc.mock.calls)).not.toMatch(unique);
+    expect(JSON.stringify(rpc.mock.calls)).not.toContain(NOTE);
+    expect(JSON.stringify(db.runs)).not.toMatch(unique);
+    expect(logs.join("\n")).not.toMatch(unique);
+    expect(logs.join("\n")).not.toContain("SECRET");
+    // Only the user's provider receives the conversation.
+    expect(fetchMock.mock.calls.every((c) => String(c[0]).startsWith("https://api.openai.com/"))).toBe(true);
+
+    const files = [...walk("src/lib/tanya"), ...walk("src/app/api/v1/tanya"), ...walk("src/app/api/v1/connections"), ...walk("src/app/(ata)/(apl)/ata")];
+    expect(files.length).toBeGreaterThan(12);
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(/localStorage|sessionStorage|indexedDB|document\.cookie|sendBeacon|posthog|gtag|analytics\.|console\./i);
+    }
+    // The migration has no column that could hold a question, an answer or a prompt.
+    const sql = readFileSync("supabase/migrations/0009_tanya_ata.sql", "utf8");
+    const table = sql.slice(sql.indexOf("create table public.tanya_runs"), sql.indexOf("create index tanya_runs_user_created"));
+    expect(table).not.toMatch(/\b(question|answer|prompt|content|message|text_|body)\b\s+(text|jsonb)/i);
+  });
 
   it("does not call a provider without a usable connection", async () => {
     const none = await chat(request("/api/v1/tanya/chat", "POST", { question: "hai" }));
