@@ -7,6 +7,8 @@
     { "id": "xai", "name": "xAI (Grok)", "sdk": "@ai-sdk/xai", "baseURL": "https://api.x.ai/v1", "auth": "bearer", "modelsEndpoint": "/models", "notes": "", "partner": false, "priceIdr": null, "payments": [] },
     { "id": "deepseek", "name": "DeepSeek", "sdk": "@ai-sdk/deepseek", "baseURL": "https://api.deepseek.com", "auth": "bearer", "modelsEndpoint": "/models", "notes": "", "partner": false, "priceIdr": null, "payments": [] },
     { "id": "openrouter", "name": "OpenRouter", "sdk": "@openrouter/ai-sdk-provider", "baseURL": "https://openrouter.ai/api/v1", "auth": "bearer", "modelsEndpoint": "/models", "notes": "Satu key untuk banyak model, termasuk beberapa model gratis.", "partner": false, "priceIdr": null, "payments": [] },
+    { "id": "groq", "name": "Groq", "sdk": "@ai-sdk/openai-compatible", "baseURL": "https://api.groq.com/openai/v1", "auth": "bearer", "modelsEndpoint": "/models", "notes": "Cek kuota dan ketentuan usia terbaru.", "partner": false, "priceIdr": null, "payments": [] },
+    { "id": "mistral", "name": "Mistral", "sdk": "@ai-sdk/openai-compatible", "baseURL": "https://api.mistral.ai/v1", "auth": "bearer", "modelsEndpoint": "/models", "notes": "Cek kuota dan ketentuan usia terbaru.", "partner": false, "priceIdr": null, "payments": [] },
     { "id": "custom", "name": "OpenAI-compatible kustom", "sdk": "@ai-sdk/openai-compatible", "baseURL": null, "auth": "bearer", "modelsEndpoint": "/models", "notes": "Base URL wajib https dan bukan IP privat/loopback (FR-BYOK-04).", "partner": false, "priceIdr": null, "payments": [] }
   ]
 }
