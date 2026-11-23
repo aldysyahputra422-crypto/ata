@@ -37,9 +37,9 @@ const gate = (category: string) => call("public.can_process_ai($1)", [category])
 const profile = (birth_date: string) => ({ display_name: "Raka", jenjang: "SMA/SMK", birth_date });
 
 /** The server's part: open a request for `user` and (unless told otherwise) record that the link was sent. */
-async function request(user: string, token: string, sent: boolean | null = true) {
+async function request(user: string, token: string, sent: boolean | null = true, contact = "wali@contoh.id") {
   await server();
-  const made = await call("public.create_guardian_consent_request($1, $2, $3, $4, $5, $6)", [user, "Bu Sari", sha("wali@contoh.id"), "w***@contoh.id", sha(token), "v1"]);
+  const made = await call("public.create_guardian_consent_request($1, $2, $3, $4, $5, $6)", [user, "Bu Sari", sha(contact), "w***@contoh.id", sha(token), "v1"]);
   if (made.id && sent !== null) await call("public.record_guardian_consent_delivery($1, $2, 'ref-1')", [made.id, sent]);
   return made;
 }
@@ -640,6 +640,35 @@ describe("0008 guardian consent and the AI gate (FR-AUTH-07)", () => {
       expect(JSON.stringify(rows)).not.toContain(a);
       await db.query("insert into auth.users (id) values ($1)", [a]);
       await db.query("insert into auth.sessions values ($1, $2, null)", [sessions[a], a]);
+    });
+
+    it("keeps a guardian who answered ahead of an address the account names afterwards", async () => {
+      await patch(profile(MINOR));
+      await request(a, "tok-1");
+      expect(await confirm("tok-1", false, null)).toEqual({ status: "declined" });
+      await request(a, "tok-2", true, "lain@contoh.id"); // sent, never answered
+      expect(await correction(a, ADULT, "kor-1", true, "lain@contoh.id")).toEqual({ error: "guardian_mismatch" });
+      expect(await correction(a, ADULT, "kor-2")).toMatchObject({ id: expect.any(String) });
+    });
+
+    it("lets only the guardian who asked for deletion be asked again, and shows the earliest deadline", async () => {
+      await patch(profile(MINOR));
+      await request(a, "tok-1");
+      await server();
+      await call("public.confirm_guardian_consent($1, false, null, null, true)", [sha("tok-1")]);
+      expect(await request(a, "tok-x", true, "lain@contoh.id")).toEqual({ error: "guardian_mismatch" });
+      await superuser();
+      await db.exec("update public.guardian_consents set deletion_due_at = now() + interval '2 days' where deletion_requested_at is not null");
+      await request(a, "tok-2");
+      await as(a);
+      const waiting = await call("public.guardian_consent_status()");
+      expect(waiting.status).toBe("pending");
+      const first = new Date(waiting.deletion_due_at as string).getTime();
+      expect(first - Date.now()).toBeLessThan(2.1 * 86400e3);
+      await server();
+      await call("public.confirm_guardian_consent($1, false, null, null, true)", [sha("tok-2")]);
+      await as(a);
+      expect(new Date((await call("public.guardian_consent_status()")).deletion_due_at as string).getTime()).toBe(first);
     });
 
     it("drops the deletion request when the guardian later consents, and spares an account that turned 18", async () => {

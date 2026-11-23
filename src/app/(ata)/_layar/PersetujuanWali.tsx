@@ -155,6 +155,16 @@ export function PersetujuanWali({ p, kecil, onUbah, onKeluar }: {
 
   const pesanGalat = <p className="galat" id="galatWali" role="alert">{galat?.pesan ?? ""}</p>;
 
+  const hapusDiminta = p.deletion_due_at ? (
+    <div className="error" id="hapusDiminta" role="alert">
+      <Ikon nama="alert" />
+      <div>
+        <strong>Walimu meminta akun ini dihapus</strong>
+        <p>Akun dan seluruh datamu dijadwalkan dihapus setelah {tanggal(p.deletion_due_at)}. Unduh datamu dari halaman Profil bila perlu. Permintaan baru hanya bisa dikirim ke email wali yang sama; bila walimu berubah pikiran dan menyetujuinya sebelum tanggal itu, penghapusan dibatalkan.</p>
+      </div>
+    </div>
+  ) : null;
+
   if (p.status === "verified") {
     return (
       <div className="wali" data-status="verified">
@@ -190,6 +200,7 @@ export function PersetujuanWali({ p, kecil, onUbah, onKeluar }: {
           Menunggu jawaban <strong>{p.guardian_name}</strong> di {p.contact_masked}.
           {p.expires_at ? ` Tautan di emailnya berlaku sampai ${jam(p.expires_at)} dan hanya bisa dipakai sekali.` : ""}
         </p>
+        {hapusDiminta}
         <p className="small muted">Persetujuan hanya bisa diberikan walimu lewat tautan itu. Selama belum disetujui, akunmu berstatus menunggu dan izin AI tetap mati. {BATAS}</p>
         {pesanGalat}
         <div className="btn-row">
@@ -205,15 +216,7 @@ export function PersetujuanWali({ p, kecil, onUbah, onKeluar }: {
     <div className="wali" data-status={p.status}>
     <form className="wali" noValidate onSubmit={(e) => { e.preventDefault(); kirim(); }}>
       {LALU[p.status] ? <p className="small" role="status">{LALU[p.status]}</p> : null}
-      {p.deletion_due_at ? (
-        <div className="error" id="hapusDiminta" role="alert">
-          <Ikon nama="alert" />
-          <div>
-            <strong>Walimu meminta akun ini dihapus</strong>
-            <p>Akun dan seluruh datamu dijadwalkan dihapus setelah {tanggal(p.deletion_due_at)}. Unduh datamu dari halaman Profil bila perlu. Bila walimu berubah pikiran dan menyetujui permintaan baru sebelum tanggal itu, penghapusan dibatalkan.</p>
-          </div>
-        </div>
-      ) : null}
+      {hapusDiminta}
       {p.status === "revoked" ? <p className="small" role="status">Persetujuan dicabut{p.revoked_by === "guardian" ? " oleh wali" : ""}. Semua izin AI mati.</p> : null}
       {p.delivery === "configured" ? null : BELUM_DIKONFIGURASI}
       <div className="field">

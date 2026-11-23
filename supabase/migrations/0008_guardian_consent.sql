@@ -459,7 +459,7 @@ begin
     'requested_at', c.requested_at, 'expires_at', c.token_expires_at, 'delivery_status', c.delivery_status,
     'verified_at', c.verified_at, 'verification_method', c.verification_method,
     'declined_at', c.declined_at, 'revoked_at', c.revoked_at, 'revoked_by', c.revoked_by,
-    'deletion_due_at', (select max(d.deletion_due_at) from public.guardian_consents d
+    'deletion_due_at', (select min(d.deletion_due_at) from public.guardian_consents d
       where d.user_id = account_id and d.deletion_requested_at is not null and d.deletion_cancelled_at is null));
 end;
 $$;
@@ -493,6 +493,12 @@ begin
     return jsonb_build_object('error', 'validation');
   end if;
   if public.guardian_consent_verified(p_user_id) then return jsonb_build_object('error', 'already_verified'); end if;
+  -- while a guardian's deletion request is open, only that guardian can be asked again: another inbox must not
+  -- be able to cancel it
+  if exists (select 1 from public.guardian_consents where user_id = p_user_id and deletion_requested_at is not null
+      and deletion_cancelled_at is null and guardian_contact_hash <> p_contact_hash) then
+    return jsonb_build_object('error', 'guardian_mismatch');
+  end if;
   if (select count(*) from public.guardian_consents
       where user_id = p_user_id and requested_at > now() - interval '24 hours') >= 5 then
     return jsonb_build_object('error', 'rate_limited');
@@ -598,7 +604,8 @@ begin
       token_hash = null, revoke_token_hash = p_revoke_token_hash where id = c.id;
     -- a guardian who now agrees withdraws an earlier request to delete the account
     update public.guardian_consents set deletion_cancelled_at = now()
-      where user_id = c.user_id and deletion_requested_at is not null and deletion_cancelled_at is null;
+      where user_id = c.user_id and deletion_requested_at is not null and deletion_cancelled_at is null
+        and guardian_contact_hash = c.guardian_contact_hash;
     if found then
       insert into public.audit_log (actor_type, action, target_type, target_id, meta)
         values ('system', 'guardian_deletion_cancelled', 'guardian_consent', c.id, jsonb_build_object('reason', 'consent_verified'));
@@ -750,8 +757,10 @@ begin
     return jsonb_build_object('error', 'not_required');
   end if;
   if f.birth_date_corrections >= public.birth_date_corrections_max() then return jsonb_build_object('error', 'correction_limit'); end if;
+  -- a guardian who has answered a link outranks an address the account merely sent a request to afterwards
   select guardian_contact_hash into known from public.guardian_consents
-    where user_id = p_user_id and delivery_status = 'sent' order by requested_at desc limit 1;
+    where user_id = p_user_id and delivery_status = 'sent'
+    order by (verified_at is not null or declined_at is not null) desc, requested_at desc limit 1;
   if known is not null and known <> p_contact_hash then return jsonb_build_object('error', 'guardian_mismatch'); end if;
   if (select count(*) from public.birth_date_corrections
       where user_id = p_user_id and requested_at > now() - interval '24 hours') >= 3 then

@@ -58,6 +58,12 @@ export async function POST(request: Request) {
   if (data.error === "not_required") return accountError(409, "not_required", "Akun ini tidak memerlukan persetujuan wali.");
   if (data.error === "already_verified") return accountError(409, "already_verified", "Persetujuan wali sudah terverifikasi.");
   if (data.error === "rate_limited") return accountError(429, "rate_limited", "Terlalu banyak permintaan. Coba lagi besok.", 86_400);
+  if (data.error === "guardian_mismatch") {
+    return NextResponse.json(
+      { error: { code: "guardian_mismatch", message: "Walimu meminta akun ini dihapus. Permintaan baru hanya bisa dikirim ke email wali yang sama.", field: "guardian_email" } },
+      { status: 409, headers: privateHeaders },
+    );
+  }
   if (data.error === "validation") return accountError(422, "validation", "Nama atau email wali tidak valid.");
   if (data.error || !data.id || !data.expires_at) return accountUnavailable();
 
