@@ -2,6 +2,11 @@
 
 Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 3 (Tanya Ata) selesai dibangun.
 
+## Atribut dokumen dari server (23 November 2026)
+
+- Hydration mismatch `<body>` di `/hari-ini` dan `/lomba` diperbaiki: `badan-aplikasi` kini dirender server lewat root layout per jenis halaman prototipe (FR-PRG-03). Rincian di `docs/MIGRASI-UI.md`.
+- Tanpa migrasi, tanpa perubahan API, CSS prototipe, atau markup layar.
+
 ## M1 Lomba (22 November 2026)
 
 - Selesai: Radar, Tersimpan, Detail, Slot, Peta Jalan di `/lomba` (K-03, K-23, FR-RDM-03, FR-PRG-03); tabel `user_competitions` dengan RLS dan trigger batas Slot aktif; sinkron akun lokal-dulu.

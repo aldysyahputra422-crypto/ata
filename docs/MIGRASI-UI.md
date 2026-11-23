@@ -255,3 +255,32 @@ Tidak ada.
 - `pnpm visual:parity` tidak dijalankan ulang: tidak ada CSS atau markup yang berubah.
 - Layar Progres dan Profil belum dimigrasikan, jadi XP akun baru tampil di Hari Ini.
 - Penutup (23 November 2026): tanggal di kepala Hari Ini memakai `today` dari `/api/v1/progress` (zona waktu akun) saat masuk; belum masuk tetap jam perangkat. Markup dan CSS tidak berubah. Uji: `tests/e2e/hari-ini.spec.ts` (jam perangkat 21 November 23.58, hari akun 22 November).
+
+## Atribut dokumen dari server: hydration `<body>` (23 November 2026)
+
+**Gejala.** Di `/hari-ini` dan `/lomba`, React melaporkan atribut `<body>` berbeda dari HTML server (mode dev).
+
+**Akar masalah.** `app.css` prototipe menata `body.badan-aplikasi`, tetapi `<body>` dirender root layout bersama `(ata)/layout.tsx` tanpa class. Skrip `BOOT` di `(apl)/layout.tsx` menambah class itu sebelum hydration, jadi DOM tidak lagi sama dengan markup server. Skrip itu juga tidak berjalan pada navigasi client.
+
+**Perbaikan.** Tiap jenis halaman prototipe menjadi root layout sendiri, dan atributnya ada di HTML server:
+
+| Prototipe | Root layout | Atribut dari server |
+|---|---|---|
+| `app.html` | `(apl)/layout.tsx` | `<body class="badan-aplikasi">` |
+| `masuk.html?embed=1` | `(layar)/layout.tsx` | `<html data-embed="1">` |
+| `uji-visual/komponen.html` | `styleguide/layout.tsx`, `uji-visual/layout.tsx` | tidak ada |
+
+### Berkas
+
+- Ditambah: `_layar/Dokumen.tsx` (`<html>`/`<body>`, metadata, viewport), `styleguide/layout.tsx`, `uji-visual/layout.tsx`, `tests/e2e/dokumen.spec.ts`.
+- Diubah: `(apl)/layout.tsx`, `(layar)/layout.tsx` (kini root layout; `BOOT` tidak lagi menyentuh class `<body>` atau `data-embed`), `_layar/PasangLayar.tsx` (pembersihan `data-embed` dihapus).
+- Dihapus: `src/app/(ata)/layout.tsx`. Audit dependensi: tidak diimpor berkas lain; isinya (ds.css, fonts.css, metadata, viewport, `<html>`/`<body>`) pindah ke empat root layout di atas dengan urutan impor CSS yang sama.
+
+### Perilaku
+
+- Pindah antara kerangka layar (`/`, `/paket`) dan shell aplikasi (`/hari-ini`, `/lomba`) kini memuat dokumen penuh, seperti antarhalaman prototipe. Pindah tab di dalam shell tetap tanpa muat ulang.
+- CSS prototipe, markup layar, dan tema tidak berubah.
+
+### Keterbatasan
+
+- `suppressHydrationWarning` pada `<html>` tetap ada untuk `data-theme` dari `?tema=`, dan pada `.device` untuk `data-device` dari lebar layar: keduanya hanya diketahui browser sebelum cat pertama.

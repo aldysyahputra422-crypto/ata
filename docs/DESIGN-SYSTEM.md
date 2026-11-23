@@ -26,7 +26,7 @@ Berlaku sejak R0.2-0 (22 November 2026). Menggantikan "Airy Glass" (arsip: [docs
 | Logika murni prototipe | `src/lib/prototype/` |
 | Aset | `public/prototype/assets/` |
 | Font Plus Jakarta Sans v12 (berkas yang sama dengan yang dimuat prototipe dari Google Fonts) | `public/prototype/fonts/` + `src/app/(ata)/fonts.css` |
-| Root layout layar hasil migrasi | `src/app/(ata)/layout.tsx` |
+| Root layout layar hasil migrasi | `src/app/(ata)/(apl)/layout.tsx`, `(layar)/layout.tsx`, `styleguide/layout.tsx`, `uji-visual/layout.tsx` (satu per jenis halaman prototipe; `<html>`/`<body>` dari `_layar/Dokumen.tsx`) |
 | Markup referensi komponen | `src/app/(ata)/uji-visual/komponen.html` (salinan persis, jangan diubah) |
 
 ## 4. Token Senja

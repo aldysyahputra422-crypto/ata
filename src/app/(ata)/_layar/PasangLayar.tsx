@@ -15,9 +15,6 @@ export function PasangLayar() {
     document.fonts.ready.then(() => {
       document.body.dataset.siap = "1";
     });
-    return () => {
-      delete document.documentElement.dataset.embed;
-    };
   }, []);
   return null;
 }
