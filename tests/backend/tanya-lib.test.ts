@@ -80,6 +80,8 @@ describe("intent and task classification", () => {
     expect(classify("Berapa batas halaman esai?")).toMatchObject({ intent: "cek_aturan", task: "tanya_fakta", needsOfficialSource: true, categories: ["lomba"] });
     expect(classify("Tolong review ideku tentang sampah")).toMatchObject({ intent: "review_ide", task: "kritik" });
     expect(classify("Aku mentok banget")).toMatchObject({ intent: "mentok", task: "dukungan" });
+    expect(classify("Aku mentok, kasih satu langkah kecil")).toMatchObject({ intent: "mentok", task: "dukungan" });
+    expect(classify("Aku mentok. Bantu aku mulai lagi dari langkah terkecil.")).toMatchObject({ intent: "mentok", task: "dukungan" });
     expect(classify("simulasi juri dong")).toMatchObject({ intent: "simulasi_juri", task: "latihan" });
     expect(classify("pecah tugas ini")).toMatchObject({ intent: "pecah_tugas", categories: ["tugas", "lomba", "profil"] });
     expect(classify("halo")).toEqual({ intent: "umum", task: "percakapan", categories: [], needsOfficialSource: false, confidence: "rendah" });
@@ -134,6 +136,30 @@ describe("permission-aware context retrieval", () => {
     expect(pack.sources[1].text).toBe("- Kerangka (Lomba Esai X, tenggat 2026-11-27)");
     expect(pack.sources[2].text).toContain("Langkah selesai: 1 dari 2.");
     expect(pack.empty).toEqual(["ingatan"]);
+  });
+
+  it("splits profile fields as the permission text says, puts Slots before saved ones and upcoming steps before old ones", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-23T05:00:00Z") });
+    const saved = Array.from({ length: 8 }, (_, i) => ({ competition_key: `s${i}`, state: "saved", card: { nama: `Simpan ${i}` }, roadmap: null }));
+    const old = Array.from({ length: 8 }, (_, i) => ({ id: `o${i}`, nama: `Lama ${i}`, tanggal: `2026-10-0${i + 1}` }));
+    const client = fakeClient({
+      profiles: { display_name: "Raka", jenjang: "SMA", institution: "SMAN 1", major: "IPA", interests: ["esai"], skills: ["menulis"], targets: ["nasional"] },
+      user_competitions: [...saved, { competition_key: "k1", state: "slot", card: { nama: "Slot Baru" },
+        roadmap: { langkah: [...old, { id: "n1", nama: "Minggu ini", tanggal: "2026-11-25" }] } }],
+      task_progress: [],
+    }, []);
+    const only = (category: AiCategory): CanProcessAi => async (_u, c) => (c === category ? { allowed: true } : { allowed: false, reason: "permission_off" });
+    const read = accountReader(client);
+    const profil = (await retrieveContext({ userId: "u", wanted: ["profil", "akademik"], gate: only("profil"), read })).sources[0].text;
+    expect(profil).toContain("SMAN 1");
+    expect(profil).not.toMatch(/esai|menulis|nasional|IPA/);
+    const akademik = (await retrieveContext({ userId: "u", wanted: ["profil", "akademik"], gate: only("akademik"), read: accountReader(client) })).sources[0].text;
+    expect(akademik).toMatch(/IPA[\s\S]*esai[\s\S]*menulis[\s\S]*nasional/);
+    expect(akademik).not.toMatch(/SMAN 1|SMA|Raka/);
+    const rest = await retrieveContext({ userId: "u", wanted: ["lomba", "tugas"], gate: allow, read: accountReader(client) });
+    expect(rest.sources[0].label).toBe("Slot: Slot Baru");
+    expect(rest.sources.find((s) => s.category === "tugas")?.text.split("\n")[0]).toContain("Minggu ini");
+    vi.useRealTimers();
   });
 });
 
