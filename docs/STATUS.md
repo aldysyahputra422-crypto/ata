@@ -9,6 +9,19 @@ Terakhir diperbarui: 17 November 2026 · tahap **PROTOTIPE DESAIN** · kelompok 
 - Migrasi 0007 (kolom `display_name`, `targets`, `skills` di `profiles` + tiga fungsi). Diuji di PGlite saja; **belum diterapkan di `ata-dev`** dan menunggu persetujuan PO.
 - Tertunda: FR-AUTH-07 (persetujuan wali di bawah 18 tahun), FR-ONB-04 di luar meter bawaan prototipe, FR-ONB-05/07/08, pengaturan tampilan prototipe (tema, gerak). Layar Progres: lihat "M1 Layar Progres". Izin data AI baru tersimpan; belum ada fitur AI yang membacanya.
 
+## FR-AUTH-07: persetujuan wali di bawah 18 tahun (23 November 2026)
+
+- Ditegakkan di database (migrasi 0008, diuji di PGlite saja; **belum diterapkan di `ata-dev`**): akun anak tidak bisa menyelesaikan onboarding atau menyalakan izin AI tanpa persetujuan wali terverifikasi. Trigger di `ai_permissions` menolak penulis mana pun.
+- Usia dari tanggal lahir lengkap (`profiles.birth_date`) di zona waktu akun. Akun lama yang hanya punya tahun diperlakukan anak sampai pasti 18 atau tanggalnya dilengkapi. Akun anak tanpa persetujuan berstatus menunggu (`account_state: "pending"`).
+- Gate tunggal untuk semua pemrosesan AI atas data akun: `canProcessAi(userId, category)` di `src/lib/account/ai-gate.ts` → fungsi database `can_process_ai`. Alasan tolak: `signed_out`, `guardian_consent_required`, `permission_off`. Kontraknya tidak berubah. Belum ada fitur AI yang memanggilnya di cabang ini.
+- Alur persetujuan: `POST /api/v1/consent/request` (tautan sekali pakai, 72 jam, hanya hash tersimpan) → wali membuka `/wali/persetujuan` → `POST /api/v1/consent/guardian/confirm`. Pencabutan: `POST /api/v1/consent/revoke` (pelajar) atau `/api/v1/consent/guardian/withdraw` (wali). Bukti tersimpan: status, waktu, versi, cakupan, metode, nama dan pernyataan pemberi persetujuan, hash kontak, status pengiriman.
+- Koreksi tanggal lahir: lewat profil untuk koreksi yang tidak mengubah anak menjadi dewasa (maksimal 2, tercatat di audit); anak→dewasa lewat `POST /api/v1/consent/birth-date` dan konfirmasi wali di tautan email.
+- Wali menolak: pemrosesan terblokir; wali bisa meminta akun anak dihapus (dijalankan 7 hari kemudian oleh `purge_guardian_requested_deletions()`, tercatat di audit).
+- **Belum dikonfigurasi:** pengiriman email. Adapter Resend ada tetapi `RESEND_API_KEY` dan `GUARDIAN_CONSENT_EMAIL_FROM` belum diisi di lingkungan mana pun, jadi permintaan ditolak `503 delivery_not_configured`, UI mengatakannya, dan akun anak tetap menunggu. Pengiriman email sungguhan belum pernah diuji. Tidak ada jalur centang.
+- **Belum ada:** penjadwal untuk fungsi purge, UI operator untuk koreksi tanggal lahir di luar batas, email pemberitahuan sebelum penghapusan.
+- Verifikasi email hanya membuktikan akses ke kotak masuk, bukan identitas atau hubungan hukum. Mekanisme ini untuk demo terbatas; lihat `docs/RISIKO-PENGGUNA-ANAK.md`.
+- Dokumen: asumsi `docs/ASSUMPTIONS.md` W1–W16; ringkasan migrasi, dampak data, dan rollback `docs/MIGRASI-0008.md` (`supabase/rollback/0008_guardian_consent.down.sql`, teruji di PGlite).
+
 ## Atribut dokumen dari server (23 November 2026)
 
 - Hydration mismatch `<body>` di `/hari-ini` dan `/lomba` diperbaiki: `badan-aplikasi` kini dirender server lewat root layout per jenis halaman prototipe (FR-PRG-03). Rincian di `docs/MIGRASI-UI.md`.

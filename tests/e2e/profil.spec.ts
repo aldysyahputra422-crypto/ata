@@ -10,10 +10,11 @@ const signedOut = { ...base, signed_in: false, plan };
 const signedIn = { ...base, signed_in: true, plan, user: { id: "u1", email: "raka@example.com", display_name: "Raka Pratama", role: "user" } };
 type P = Record<string, string | number | boolean | string[] | null>;
 const kosong: P = {
-  display_name: null, jenjang: null, birth_year: null, institution: null, major: null, timezone: null, interests: [], targets: [], skills: [],
+  display_name: null, jenjang: null, birth_date: null, birth_year: null, institution: null, major: null, timezone: null, interests: [], targets: [], skills: [],
   goals_text: null, weekly_hours: null, onboarding_done: false, updated_at: "2026-11-23T00:00:00Z",
 };
-const lengkap: P = { ...kosong, display_name: "Raka", jenjang: "SMA/SMK", birth_year: 2009, interests: ["KTI"], onboarding_done: true };
+// an adult account: guardian consent (FR-AUTH-07) has its own spec, tests/e2e/persetujuan-wali.spec.ts
+const lengkap: P = { ...kosong, display_name: "Raka", jenjang: "SMA/SMK", birth_date: "2000-03-14", birth_year: 2000, interests: ["KTI"], onboarding_done: true };
 const KATEGORI = ["profil", "akademik", "lomba", "tugas", "progres", "evaluasi", "ingatan", "dokumen"];
 
 async function akun(page: Page, opts: { masuk?: boolean; profil?: P; gagal?: () => number | undefined; jeda?: number } = {}) {
@@ -41,6 +42,12 @@ async function akun(page: Page, opts: { masuk?: boolean; profil?: P; gagal?: () 
     profil.onboarding_done = true;
     return route.fulfill({ json: { done: true } });
   });
+  await page.route("**/api/v1/consent", (route) => route.fulfill({ json: { consent: {
+    status: profil.birth_date === null ? "age_unknown" : "not_required", account_state: profil.birth_date === null ? "age_unknown" : "not_required",
+    required: false, delivery: "not_configured", birth_date: profil.birth_date, birth_date_known: profil.birth_date !== null, corrections_left: 2,
+    correction: null, deletion_due_at: null, guardian_name: null,
+    contact_masked: null, version: null, scope: [], expires_at: null, verified_at: null, revoked_by: null,
+  } } }));
   await page.route("**/api/v1/permissions", async (route) => {
     const req = route.request();
     if (req.method() === "PATCH") {
@@ -78,11 +85,15 @@ test.describe("kenalan (onboarding)", () => {
     await page.getByRole("button", { name: "Lanjut" }).click();
     await page.getByRole("radio", { name: "SMA/SMK" }).click();
     await page.getByRole("button", { name: "Lanjut" }).click();
-    await expect(page.getByRole("heading", { name: "Tahun lahirmu?" })).toBeVisible();
-    await page.locator("#jawab").fill("1900");
+    // FR-AUTH-07: the full date, not only the year
+    await expect(page.getByRole("heading", { name: "Tanggal lahirmu?" })).toBeVisible();
+    await expect(page.locator("#jawab")).toHaveAttribute("type", "date");
     await page.getByRole("button", { name: "Lanjut" }).click();
-    await expect(page.locator("#galatLangkah")).toContainText("Tahun lahir harus");
-    await page.locator("#jawab").fill("2009");
+    await expect(page.locator("#galatLangkah")).toContainText("Isi tanggal lahir lengkap");
+    await page.locator("#jawab").fill("1900-01-01");
+    await page.getByRole("button", { name: "Lanjut" }).click();
+    await expect(page.locator("#galatLangkah")).toContainText("Isi tanggal lahir lengkap");
+    await page.locator("#jawab").fill("2000-03-14");
     await page.getByRole("button", { name: "Lanjut" }).click();
     await page.getByRole("button", { name: "Lewati" }).click(); // sekolah
     await page.getByRole("button", { name: "KTI" }).click();
@@ -96,7 +107,7 @@ test.describe("kenalan (onboarding)", () => {
 
     await expect(page.getByRole("heading", { name: "Selesai, Raka" })).toBeVisible();
     expect(s.kirim.map((k) => k.body ?? k.url)).toEqual([
-      { display_name: "Raka" }, { jenjang: "SMA/SMK" }, { birth_year: 2009 }, { interests: ["KTI", "Esai"] }, { targets: ["Beasiswa"] },
+      { display_name: "Raka" }, { jenjang: "SMA/SMK" }, { birth_date: "2000-03-14" }, { interests: ["KTI", "Esai"] }, { targets: ["Beasiswa"] },
       { weekly_hours: 6 }, "complete",
     ]);
     expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => /onboard|profil/i.test(k)))).toEqual([]);

@@ -19,7 +19,7 @@ type Result = { error?: string; field?: string; profile?: Profile; done?: boolea
 const call = async (sql: string, params: unknown[] = []) => (await db.query<{ r: Result }>(`select ${sql} as r`, params)).rows[0].r;
 const patch = (value: unknown) => call("public.update_profile($1::jsonb)", [JSON.stringify(value)]);
 const allow = (category: string, allowed: boolean) => call("public.set_ai_permission($1, $2)", [category, allowed]);
-const required = { display_name: "Raka", jenjang: "Kuliah D3–S1", birth_year: 2005 };
+const required = { display_name: "Raka", jenjang: "Kuliah D3–S1", birth_date: "2005-03-01" };
 
 describe("0007 profile, onboarding and AI permissions (FR-AUTH-04, FR-AUTH-09)", () => {
   beforeAll(async () => {
@@ -133,6 +133,9 @@ describe("0007 profile, onboarding and AI permissions (FR-AUTH-04, FR-AUTH-09)",
   it("starts every AI category off, changes one at a time and audits each change", async () => {
     const start = await db.query<{ c: Record<string, boolean> }>("select categories as c from public.ai_permissions");
     expect(Object.values(start.rows[0].c)).toEqual(Array(8).fill(false));
+    // 0008: no category can be turned on while the account's age is unknown
+    expect((await allow("tugas", true)).error).toBe("age_required");
+    await patch(required);
     const on = await allow("tugas", true);
     expect(on.changed).toBe(true);
     expect(on.categories).toMatchObject({ tugas: true, profil: false, dokumen: false });
