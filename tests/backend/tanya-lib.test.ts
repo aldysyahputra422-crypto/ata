@@ -82,6 +82,8 @@ describe("intent and task classification", () => {
     expect(classify("Berapa batas halaman esai?")).toMatchObject({ intent: "cek_aturan", task: "tanya_fakta", needsOfficialSource: true, categories: ["lomba"] });
     expect(classify("Tolong review ideku tentang sampah")).toMatchObject({ intent: "review_ide", task: "kritik" });
     expect(classify("Aku mentok banget")).toMatchObject({ intent: "mentok", task: "dukungan" });
+    expect(classify("Susun jadwal latihan supaya aku tidak ketinggalan")).toMatchObject({ intent: "pecah_tugas", task: "perencanaan" });
+    expect(classify("Aku capek dan bingung")).toMatchObject({ intent: "mentok" });
     expect(classify("Aku mentok, kasih satu langkah kecil")).toMatchObject({ intent: "mentok", task: "dukungan" });
     expect(classify("Aku mentok. Bantu aku mulai lagi dari langkah terkecil.")).toMatchObject({ intent: "mentok", task: "dukungan" });
     expect(classify("simulasi juri dong")).toMatchObject({ intent: "simulasi_juri", task: "latihan" });
