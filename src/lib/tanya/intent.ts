@@ -21,8 +21,9 @@ export type Classification = {
 const RULES: { intent: Intent; task: TaskType; categories: AiCategory[]; official?: boolean; pattern: RegExp }[] = [
   { intent: "simulasi_juri", task: "latihan", categories: ["lomba", "profil"], pattern: /(simulasi juri|tanya juri|pertanyaan juri|latihan presentasi|jadi juri)/i },
   { intent: "review_ide", task: "kritik", categories: ["lomba", "profil"], pattern: /(review|nilai(?:kan)? |kritik|cek ide|masukan|feedback|koreksi)/i },
-  { intent: "pecah_tugas", task: "perencanaan", categories: ["tugas", "lomba", "profil"], pattern: /(pecah|bagi tugas|langkah kecil|mulai dari mana|jadwal|rencana|timeline)/i },
+  // Before pecah_tugas: "aku mentok, kasih satu langkah kecil" is a request for support, not for a plan.
   { intent: "mentok", task: "dukungan", categories: ["tugas", "progres"], pattern: /(mentok|bingung|kewalahan|stuck|putus asa|ketinggalan|capek|malas)/i },
+  { intent: "pecah_tugas", task: "perencanaan", categories: ["tugas", "lomba", "profil"], pattern: /(pecah|bagi tugas|langkah kecil|mulai dari mana|jadwal|rencana|timeline)/i },
   { intent: "progres", task: "ringkasan", categories: ["progres", "tugas"], pattern: /(progres|progress|streak|\bxp\b|level|sudah sejauh|pencapaian)/i },
   { intent: "rekomendasi_lomba", task: "rekomendasi", categories: ["profil", "akademik", "lomba"], pattern: /(rekomendasi|cocok|lomba apa|kompetisi apa|sebaiknya ikut|pilih lomba)/i },
   {
