@@ -651,14 +651,18 @@ describe("0008 guardian consent and the AI gate (FR-AUTH-07)", () => {
       await db.query("update public.profiles set timezone = 'Etc/GMT+12' where user_id = $1", [a]);
       await as(a);
       // a correction that is still a minor's date in the old timezone, sent together with the timezone that makes it adult
-      expect(await patch({ birth_date: eve, timezone: "Pacific/Kiritimati" })).toEqual({ error: "guardian_verification_required", field: "birth_date" });
+      // (the correction link works in the saved timezone, so the refusal names the timezone, not the date)
+      expect(await patch({ birth_date: eve, timezone: "Pacific/Kiritimati" })).toEqual({ error: "guardian_verification_required", field: "timezone" });
+      expect(await patch({ birth_date: born(18, 0, west), timezone: "Pacific/Kiritimati" })).toEqual({ error: "guardian_verification_required", field: "birth_date" });
       expect((await patch({ birth_date: eve })).profile).toMatchObject({ birth_date: eve }); // minor to minor: allowed
       expect(await patch({ timezone: "Pacific/Kiritimati" })).toEqual({ error: "guardian_verification_required", field: "timezone" });
       expect(await patch({ display_name: "Lain", timezone: "Pacific/Kiritimati" })).toEqual({ error: "guardian_verification_required", field: "timezone" });
+      // the writer trims the name before storing it; the check reads it the same way
+      expect(await patch({ timezone: "  Pacific/Kiritimati " })).toEqual({ error: "guardian_verification_required", field: "timezone" });
       expect(await call("public.guardian_consent_status()")).toMatchObject({ required: true, account_state: "pending" });
       await superuser();
       expect((await db.query("select timezone, display_name from public.profiles where user_id = $1", [a])).rows).toEqual([{ timezone: "Etc/GMT+12", display_name: "Raka" }]);
-      expect((await db.query("select count(*)::int as n from public.audit_log where action = 'timezone_change_refused'")).rows).toEqual([{ n: 2 }]);
+      expect((await db.query("select count(*)::int as n from public.audit_log where action = 'timezone_change_refused'")).rows).toEqual([{ n: 4 }]);
       // a timezone that does not change the answer is still free to choose
       await as(a);
       expect((await patch({ birth_date: born(16, 0, west), timezone: "Pacific/Kiritimati" })).profile).toMatchObject({ timezone: "Pacific/Kiritimati" });
@@ -676,6 +680,12 @@ describe("0008 guardian consent and the AI gate (FR-AUTH-07)", () => {
       expect(await confirmCorrection("kor-2")).toEqual({ error: "invalid_token" });
       await superuser();
       expect((await db.query("select birth_date::text as d from public.profiles where user_id = $1", [a])).rows).toEqual([{ d: MINOR }]);
+      // cancelling a request nobody answered is not the end of a consent: the correction link stays
+      await correction(a, ADULT, "kor-3");
+      await request(a, "tok-2");
+      await as(a);
+      expect(await call("public.revoke_guardian_consent()")).toEqual({ status: "revoked" });
+      expect(await confirmCorrection("kor-3")).toEqual({ status: "applied" });
     });
 
     it("keeps a guardian who answered ahead of an address the account names afterwards", async () => {

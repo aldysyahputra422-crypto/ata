@@ -333,7 +333,8 @@ begin
   if p_patch ? 'birth_year' then return jsonb_build_object('error', 'validation', 'field', 'birth_year'); end if;
   old_age := public.age_status(cur.birth_date, cur.birth_year, cur.timezone);
   -- the timezone this call leaves the account with: it decides today's date, so it decides the new age too
-  new_zone := case when p_patch ? 'timezone' then p_patch ->> 'timezone' else cur.timezone end;
+  -- (trimmed the way the profile writer stores it, so the check and the stored value cannot differ)
+  new_zone := case when p_patch ? 'timezone' then nullif(btrim(p_patch ->> 'timezone'), '') else cur.timezone end;
 
   if p_patch ? 'birth_date' then
     patch := p_patch - 'birth_date';
@@ -354,7 +355,9 @@ begin
       new_age := public.age_status(new_date, null, new_zone);
       correction := cur.birth_date is not null
         or (cur.birth_year is not null and cur.birth_year <> extract(year from new_date));
-      if correction and old_age = 'minor' and new_age = 'adult' then
+      -- adult in the saved timezone: the guardian's correction link is the way. Adult only in the timezone sent
+      -- along is refused further down as a timezone change, which no correction link can settle.
+      if correction and old_age = 'minor' and public.age_status(new_date, null, cur.timezone) = 'adult' then
         insert into public.audit_log (actor_id, action, target_type) values (account_id, 'birth_date_change_refused', 'profile');
         return jsonb_build_object('error', 'guardian_verification_required', 'field', 'birth_date');
       end if;
@@ -687,10 +690,13 @@ language plpgsql
 security definer set search_path = ''
 as $$
 begin
+  -- a correction link sent while a verified consent stood does not outlive it; cancelling an unanswered
+  -- request leaves a correction alone
+  update public.birth_date_corrections set status = 'superseded', token_hash = null
+    where user_id = p_user_id and status = 'pending'
+      and exists (select 1 from public.guardian_consents where id = p_id and status = 'verified');
   update public.guardian_consents set status = 'revoked', revoked_at = now(), revoked_by = p_by,
     token_hash = null, revoke_token_hash = null where id = p_id;
-  -- a correction link sent while that consent stood does not outlive it
-  update public.birth_date_corrections set status = 'superseded', token_hash = null where user_id = p_user_id and status = 'pending';
   perform public.reset_ai_permissions(p_user_id, 'guardian_consent_revoked');
   update public.profiles set onboarding_done = false, updated_at = now()
     where user_id = p_user_id and onboarding_done and public.age_status(birth_date, birth_year, timezone) = 'minor';
