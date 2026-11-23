@@ -200,6 +200,20 @@ describe("pinned transport for custom base URLs (FR-BYOK-04)", () => {
   });
 });
 
+describe("pinned transport errors (FR-BYOK-04)", () => {
+  it("a timeout before the connection is reported as a timeout, not as the user stopping", async () => {
+    const never = () => new Promise<string[]>(() => {});
+    const error = await pinnedHttp(never)("https://lambat.example/v1/models", { method: "GET", signal: AbortSignal.timeout(20) }).catch((e: unknown) => e);
+    expect((error as Error).name).toBe("TimeoutError");
+    const adapter = createAdapter(findProvider("custom")!, pinnedHttp(never));
+    const stopped = new AbortController();
+    stopped.abort();
+    const byUser = await pinnedHttp(never)("https://lambat.example/v1/models", { method: "GET", signal: stopped.signal }).catch((e: unknown) => e);
+    expect((byUser as Error).name).toBe("AbortError");
+    expect(adapter.mapError(error)).toMatchObject({ code: "timeout" });
+  });
+});
+
 describe("prompt compiler and quality gate", () => {
   const build = async (question: string, gate = allow) => prepare({ question, history: [], userId: "u", gate, read: reader });
 

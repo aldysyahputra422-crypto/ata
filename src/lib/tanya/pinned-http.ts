@@ -34,6 +34,9 @@ export function guardedLookup(resolve: Resolve = systemResolve): LookupFunction 
   };
 }
 
+/** Statuses for which `Response` refuses a body. */
+const NO_BODY = new Set([204, 205, 304]);
+
 /** `Http` for custom base URLs. https only, never follows redirects, never reuses a connection. */
 export function pinnedHttp(resolve: Resolve = systemResolve): Http {
   const lookup = guardedLookup(resolve);
@@ -44,22 +47,36 @@ export function pinnedHttp(resolve: Resolve = systemResolve): Http {
       // An IP literal skips the lookup, so it is checked here.
       if (url.protocol !== "https:" || (isIP(host) && addressBlocked(host))) return fail(new BlockedAddressError());
       const body = typeof init.body === "string" ? init.body : undefined;
-      const headers = Object.fromEntries(new Headers(init.headers).entries());
-      const req = request(
-        url,
-        { method: init.method ?? "GET", headers, lookup, agent: false, signal: init.signal ?? undefined },
-        (res) => {
+      // The adapters read plain text, so the provider is asked not to compress.
+      const headers = { ...Object.fromEntries(new Headers(init.headers).entries()), "accept-encoding": "identity" };
+      const signal = init.signal ?? undefined;
+      // Like fetch: an aborted request rejects with the signal's own reason, so a timeout stays a timeout.
+      const failed = (error: unknown) => fail(signal?.aborted ? signal.reason : error);
+      const req = request(url, { method: init.method ?? "GET", headers, lookup, agent: false, signal }, (res) => {
+        try {
           const status = res.statusCode ?? 502;
           const out = new Headers();
           for (const [name, value] of Object.entries(res.headers)) {
             if (value !== undefined) out.set(name, Array.isArray(value) ? value.join(", ") : value);
           }
-          const empty = status === 204 || status === 304 || init.method === "HEAD";
+          const empty = NO_BODY.has(status) || init.method === "HEAD";
           if (empty) res.resume();
           done(new Response(empty ? null : (Readable.toWeb(res) as ReadableStream<Uint8Array>), { status, headers: out }));
-        },
-      );
-      req.on("error", fail);
+        } catch (error) {
+          res.destroy();
+          failed(error);
+        }
+      });
+      // A protocol switch is not an answer to an API call; without this the request would never settle.
+      const refuse = (_res: unknown, socket: { destroy(): void }) => {
+        socket.destroy();
+        failed(new Error("unexpected protocol switch"));
+      };
+      req.on("upgrade", refuse);
+      req.on("connect", refuse);
+      req.on("error", failed);
+      // Settling twice is harmless; this covers a socket that closes without a response or an error.
+      req.on("close", () => failed(new Error("connection closed")));
       req.end(body);
     });
 }
